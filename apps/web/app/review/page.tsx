@@ -41,8 +41,8 @@ export default function ReviewQueuePage() {
       </div>
 
       <div className="metric-strip">
-        <div><span>Ready for review</span><b>{reviewReady}</b><small>review + approval stages</small></div>
-        <div><span>High-risk portfolio</span><b>{high}</b><small>senior-counsel attention</small></div>
+        <div><span>Ready for review</span><b>{contracts ? reviewReady : '—'}</b><small>review + approval stages</small></div>
+        <div><span>High-risk portfolio</span><b>{contracts ? high : '—'}</b><small>senior-counsel attention</small></div>
         <div><span>Total contracts</span><b>{contracts?.length ?? '—'}</b><small>system of record</small></div>
       </div>
 
@@ -51,10 +51,10 @@ export default function ReviewQueuePage() {
           <IconSearch />
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search title, counterparty, ID or type" aria-label="Search review queue" />
         </label>
-        <div className="segmented" aria-label="Filter by risk">
+        <div className="segmented" role="group" aria-label="Filter by risk">
           <IconFilter />
           {(['all', 'high', 'medium', 'low'] as const).map((r) => (
-            <button key={r} className={risk === r ? 'is-active' : ''} onClick={() => setRisk(r)}>{r}</button>
+            <button key={r} className={risk === r ? 'is-active' : ''} aria-pressed={risk === r} onClick={() => setRisk(r)}>{r}</button>
           ))}
         </div>
       </div>
@@ -66,7 +66,7 @@ export default function ReviewQueuePage() {
       {rows.length > 0 && (
         <div className="review-grid">
           {rows.map((c) => (
-            <Link className="review-queue-card" href={`/review/${encodeURIComponent(c.id)}`} key={c.id}>
+            <Link className="review-queue-card" data-risk={c.risk} href={`/review/${encodeURIComponent(c.id)}`} key={c.id}>
               <div className="rqc-top">
                 <span className={`badge ${c.risk === 'medium' ? 'med' : c.risk}`}><i className="bd" />{c.risk}</span>
                 <span className="rqc-stage">{c.stage}</span>

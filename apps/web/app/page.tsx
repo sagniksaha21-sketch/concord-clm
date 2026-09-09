@@ -90,6 +90,7 @@ export default function CommandCenter() {
 
       <div className="view-head">
         <div className="vh-left">
+          <div className="eyebrow">Portfolio overview</div>
           <h2>
             {greeting}
             {data.greetingName ? `, ${data.greetingName.split(' ')[0]}` : ''}.
@@ -114,7 +115,7 @@ export default function CommandCenter() {
         {data.stats.map((s) => {
           const Icon = STAT_ICON[s.key] ?? IconRupee;
           return (
-            <div className="card stat col-3" key={s.key}>
+            <div className="card stat col-3" data-tone={s.key} key={s.key}>
               <div className="s-top">
                 <span className="s-label">{s.label}</span>
                 <span className="s-ico"><Icon /></span>
@@ -206,7 +207,7 @@ export default function CommandCenter() {
               <span className="i-ico"><IconSparkle /></span>
               <div className="i-body">
                 {i.body}
-                <span className="i-time">derived just now · no model call</span>
+                <span className="i-time">From portfolio records</span>
               </div>
             </div>
           ))}
@@ -222,33 +223,33 @@ export default function CommandCenter() {
             <Link className="ch-act" href="/pipeline">View all →</Link>
           </div>
           <div className="tbl-wrap">
-            <table className="tbl">
-              <thead>
-                <tr>
-                  <th>Contract</th><th>Counterparty</th><th>Value</th>
-                  <th>Stage</th><th>Risk</th><th>Key date</th>
+            <table className="tbl tbl-responsive" role="table" aria-label="Contracts needing attention">
+              <thead role="rowgroup">
+                <tr role="row">
+                  <th scope="col" role="columnheader">Contract</th><th scope="col" role="columnheader">Counterparty</th><th scope="col" role="columnheader">Value</th>
+                  <th scope="col" role="columnheader">Stage</th><th scope="col" role="columnheader">Risk</th><th scope="col" role="columnheader">Key date</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {data.attention.map((a) => (
-                  <tr key={a.id}>
-                    <td>
+                  <tr role="row" key={a.id}>
+                    <td role="cell" data-label="Contract">
                       <Link href={a.href ?? '#'} className="t-strong">{a.title}</Link>
                       <div className="t-id">{a.id}</div>
                     </td>
-                    <td>{a.counterparty}</td>
-                    <td>{a.valueDisplay}</td>
-                    <td><span className="badge neutral">{a.stage}</span></td>
-                    <td>
+                    <td role="cell" data-label="Counterparty">{a.counterparty}</td>
+                    <td role="cell" data-label="Value">{a.valueDisplay}</td>
+                    <td role="cell" data-label="Stage"><span className="badge neutral">{a.stage}</span></td>
+                    <td role="cell" data-label="Risk">
                       <span className={`badge ${a.risk === 'medium' ? 'med' : a.risk}`}>
                         <i className="bd" />{a.risk}
                       </span>
                     </td>
-                    <td className="t-id">{a.keyDate}</td>
+                    <td role="cell" data-label="Key date" className="t-id">{a.keyDate}</td>
                   </tr>
                 ))}
                 {!data.attention.length && (
-                  <tr><td colSpan={6}><div className="empty">Nothing needs attention.</div></td></tr>
+                  <tr role="row"><td role="cell" colSpan={6}><div className="empty">Nothing needs attention.</div></td></tr>
                 )}
               </tbody>
             </table>

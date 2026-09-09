@@ -1,8 +1,23 @@
+'use client';
+
+import { useState } from 'react';
 import type { Deviation } from '@concord/shared';
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function DeviationCard({ d }: { d: Deviation }) {
+  const [feedback, setFeedback] = useState('');
+
+  async function copySuggestion() {
+    if (!d.redline) return;
+    try {
+      await navigator.clipboard.writeText(d.redline.suggested);
+      setFeedback('Suggested language copied.');
+    } catch {
+      setFeedback('Copy unavailable. Select the suggested language above to copy it.');
+    }
+  }
+
   return (
     <div className="dev">
       <div className="dev-top">
@@ -27,10 +42,10 @@ export default function DeviationCard({ d }: { d: Deviation }) {
           </div>
         </div>
       )}
-      <div style={{ marginTop: 11 }}>
-        <button className="btn btn-gold" style={{ fontSize: 12, padding: '7px 12px' }}>
-          {d.actionLabel}
-        </button>
+      <div className="deviation-action">
+        <span className="page-note">Suggested action: {d.actionLabel}</span>
+        {d.redline && <button className="btn btn-ghost btn-sm" onClick={copySuggestion}>Copy suggested language</button>}
+        {feedback && <span className="page-note" role="status">{feedback}</span>}
       </div>
     </div>
   );

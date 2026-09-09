@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getAuditPage, verifyAudit } from '@/app/lib/api';
 import type { AuditPage, AuditVerifyResult } from '@/app/lib/api';
+import { EmptyState, ErrorState, LoadingState } from '@/components/WorkspaceUI';
 import { IconShield } from '@/components/icons';
 
 const PAGE = 50;
@@ -19,19 +20,23 @@ export default function AuditPage() {
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState('');
   const [err, setErr] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
+  const requestId = useRef(0);
 
   const load = useCallback(
     async (off: number, action: string) => {
+      const request = ++requestId.current;
       setBusy(true);
       setErr('');
       try {
-        setPage(await getAuditPage({ limit: PAGE, offset: off, action }));
+        const result = await getAuditPage({ limit: PAGE, offset: off, action });
+        if (request === requestId.current) setPage(result);
       } catch (e) {
+        if (request !== requestId.current) return;
         setErr(e instanceof Error ? e.message : 'Failed to load');
         setPage(null);
       } finally {
-        setBusy(false);
+        if (request === requestId.current) setBusy(false);
       }
     },
     [],
@@ -49,6 +54,7 @@ export default function AuditPage() {
     return () => {
       live = false;
       clearTimeout(t);
+      requestId.current += 1;
     };
   }, [load, offset, filter]);
 
@@ -73,7 +79,7 @@ export default function AuditPage() {
     <>
       <div className="view-head">
         <div className="vh-left">
-          <h2>Audit trail</h2>
+          <div className="eyebrow">Evidence &amp; accountability</div><h2>Audit trail</h2>
           <p>
             Append-only and hash-chained: every event carries the hash of the one before it, so an
             altered or removed entry breaks the chain. Verification recomputes it end to end.
@@ -113,7 +119,7 @@ export default function AuditPage() {
         <div className="card-head">
           <h3><IconShield />Events</h3>
           <span className="ch-act">
-            {page ? `${page.offset + 1}–${page.offset + page.count} of ${page.total}` : ''}
+            {page ? page.count ? `${page.offset + 1}–${page.offset + page.count} of ${page.total}` : `0 of ${page.total}` : ''}
           </span>
         </div>
 
@@ -131,25 +137,25 @@ export default function AuditPage() {
           </label>
         </div>
 
-        {err && <div className="empty">{err}</div>}
-        {!err && busy && !page && <div className="empty">Loading…</div>}
-        {page && !page.events.length && <div className="empty">No events match.</div>}
+        {err && <ErrorState title="Audit events unavailable" action={<button className="btn" onClick={() => load(offset, filter)}>Try again</button>}>{err}</ErrorState>}
+        {!err && busy && !page && <LoadingState label="Loading audit events" />}
+        {!busy && page && !page.events.length && <EmptyState title={filter ? "No matching events" : "No events recorded"} icon={<IconShield />} action={filter ? <button className="btn" onClick={() => setFilter('')}>Clear filter</button> : undefined}>{filter ? "Try a broader action prefix to search the audit trail." : "Recorded activity will appear here with its actor, timestamp and integrity hash."}</EmptyState>}
 
         {page && page.events.length > 0 && (
           <div className="tbl-wrap">
-            <table className="tbl">
-              <thead>
-                <tr><th>Seq</th><th>When</th><th>Action</th><th>Actor</th><th>Summary</th><th>Hash</th></tr>
+            <table className="tbl tbl-responsive" role="table" aria-label="Audit events">
+              <thead role="rowgroup">
+                <tr role="row"><th scope="col" role="columnheader">Seq</th><th scope="col" role="columnheader">When</th><th scope="col" role="columnheader">Action</th><th scope="col" role="columnheader">Actor</th><th scope="col" role="columnheader">Summary</th><th scope="col" role="columnheader">Hash</th></tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {page.events.map((e) => (
-                  <tr key={e.id}>
-                    <td className="t-id">{e.seq}</td>
-                    <td className="t-id">{new Date(e.at).toLocaleString()}</td>
-                    <td><span className="badge neutral">{e.action}</span></td>
-                    <td className="t-id">{e.actor?.email ?? '—'}</td>
-                    <td style={{ maxWidth: 420 }}>{e.summary}</td>
-                    <td className="t-id" title={e.hash}>{e.hash.slice(0, 10)}…</td>
+                  <tr role="row" key={e.id}>
+                    <td role="cell" data-label="Sequence" className="t-id">{e.seq}</td>
+                    <td role="cell" data-label="When" className="t-id">{new Date(e.at).toLocaleString()}</td>
+                    <td role="cell" data-label="Action"><span className="badge neutral">{e.action}</span></td>
+                    <td role="cell" data-label="Actor" className="t-id">{e.actor?.email ?? '—'}</td>
+                    <td role="cell" data-label="Summary" style={{ maxWidth: 420 }}>{e.summary}</td>
+                    <td role="cell" data-label="Hash" className="t-id" title={e.hash}>{e.hash.slice(0, 10)}…</td>
                   </tr>
                 ))}
               </tbody>

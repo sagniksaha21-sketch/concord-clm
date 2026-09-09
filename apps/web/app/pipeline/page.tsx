@@ -34,7 +34,7 @@ export default function PipelinePage() {
 
       <div className="metric-strip compact-metrics"><div><span>Portfolio</span><b>{board.total}</b><small>contracts on board</small></div><div><span>In legal review</span><b>{reviewCount}</b><small>review + approval</small></div><div><span>High risk</span><b>{highCount}</b><small>priority exposure</small></div></div>
 
-      <div className="toolbar card pipeline-toolbar"><label className="toolbar-search"><IconSearch /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search contract, counterparty or ID" aria-label="Search pipeline" /></label><div className="segmented" aria-label="Filter pipeline by risk"><IconFilter />{(['all','high','medium','low'] as const).map((r) => <button key={r} className={risk === r ? 'is-active' : ''} onClick={() => setRisk(r)}>{r}</button>)}</div><span className="result-count">{visibleCount} shown</span></div>
+      <div className="toolbar card pipeline-toolbar"><label className="toolbar-search"><IconSearch /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search contract, counterparty or ID" aria-label="Search pipeline" /></label><div className="segmented" role="group" aria-label="Filter pipeline by risk"><IconFilter />{(['all','high','medium','low'] as const).map((r) => <button key={r} className={risk === r ? 'is-active' : ''} aria-pressed={risk === r} onClick={() => setRisk(r)}>{r}</button>)}</div><span className="result-count">{visibleCount} shown</span></div>
 
       <div className="pipeline premium-pipeline">
         {lanes.map((lane) => (

@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getContract, getReview } from '@/app/lib/api';
 import RiskGauge from '@/components/RiskGauge';
+import ReviewSections from '@/components/ReviewSections';
 import DeviationCard from '@/components/DeviationCard';
 import ApproveBar from '@/components/ApproveBar';
 import { IconDoc, IconShield, IconSparkle } from '@/components/icons';
@@ -45,12 +46,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
         <span className="ai-model"><IconSparkle />{review.model}</span>
       </div>
 
-      <nav className="section-tabs" aria-label="Review sections">
-        <a href="#document"><IconDoc />Contract findings</a>
-        <a href="#terms">Key terms</a>
-        <a href="#deviations">Playbook deviations <span>{review.deviations.length}</span></a>
-        <a href="#approval">Approval</a>
-      </nav>
+      <ReviewSections deviations={review.deviations.length} />
 
       <div className="review-layout">
         <section className="card review-document" id="document">

@@ -3,13 +3,14 @@ import { redirect } from 'next/navigation';
 import type { ObligationStatus } from '@concord/shared';
 import RemindButton from '@/components/RemindButton';
 import DigestButton from '@/components/DigestButton';
+import { EmptyState } from '@/components/WorkspaceUI';
 import { getObligations } from '@/app/lib/api';
 
 export const dynamic = 'force-dynamic';
 
 const STATUS_BADGE: Record<ObligationStatus, string> = {
   'on-track': 'low',
-  'due-soon': 'medium',
+  'due-soon': 'med',
   'at-risk': 'high',
   scheduled: 'info',
   done: 'neutral',
@@ -35,11 +36,9 @@ export default async function ObligationsPage() {
 
       <div className="view-head">
         <div className="vh-left">
-          <h2>Key dates &amp; obligations</h2>
+          <div className="eyebrow">Commitments &amp; renewals</div><h2>Key dates &amp; obligations</h2>
           <p>
-            Extracted from the portfolio. Fire an Outlook reminder for any item — it
-            dispatches through Microsoft Graph (dry-run until a tenant is configured).
-            A scheduled digest of everything below goes out automatically each week.
+            Track portfolio commitments and upcoming deadlines. Send an Outlook reminder or prepare the weekly digest for your team.
           </p>
         </div>
       </div>
@@ -50,45 +49,45 @@ export default async function ObligationsPage() {
 
       <div className="card">
         <div className="tbl-wrap">
-          <table className="tbl">
-            <thead>
-              <tr>
-                <th>Obligation</th>
-                <th>Contract</th>
-                <th>Owner</th>
-                <th>Due</th>
-                <th>Status</th>
-                <th>Outlook</th>
+          <table className="tbl tbl-responsive" role="table" aria-label="Portfolio obligations">
+            <thead role="rowgroup">
+              <tr role="row">
+                <th scope="col" role="columnheader">Obligation</th>
+                <th scope="col" role="columnheader">Contract</th>
+                <th scope="col" role="columnheader">Owner</th>
+                <th scope="col" role="columnheader">Due</th>
+                <th scope="col" role="columnheader">Status</th>
+                <th scope="col" role="columnheader">Outlook</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody role="rowgroup">
               {obligations.map((o) => (
-                <tr key={o.id}>
-                  <td className="t-strong">{o.title}</td>
-                  <td>{o.contractTitle}</td>
-                  <td>
+                <tr role="row" key={o.id}>
+                  <td role="cell" data-label="Obligation" className="t-strong">{o.title}</td>
+                  <td role="cell" data-label="Contract">{o.contractTitle}</td>
+                  <td role="cell" data-label="Owner">
                     <span className="owner-av">{o.ownerInitials}</span>
                   </td>
-                  <td className="tnum">{o.dueDate}</td>
-                  <td>
+                  <td role="cell" data-label="Due" className="tnum">{o.dueDate}</td>
+                  <td role="cell" data-label="Status">
                     <span className={`badge ${STATUS_BADGE[o.status]}`}>
                       <span className="d" />
                       {STATUS_LABEL[o.status]}
                     </span>
                   </td>
-                  <td>
+                  <td role="cell" data-label="Outlook">
                     <RemindButton id={o.id} />
                   </td>
                 </tr>
               ))}
+              {!obligations.length && <tr role="row"><td role="cell" colSpan={6}><EmptyState title="No obligations to track">Key dates extracted from your agreements will appear here.</EmptyState></td></tr>}
             </tbody>
           </table>
         </div>
       </div>
 
       <p className="page-note">
-        Concord · obligation intelligence for Lakmē Lever Private Limited ·
-        Design sibling of the Franchise Management Portal
+        Reminder delivery depends on the configured Outlook connection. A dry-run records the intended message without delivering it.
       </p>
     </>
   );

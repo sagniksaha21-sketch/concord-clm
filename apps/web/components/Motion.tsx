@@ -31,7 +31,7 @@ export function usePrefersReducedMotion(): boolean {
  */
 export function CountUp({
   value,
-  duration = 900,
+  duration = 650,
   prefix = '',
   suffix = '',
   className,
@@ -47,7 +47,7 @@ export function CountUp({
   const frame = useRef<number>();
 
   useEffect(() => {
-    if (reduced) {
+    if (reduced || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setShown(value);
       return;
     }
@@ -70,7 +70,8 @@ export function CountUp({
   return (
     <span className={className}>
       {prefix}
-      <span className="count-up">{shown.toLocaleString('en-IN')}</span>
+      <span className="sr-only">{value.toLocaleString('en-IN')}</span>
+      <span className="count-up" aria-hidden="true">{shown.toLocaleString('en-IN')}</span>
       {suffix}
     </span>
   );

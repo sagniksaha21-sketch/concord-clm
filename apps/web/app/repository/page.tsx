@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+import { EmptyState, ErrorState, LoadingState } from '@/components/WorkspaceUI';
 import { useEffect, useState } from 'react';
 import type { RepositoryAnswer, RepositoryHit, ArchivedDocument } from '@concord/shared';
 import { askRepository, searchRepository, getRepositoryDocuments, archiveFileUrl } from '@/app/lib/api';
@@ -20,14 +22,19 @@ export default function RepositoryPage() {
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [searchError, setSearchError] = useState('');
 
   useEffect(() => {
+    let live = true;
+    setLoading(true); setSearchError('');
     const t = setTimeout(() => {
       Promise.all([searchRepository(q), getRepositoryDocuments(q)])
-        .then(([nextHits, nextDocs]) => { setHits(nextHits); setDocs(nextDocs); })
-        .catch((e) => setError(e instanceof Error ? e.message : 'Repository search is unavailable.'));
+        .then(([nextHits, nextDocs]) => { if (live) { setHits(nextHits); setDocs(nextDocs); } })
+        .catch((e) => { if (live) setSearchError(e instanceof Error ? e.message : 'Repository search is unavailable.'); })
+        .finally(() => { if (live) setLoading(false); });
     }, 180);
-    return () => clearTimeout(t);
+    return () => { live = false; clearTimeout(t); };
   }, [q]);
 
   async function ask(nextQuestion = question) {
@@ -49,9 +56,10 @@ export default function RepositoryPage() {
   async function copyAnswer() {
     if (!answer) return;
     const citations = answer.citations.map((c) => c.label).join('; ');
-    await navigator.clipboard.writeText(`${answer.answer}${citations ? `\n\nSources: ${citations}` : ''}`);
+    try { await navigator.clipboard.writeText(`${answer.answer}${citations ? `\n\nSources: ${citations}` : ''}`);
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
+    } catch { setError('The answer could not be copied. Select the answer text to copy it manually.'); }
   }
 
   return (
@@ -98,11 +106,11 @@ export default function RepositoryPage() {
       {error && <div className="card state-card error-state" role="alert"><b>Repository unavailable</b><p>{error}</p></div>}
 
       <div className="repository-toolbar">
-        <label className="searchbar premium-search"><IconSearch /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by contract, counterparty or type…" /></label>
-        <span className="result-count">{hits.length} contract{hits.length === 1 ? '' : 's'} · {docs.length} executed cop{docs.length === 1 ? 'y' : 'ies'}</span>
+        <label className="searchbar premium-search"><IconSearch /><input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter by contract, counterparty or type…" aria-label="Filter contract repository" /></label>
+        <span className="result-count" aria-live="polite">{loading ? 'Searching…' : searchError ? 'Search unavailable' : <>{hits.length} contract{hits.length === 1 ? '' : 's'} · {docs.length} executed cop{docs.length === 1 ? 'y' : 'ies'}</>}</span>
       </div>
 
-      {docs.length > 0 && (
+      {!loading && !searchError && docs.length > 0 && (
         <section className="card archive-panel">
           <div className="archive-head"><div><span className="section-kicker">Immutable archive</span><h3>Executed &amp; signed copies</h3></div><span className="badge low"><span className="d" />{docs.length}</span></div>
           <div className="archive-list">
@@ -118,19 +126,21 @@ export default function RepositoryPage() {
         </section>
       )}
 
-      <section className="card repository-table">
+      {searchError && <ErrorState title="Repository search unavailable">{searchError}</ErrorState>}
+      <section className="card repository-table" aria-busy={loading}>
         <div className="tbl-wrap">
-          <table className="tbl">
-            <thead><tr><th>Contract</th><th>Counterparty</th><th>Type</th><th>Value</th><th>Risk</th><th>Stage</th></tr></thead>
-            <tbody>
-              {hits.map((h) => (
-                <tr key={h.contract.id}>
-                  <td><span className="t-strong">{h.contract.title}</span><br /><span className="t-id">{h.contract.id}</span></td>
-                  <td>{h.contract.counterparty}</td><td>{h.contract.type}</td><td>{h.contract.valueDisplay}</td>
-                  <td><span className={`badge ${h.contract.risk === 'medium' ? 'med' : h.contract.risk}`}><span className="d" />{h.contract.risk}</span></td><td>{h.contract.stage}</td>
+          <table className="tbl tbl-responsive" role="table" aria-label="Contract repository">
+            <thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Contract</th><th scope="col" role="columnheader">Counterparty</th><th scope="col" role="columnheader">Type</th><th scope="col" role="columnheader">Value</th><th scope="col" role="columnheader">Risk</th><th scope="col" role="columnheader">Stage</th></tr></thead>
+            <tbody role="rowgroup">
+              {loading && <tr role="row"><td role="cell" colSpan={6}><LoadingState label="Searching contract records" /></td></tr>}
+              {!loading && !searchError && hits.map((h) => (
+                <tr role="row" key={h.contract.id}>
+                  <td role="cell" data-label="Contract"><Link className="t-strong" href={`/review/${encodeURIComponent(h.contract.id)}`}>{h.contract.title}</Link><br /><span className="t-id">{h.contract.id}</span></td>
+                  <td role="cell" data-label="Counterparty">{h.contract.counterparty}</td><td role="cell" data-label="Type">{h.contract.type}</td><td role="cell" data-label="Value">{h.contract.valueDisplay}</td>
+                  <td role="cell" data-label="Risk"><span className={`badge ${h.contract.risk === 'medium' ? 'med' : h.contract.risk}`}><span className="d" />{h.contract.risk}</span></td><td role="cell" data-label="Stage">{h.contract.stage}</td>
                 </tr>
               ))}
-              {hits.length === 0 && <tr><td colSpan={6}><div className="table-empty"><IconSearch /><span>No contracts match this filter.</span></div></td></tr>}
+              {!loading && !searchError && hits.length === 0 && <tr role="row"><td role="cell" colSpan={6}><EmptyState title={q ? "No matching contracts" : "Your repository is ready"} icon={<IconSearch />} action={q ? <button className="btn" onClick={() => setQ('')}>Clear search</button> : <Link href="/intake" className="btn">Open intake</Link>}>{q ? "Try a contract name, counterparty or broader search." : "Contracts and executed copies available to your account will appear here."}</EmptyState></td></tr>}
             </tbody>
           </table>
         </div>

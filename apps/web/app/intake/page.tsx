@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { IntakeRequest } from '@concord/shared';
 import { createIntake, getIntake } from '@/app/lib/api';
+import { LoadingState } from '@/components/WorkspaceUI';
 import { IconCheck, IconDoc, IconSparkle } from '@/components/icons';
 
 const RISK: Record<string, string> = { low: 'low', medium: 'med', high: 'high' };
@@ -79,9 +80,10 @@ export default function IntakePage() {
 
       <section className="card request-table">
         <div className="section-table-head"><div><span className="section-kicker">Request queue</span><h3>Recent intake</h3></div><span className="result-count">{rows.length} request{rows.length === 1 ? '' : 's'}</span></div>
-        <div className="tbl-wrap"><table className="tbl"><thead><tr><th>Request</th><th>Counterparty</th><th>Unit</th><th>Type</th><th>Template</th><th>Risk</th><th>Status</th></tr></thead><tbody>
-          {rows.map((r) => <tr key={r.id}><td><span className="t-strong">{r.title}</span><br /><span className="t-id">{r.id}</span></td><td>{r.counterparty}</td><td>{r.businessUnit}</td><td>{r.contractType}</td><td className="t-id">{r.suggestedTemplateId ?? '—'}</td><td>{r.triageRisk ? <span className={`badge ${RISK[r.triageRisk]}`}><span className="d" />{r.triageRisk}</span> : '—'}</td><td><span className={`badge ${STATUS[r.status]}`}><span className="d" />{r.status}</span></td></tr>)}
-          {!loading && rows.length === 0 && <tr><td colSpan={7}><div className="table-empty"><IconDoc /><span>No requests yet. The next submission will appear here.</span></div></td></tr>}
+        <div className="tbl-wrap"><table className="tbl tbl-responsive" role="table" aria-label="Contract request queue"><thead role="rowgroup"><tr role="row"><th scope="col" role="columnheader">Request</th><th scope="col" role="columnheader">Counterparty</th><th scope="col" role="columnheader">Unit</th><th scope="col" role="columnheader">Type</th><th scope="col" role="columnheader">Template</th><th scope="col" role="columnheader">Risk</th><th scope="col" role="columnheader">Status</th></tr></thead><tbody role="rowgroup">
+          {loading && <tr role="row"><td role="cell" colSpan={7}><LoadingState compact label="Loading request queue" /></td></tr>}
+          {rows.map((r) => <tr role="row" key={r.id}><td role="cell" data-label="Request"><span className="t-strong">{r.title}</span><br /><span className="t-id">{r.id}</span></td><td role="cell" data-label="Counterparty">{r.counterparty}</td><td role="cell" data-label="Unit">{r.businessUnit}</td><td role="cell" data-label="Type">{r.contractType}</td><td role="cell" data-label="Template" className="t-id">{r.suggestedTemplateId ?? '—'}</td><td role="cell" data-label="Risk">{r.triageRisk ? <span className={`badge ${RISK[r.triageRisk]}`}><span className="d" />{r.triageRisk}</span> : '—'}</td><td role="cell" data-label="Status"><span className={`badge ${STATUS[r.status]}`}><span className="d" />{r.status}</span></td></tr>)}
+          {!loading && rows.length === 0 && <tr role="row"><td role="cell" colSpan={7}><div className="table-empty"><IconDoc /><span>No requests yet. The next submission will appear here.</span></div></td></tr>}
         </tbody></table></div>
       </section>
 

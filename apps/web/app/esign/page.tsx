@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { ArchivedDocument, Contract, Signatory, SignatureRequest, SignatureStatus } from '@concord/shared';
 import { archiveFileUrl, createSignature, getArchive, getContracts, getSignatures, advanceSignature } from '@/app/lib/api';
+import { EmptyState, LoadingState } from '@/components/WorkspaceUI';
 import { IconAlert, IconCheck, IconDoc, IconPlus, IconShield, IconSign } from '@/components/icons';
 
 const BADGE: Record<SignatureStatus, { c: string; label: string }> = {
@@ -28,13 +29,14 @@ export default function ESignPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(true);
 
   async function load() {
     const [nextContracts, nextItems, nextArchive] = await Promise.all([getContracts(), getSignatures(), getArchive()]);
     setContracts(nextContracts); setItems(nextItems); setArchive(nextArchive);
     setContractId((current) => current || nextContracts[0]?.id || '');
   }
-  useEffect(() => { load().catch((e) => setError(e instanceof Error ? e.message : 'E-signature workspace unavailable.')); }, []);
+  useEffect(() => { load().catch((e) => setError(e instanceof Error ? e.message : 'E-signature workspace unavailable.')).finally(() => setLoading(false)); }, []);
 
   const selected = useMemo(() => contracts.find((c) => c.id === contractId), [contracts, contractId]);
   const pending = items.filter((r) => !['completed', 'declined', 'expired'].includes(r.status)).length;
@@ -77,12 +79,12 @@ export default function ESignPage() {
         <div className="trust-inline"><IconShield /><span>Verified webhooks · immutable archive · SHA-256 integrity</span></div>
       </div>
 
-      <div className="metric-strip compact-metrics"><div><span>Active envelopes</span><b>{pending}</b><small>awaiting completion</small></div><div><span>Completed</span><b>{completed}</b><small>execution lifecycle</small></div><div><span>Archived copies</span><b>{archive.length}</b><small>sealed records</small></div></div>
+      <div className="metric-strip compact-metrics"><div><span>Active envelopes</span><b>{loading ? '—' : pending}</b><small>awaiting completion</small></div><div><span>Completed</span><b>{loading ? '—' : completed}</b><small>execution lifecycle</small></div><div><span>Archived copies</span><b>{loading ? '—' : archive.length}</b><small>sealed records</small></div></div>
 
       <section className="card esign-compose">
         <div className="form-card-head"><span className="document-avatar"><IconSign /></span><div><h3>New signing request</h3><p>The selected contract is resolved again on the server before an envelope is created.</p></div></div>
         <div className="esign-grid">
-          <label className="premium-field"><span>Contract *</span><select value={contractId} onChange={(e) => setContractId(e.target.value)} disabled={!contracts.length}>{contracts.length ? contracts.map((c) => <option value={c.id} key={c.id}>{c.title} — {c.counterparty} · {c.id}</option>) : <option>No persisted contracts available</option>}</select></label>
+          <label className="premium-field"><span>Contract *</span><select value={contractId} onChange={(e) => setContractId(e.target.value)} disabled={!contracts.length}>{contracts.length ? contracts.map((c) => <option value={c.id} key={c.id}>{c.title} — {c.counterparty} · {c.id}</option>) : <option>{loading ? 'Loading contracts…' : 'No persisted contracts available'}</option>}</select></label>
           <label className="premium-field"><span>Message to signatories <small>optional</small></span><input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Please review and sign by the requested date." maxLength={1200} /></label>
         </div>
 
@@ -107,13 +109,13 @@ export default function ESignPage() {
           const terminal = ['completed', 'declined', 'expired'].includes(r.status);
           return <article className="card signature-card" key={r.id}><div className="signature-card-head"><div><b>{r.contractTitle}</b><span>{r.id} · {r.contractId}{r.envelopeId ? ` · envelope ${r.envelopeId}` : ''}</span></div><span className={`badge ${b.c}`}><i className="d" />{b.label}</span></div><div className="signature-card-body"><div><span className="section-kicker">Signatories</span>{r.signatories.map((s, i) => <div className="signer-state" key={`${s.email}-${i}`}><span className="sign-order">{s.order ?? i + 1}</span><div><b>{s.name}</b><small>{s.email} · {s.role || 'signatory'}</small></div><span className={`badge ${s.status === 'signed' ? 'low' : 'neutral'}`}>{s.status}</span></div>)}</div>{r.stampPaper && <div className="stamp-summary"><span className="section-kicker">e-Stamp</span><b>{r.stampPaper.state} · {fmtINR(r.stampPaper.dutyAmount)}</b><small>{r.stampPaper.certificateNo ?? 'Certificate pending'} · {r.stampPaper.status}</small></div>}</div><details className="audit-details"><summary>Execution events ({r.audit.length})</summary>{r.audit.map((e, i) => <div key={i}><b>{e.event}</b><span>{new Date(e.at).toLocaleString('en-IN')}{e.by ? ` · ${e.by}` : ''}{e.detail ? ` · ${e.detail}` : ''}</span></div>)}</details>{ALLOW_SIMULATOR && !terminal && <button className="btn demo-control" onClick={() => simulate(r.id)}>Simulate next provider event →</button>}</article>;
         })}
-        {!items.length && <div className="card state-card"><IconSign /><b>No signing requests yet.</b><p>Create the first request from a persisted contract above.</p></div>}
+        {loading ? <div className="card"><LoadingState label="Loading signing activity" /></div> : !error && !items.length && <div className="card"><EmptyState title="Ready when your agreement is" icon={<IconSign />}>Create a signing request above to track every signatory through completion.</EmptyState></div>}
       </section>
 
       <section className="archive-panel card">
         <div className="archive-head"><div><span className="section-kicker">Signed &amp; filed</span><h3>Executed-contract archive</h3></div><span className="badge low"><i className="d" />{archive.length}</span></div>
         <div className="archive-list">{archive.map((a) => <article className="archive-row" key={a.id}><span className="document-avatar secure"><IconDoc /></span><div className="archive-copy"><b>{a.contractTitle}</b><span>{a.id} · executed {new Date(a.completedAt).toLocaleDateString('en-IN')} · {a.signatories.length} signator{a.signatories.length === 1 ? 'y' : 'ies'}</span></div><span className="mono-badge" title={a.checksum}>sha256 {a.checksum.slice(0, 12)}…</span><a className="btn" href={archiveFileUrl(a.id)} target="_blank" rel="noreferrer">Download executed copy</a></article>)}</div>
-        {!archive.length && <div className="table-empty">Completed envelopes will be sealed and filed here.</div>}
+        {loading ? <LoadingState compact label="Loading executed copies" /> : !error && !archive.length && <EmptyState title="No executed copies yet" icon={<IconShield />}>Completed envelopes will be sealed and filed here, with their signature evidence and integrity checksum.</EmptyState>}
       </section>
 
       <p className="page-note">Signing status can advance in production only through the authenticated provider workflow and verified webhook path. Executed copies are retained in durable object storage and their access is audited.</p>

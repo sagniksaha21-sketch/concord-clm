@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { NotificationRecord } from '@concord/shared';
 import { getNotifications } from '@/app/lib/api';
+import { EmptyState, ErrorState, LoadingState } from '@/components/WorkspaceUI';
 import { IconMail } from '@/components/icons';
 
 const TONE: Record<NotificationRecord['status'], string> = {
@@ -33,7 +34,7 @@ export default function NotificationsPage() {
     <>
       <div className="view-head">
         <div className="vh-left">
-          <h2>Outlook notifications</h2>
+          <div className="eyebrow">Communication history</div><h2>Outlook notifications</h2>
           <p>
             Every notice Concord sent — approval requests, signature dispatches, execution seals and
             the obligations digest. Read from the immutable audit trail rather than a separate log,
@@ -48,30 +49,26 @@ export default function NotificationsPage() {
           <span className="ch-act">{rows ? `${rows.length} event(s)` : ''}</span>
         </div>
 
-        {err && <div className="empty">{err}</div>}
-        {!err && !rows && <div className="empty">Loading…</div>}
+        {err && <ErrorState title="Notification history unavailable">{err}</ErrorState>}
+        {!err && !rows && <LoadingState label="Loading notification history" />}
         {!err && rows && !rows.length && (
-          <div className="empty">
-            <span className="e-ico">✉</span>
-            No notifications recorded yet. Route a contract for approval or send one for signature
-            and it will appear here.
-          </div>
+          <EmptyState title="No notifications recorded" icon={<IconMail />}>Approval requests, signature dispatches and obligation reminders will appear here with their delivery status.</EmptyState>
         )}
 
         {rows && rows.length > 0 && (
           <div className="tbl-wrap">
-            <table className="tbl">
-              <thead>
-                <tr><th>When</th><th>Event</th><th>Summary</th><th>Recipients</th><th>Delivery</th></tr>
+            <table className="tbl tbl-responsive" role="table" aria-label="Notification history">
+              <thead role="rowgroup">
+                <tr role="row"><th scope="col" role="columnheader">When</th><th scope="col" role="columnheader">Event</th><th scope="col" role="columnheader">Summary</th><th scope="col" role="columnheader">Recipients</th><th scope="col" role="columnheader">Delivery</th></tr>
               </thead>
-              <tbody>
+              <tbody role="rowgroup">
                 {rows.map((n) => (
-                  <tr key={n.id}>
-                    <td className="t-id">{new Date(n.at).toLocaleString()}</td>
-                    <td><span className="badge neutral">{n.kind}</span></td>
-                    <td style={{ maxWidth: 420 }}>{n.summary}</td>
-                    <td className="t-id">{n.recipients.length ? n.recipients.join(', ') : '—'}</td>
-                    <td><span className={`badge ${TONE[n.status]}`}>{LABEL[n.status]}</span></td>
+                  <tr role="row" key={n.id}>
+                    <td role="cell" data-label="When" className="t-id">{new Date(n.at).toLocaleString()}</td>
+                    <td role="cell" data-label="Event"><span className="badge neutral">{n.kind}</span></td>
+                    <td role="cell" data-label="Summary" style={{ maxWidth: 420 }}>{n.summary}</td>
+                    <td role="cell" data-label="Recipients" className="t-id">{n.recipients.length ? n.recipients.join(', ') : '—'}</td>
+                    <td role="cell" data-label="Delivery"><span className={`badge ${TONE[n.status]}`}>{LABEL[n.status]}</span></td>
                   </tr>
                 ))}
               </tbody>

@@ -73,7 +73,7 @@ export default function LoginPage() {
             {showDemo && (
               <>
                 <div className="login-divider"><span>Development access</span></div>
-                <form onSubmit={submit} className="login-form">
+                <form onSubmit={submit} className="login-form" aria-busy={busy}>
                   <label className="premium-field">
                     <span>Email</span>
                     <input type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />

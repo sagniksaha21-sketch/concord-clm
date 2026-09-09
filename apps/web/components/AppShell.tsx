@@ -78,7 +78,7 @@ const PRIMARY_MOBILE = ['/', '/pipeline', '/review', '/repository'];
 
 function titleFor(path: string): { eyebrow: string; title: string } {
   const entry = [...NAV].filter((n) => n.match !== '/').find((n) => path.startsWith(n.match));
-  if (entry) return { eyebrow: 'Workspace', title: entry.label };
+  if (entry) return { eyebrow: ({ work: 'Legal workspace', library: 'Knowledge', execute: 'Execution', governance: 'Governance' })[entry.group], title: entry.label };
   return { eyebrow: 'Workspace', title: 'Command Center' };
 }
 
@@ -122,6 +122,34 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLElement>(null);
+  const quickRef = useRef<HTMLDetailsElement>(null);
+  const accountRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (bare) return;
+    const close = (event: PointerEvent | KeyboardEvent) => {
+      for (const ref of [quickRef, accountRef]) {
+        const el = ref.current;
+        if (!el?.open) continue;
+        const escape = event instanceof KeyboardEvent && event.key === 'Escape';
+        const outside = event instanceof PointerEvent && (!el.contains(event.target as Node) || event.target === el);
+        if (escape || outside) {
+          el.open = false;
+          if (escape) el.querySelector('summary')?.focus();
+        }
+      }
+    };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', close);
+    return () => { document.removeEventListener('pointerdown', close); document.removeEventListener('keydown', close); };
+  }, [bare]);
+
+  useEffect(() => {
+    if (!mobileMoreOpen && !paletteOpen) return;
+    const background = Array.from(document.querySelectorAll<HTMLElement>('.app-main, .sidebar, .mobile-nav'));
+    background.forEach((el) => { el.inert = true; });
+    return () => { background.forEach((el) => { el.inert = false; }); };
+  }, [mobileMoreOpen, paletteOpen]);
 
   useEffect(() => {
     if (bare) return;
@@ -197,8 +225,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, []);
 
   const closeMobileMore = useCallback(() => {
-    moreButtonRef.current?.focus();
     setMobileMoreOpen(false);
+    requestAnimationFrame(() => moreButtonRef.current?.focus());
   }, []);
 
   useEffect(() => {
@@ -304,7 +332,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="brand">
             <div className="brand-full">
               <img className="brand-logo" src="/brand/lakme-salon.png" alt="Lakmē Salon" draggable={false} />
-              <div className="brand-caption">Concord · Contract Lifecycle Management</div>
+              <div className="brand-wordmark">Concord</div><div className="brand-caption">Legal operations workspace</div>
             </div>
             <div className="rail-mark" aria-hidden="true">C</div>
           </div>
@@ -382,7 +410,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
           <SystemStatus />
 
-          <details key={`quick-${path}`} className="quick-menu">
+          <details ref={quickRef} key={`quick-${path}`} className="quick-menu">
             <summary className="quick-trigger" aria-label="Create or start work">
               <IconPlus /><span>New</span><IconChevronDown className="chev" />
             </summary>
@@ -419,13 +447,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             {theme === 'dark' ? <IconSun /> : <IconMoon />}
           </button>
 
-          <details key={`account-${path}`} className="account-menu">
+          <details ref={accountRef} key={`account-${path}`} className="account-menu">
             <summary className="user-chip" aria-label="Account and appearance menu">
               <span className="av">{initials}</span>
               <span className="u-meta"><b>{who?.name ?? 'Signed in'}</b><span>{who?.roleLabel ?? ''}</span></span>
               <IconChevronDown className="account-chevron" />
             </summary>
             <div className="account-popover account-popover-premium">
+              <button className="popover-dismiss" onClick={() => { if (accountRef.current) accountRef.current.open = false; accountRef.current?.querySelector("summary")?.focus(); }}>Account &amp; appearance <span aria-hidden="true">×</span></button>
               <div className="account-card">
                 <span className="av av-lg">{initials}</span>
                 <span><b>{who?.name ?? 'Signed in'}</b><small>{who?.roleLabel ?? ''}</small></span>
@@ -465,13 +494,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           );
         })}
-        <button ref={moreButtonRef} className={moreActive || mobileMoreOpen ? 'is-active' : ''} onClick={() => setMobileMoreOpen(true)} aria-label="Open all Concord destinations">
+        <button ref={moreButtonRef} className={moreActive || mobileMoreOpen ? 'is-active' : ''} onClick={() => setMobileMoreOpen(true)} aria-label="Open all Concord destinations" aria-expanded={mobileMoreOpen} aria-controls="concord-destinations">
           <span className="mobile-nav-icon"><IconMore /></span><span>More</span>
         </button>
       </nav>
 
       <div className={`mobile-sheet-scrim${mobileMoreOpen ? ' is-open' : ''}`} onClick={closeMobileMore} aria-hidden="true" />
-      <section ref={sheetRef} className={`mobile-sheet${mobileMoreOpen ? ' is-open' : ''}`} role="dialog" aria-modal="true" aria-hidden={!mobileMoreOpen} aria-label="All Concord destinations" onKeyDown={(e) => { if (e.key === 'Escape') closeMobileMore(); else trapDialogTab(e); }}>
+      <section id="concord-destinations" ref={sheetRef} className={`mobile-sheet${mobileMoreOpen ? ' is-open' : ''}`} role="dialog" aria-modal="true" aria-hidden={!mobileMoreOpen} aria-label="All Concord destinations" onKeyDown={(e) => { if (e.key === 'Escape') closeMobileMore(); else trapDialogTab(e); }}>
         <div className="sheet-grabber" aria-hidden="true" />
         <div className="sheet-head">
           <div><span className="pt-eyebrow">Concord</span><h2>Everything in one place</h2></div>

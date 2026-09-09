@@ -12,6 +12,10 @@ import type { SVGProps } from 'react';
 type P = SVGProps<SVGSVGElement>;
 const base = {
   viewBox: '0 0 24 24',
+  width: 20,
+  height: 20,
+  'aria-hidden': true as const,
+  focusable: false,
   fill: 'none',
   stroke: 'currentColor',
   strokeWidth: 1.8,

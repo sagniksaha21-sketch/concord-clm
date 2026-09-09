@@ -104,6 +104,9 @@ export default function CommandPalette({
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     inputRef.current?.focus();
     try {
       const raw = localStorage.getItem('concord_recent_routes');
@@ -112,6 +115,12 @@ export default function CommandPalette({
     } catch {
       /* optional convenience only */
     }
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      requestAnimationFrame(() => {
+        if (previousFocus?.isConnected) previousFocus.focus();
+      });
+    };
   }, []);
 
   useEffect(() => {
@@ -265,6 +274,8 @@ export default function CommandPalette({
       }
       return;
     }
+    // Tabbed buttons keep their native Enter/Space behavior.
+    if (e.target !== inputRef.current) return;
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSel((s) => rows.length ? (s + 1) % rows.length : 0);
@@ -302,8 +313,10 @@ export default function CommandPalette({
             placeholder="Search or jump to anything…"
             aria-label="Search or jump to anything"
             autoComplete="off"
+            aria-describedby="command-keyboard-hint"
           />
-          {busy ? <span className="palette-live"><i />Searching</span> : <span className="kbd">esc</span>}
+          {busy && <span className="palette-live" role="status"><i />Searching</span>}
+          <button className="palette-close" onClick={onClose} aria-label="Close search">×</button>
         </div>
 
         {!searching && (
@@ -350,7 +363,7 @@ export default function CommandPalette({
           ))}
         </div>
 
-        <div className="palette-foot palette-foot-premium">
+        <div className="palette-foot palette-foot-premium" id="command-keyboard-hint">
           <span><span className="kbd">↑↓</span> navigate</span>
           <span><span className="kbd">↵</span> open</span>
           <span><span className="kbd">/</span> search</span>
