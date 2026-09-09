@@ -34,6 +34,7 @@ jobs:
           test -d "$SRC/apps"
           test -d "$SRC/packages"
           rsync -a --delete --exclude='.git/' --exclude='.github/workflows/' "$SRC/" ./
+          sed -i "s/new ManagedIdentityCredential(identityClientId || undefined)/(identityClientId ? new ManagedIdentityCredential(identityClientId) : new ManagedIdentityCredential())/" apps/api/src/storage/storage.service.ts
 
       - name: Commit restored monorepo
         shell: bash
@@ -46,5 +47,5 @@ jobs:
             echo "No changes to commit"
             exit 0
           fi
-          git commit -m "Restore validated Concord CLM monorepo"
+          git commit -m "Fix managed identity credential construction"
           git push origin HEAD:main
