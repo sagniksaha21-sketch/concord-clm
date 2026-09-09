@@ -38,7 +38,17 @@ async function main() {
     await prisma.template.upsert({ where: { id: t.id }, update: {}, create: t });
   }
   for (const i of INTAKE_REQUESTS) {
-    await prisma.intakeRequest.upsert({ where: { id: i.id }, update: {}, create: i as any });
+    const fixture = i as any;
+    await prisma.intakeRequest.upsert({
+      where: { id: fixture.id },
+      update: {},
+      create: {
+        ...fixture,
+        // Shared demo fixtures intentionally use date-only strings for readability,
+        // while Prisma DateTime requires an ISO timestamp / Date object.
+        createdAt: fixture.createdAt ? new Date(fixture.createdAt) : new Date(),
+      },
+    });
   }
   // Development/CI fixtures only: persisted through the same Contract table the
   // application uses in production, so browser E2E exercises the system-of-record
