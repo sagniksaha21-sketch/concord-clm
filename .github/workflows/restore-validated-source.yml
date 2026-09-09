@@ -33,8 +33,7 @@ jobs:
           test -f "$SRC/pnpm-lock.yaml"
           test -d "$SRC/apps"
           test -d "$SRC/packages"
-          rsync -a --delete --exclude='.git/' --exclude='.github/workflows/restore-validated-source.yml' "$SRC/" ./
-          rm -f .github/workflows/restore-validated-source.yml
+          rsync -a --delete --exclude='.git/' --exclude='.github/workflows/' "$SRC/" ./
 
       - name: Commit restored monorepo
         shell: bash
