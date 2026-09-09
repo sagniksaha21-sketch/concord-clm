@@ -56,7 +56,7 @@ export default function LoginPage() {
             </form>}
 
             {showDemo && <div className="login-divider"><span>or</span></div>}
-            <a className="sso-button" href={${API_BASE}/api/auth/sso/login}>
+            <a className="sso-button" href={`${API_BASE}/api/auth/sso/login`}>
               <svg viewBox="0 0 23 23" width="18" height="18" aria-hidden="true">
                 <rect x="1" y="1" width="10" height="10" fill="#F25022" />
                 <rect x="12" y="1" width="10" height="10" fill="#7FBA00" />
