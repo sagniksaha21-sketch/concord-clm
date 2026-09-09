@@ -46,7 +46,7 @@ export class StorageService implements OnModuleInit {
         // strings remain supported for non-Azure deployments and local testing.
         const identityClientId = process.env.AZURE_STORAGE_MANAGED_IDENTITY_CLIENT_ID;
         const credential = process.env.NODE_ENV === 'production'
-          ? new ManagedIdentityCredential(identityClientId || undefined)
+          ? (identityClientId ? new ManagedIdentityCredential(identityClientId) : new ManagedIdentityCredential())
           : new DefaultAzureCredential({ managedIdentityClientId: identityClientId });
         const svc = conn
           ? BlobServiceClient.fromConnectionString(conn)
