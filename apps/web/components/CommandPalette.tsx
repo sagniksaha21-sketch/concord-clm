@@ -102,6 +102,7 @@ export default function CommandPalette({
   const [err, setErr] = useState('');
   const [recent, setRecent] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const previousFocus = document.activeElement as HTMLElement | null;
@@ -243,6 +244,16 @@ export default function CommandPalette({
     return out;
   }, [rows]);
 
+  // Search hits can arrive in mixed categories; keyboard order follows the
+  // grouped list the user actually sees.
+  const displayedRows = useMemo(() => sections.flatMap((section) => section.items), [sections]);
+
+  useEffect(() => {
+    if (document.activeElement === inputRef.current) {
+      resultsRef.current?.querySelector<HTMLElement>('.is-sel')?.scrollIntoView({ block: 'nearest' });
+    }
+  }, [sel, displayedRows]);
+
   useEffect(() => {
     setSel(0);
   }, [q]);
@@ -284,9 +295,9 @@ export default function CommandPalette({
       e.preventDefault();
       setSel((s) => rows.length ? (s - 1 + rows.length) % rows.length : 0);
     }
-    if (e.key === 'Enter' && rows[sel]) {
+    if (e.key === 'Enter' && displayedRows[sel]) {
       e.preventDefault();
-      go(rows[sel]);
+      go(displayedRows[sel]);
     }
   }
 
@@ -312,6 +323,11 @@ export default function CommandPalette({
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search or jump to anything…"
             aria-label="Search or jump to anything"
+            role="combobox"
+            aria-expanded="true"
+            aria-autocomplete="list"
+            aria-controls="concord-command-results"
+            aria-activedescendant={displayedRows[sel] ? `concord-command-result-${sel}` : undefined}
             autoComplete="off"
             aria-describedby="command-keyboard-hint"
           />
@@ -326,7 +342,7 @@ export default function CommandPalette({
           </div>
         )}
 
-        <div className="palette-results palette-results-premium">
+        <div className="palette-results palette-results-premium" ref={resultsRef} id="concord-command-results" role="listbox" aria-label="Search results and destinations" aria-busy={busy}>
           {err && <div className="palette-error">{err}</div>}
           {!err && searching && !busy && !rows.length && (
             <div className="empty palette-empty">
@@ -337,7 +353,7 @@ export default function CommandPalette({
           )}
 
           {sections.map((section) => (
-            <div className="palette-section" key={section.label}>
+            <div className="palette-section" key={section.label} role="group" aria-label={section.label}>
               <div className="palette-group">{section.label}</div>
               {section.items.map((row) => {
                 index += 1;
@@ -345,7 +361,11 @@ export default function CommandPalette({
                 return (
                   <button
                     key={row.key}
+                    id={`concord-command-result-${mine}`}
+                    role="option"
+                    aria-selected={mine === sel}
                     className={`palette-item palette-item-premium${mine === sel ? ' is-sel' : ''}`}
+                    onFocus={() => setSel(mine)}
                     onMouseEnter={() => setSel(mine)}
                     onClick={() => go(row)}
                   >

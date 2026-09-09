@@ -74,7 +74,6 @@ export default async function ReviewPage({ params }: { params: { id: string } })
           </div>
         </section>
 
-        <aside className="review-side">
           <section className="card card-pad" id="terms">
             <div className="section-kicker">AI-extracted key terms</div>
             <p className="section-summary">{review.summary}</p>
@@ -97,7 +96,6 @@ export default async function ReviewPage({ params }: { params: { id: string } })
             <div className="card-head"><div><b>Approval routing</b><span className="id">Outlook · controlled decision path</span></div><span className="ai-tag">Graph</span></div>
             <ApproveBar contractId={contract.id} />
           </section>
-        </aside>
       </div>
 
       <p className="page-note">Review generated from the contract system of record. Model provenance and the resulting decision are captured in the audit trail.</p>

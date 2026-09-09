@@ -32,7 +32,7 @@ export default function ApproveBar({ contractId }: { contractId: string }) {
   const n = result?.notification;
   return (
     <div className="card-pad approval-composer">
-      <label className="premium-field"><span>Approver email(s) *</span><textarea value={approverText} onChange={(e) => setApproverText(e.target.value)} placeholder="approver@company.com\nsecond.approver@company.com" rows={3} /><small>Separate multiple approvers with commas, semicolons or new lines.</small></label>
+      <label className="premium-field"><span>Approver email(s) *</span><textarea value={approverText} onChange={(e) => setApproverText(e.target.value)} placeholder={'approver@company.com\nsecond.approver@company.com'} rows={3} /><small>Separate multiple approvers with commas, semicolons or new lines.</small></label>
       <label className="premium-field"><span>Routing note <small>optional</small></span><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Explain the decision needed, key deviations or deadline." rows={3} maxLength={1200} /></label>
       <button className="btn btn-gold approval-route-btn" onClick={route} disabled={state === 'sending'}>{state === 'sending' ? 'Routing securely…' : <><IconMail />Route approval via Outlook</>}</button>
       <div className="approval-hint"><IconShield />Approvers are authorized again when they act; receiving the email alone does not grant approval rights.</div>

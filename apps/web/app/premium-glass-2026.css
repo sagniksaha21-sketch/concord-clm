@@ -49,6 +49,8 @@ svg {flex-shrink:0}
 .app-main {min-width:0}
 .sidebar {margin:12px 0 12px 12px;top:12px;height:calc(100dvh - 24px);padding:20px 14px;gap:20px;border:1px solid var(--material-edge);border-radius:var(--radius-lg);background:var(--material-chrome);box-shadow:var(--elevation-2),var(--edge-highlight);overflow-y:auto}
 .sidebar::before {opacity:.18}
+.sidebar {overflow-x:hidden}
+.sidebar>* {min-width:0;max-width:100%}
 .sidebar-nav {gap:16px}
 .brand-logo {max-width:128px}
 .brand-caption {font:500 .75rem/1.5 var(--font-ui);letter-spacing:.01em;text-transform:none;color:var(--muted)}
@@ -99,6 +101,9 @@ svg {flex-shrink:0}
 .bento {gap:18px}
 .bento>*,.grid>* {min-width:0}
 .stat {min-height:160px;gap:12px;padding:22px}
+.card.stat {min-height:160px;align-self:stretch}
+.card.stat:hover {transform:none;border-color:var(--material-edge);box-shadow:var(--elevation-1),var(--edge-highlight)}
+.card.stat:hover .s-ico {transform:none}
 .stat .s-label {font-size:.875rem;line-height:1.4;min-height:2.8em;color:var(--ink-2)}
 .stat .s-val {font-size:2.5rem;line-height:1.1;letter-spacing:-.045em}
 .stat .s-ico {width:38px;height:38px;border:1px solid var(--gold-ring);border-radius:12px;background:var(--gold-soft);color:var(--gold-ink)}
@@ -136,7 +141,7 @@ table.tbl td {padding:16px;line-height:1.5;overflow-wrap:anywhere}
 textarea.field-control {min-height:100px;resize:vertical}
 input::placeholder,textarea::placeholder {color:var(--muted);opacity:1}
 input[type="checkbox"] {width:18px;height:18px;accent-color:var(--gold);flex-shrink:0}
-:where(a,button,input,textarea,select,summary):focus-visible {outline:2px solid var(--gold);outline-offset:3px;box-shadow:var(--focus-ring)}
+:is(a,button,input,textarea,select,summary,[tabindex]):focus-visible {outline:2px solid var(--gold);outline-offset:3px;box-shadow:var(--focus-ring)}
 .premium-form {gap:18px}
 .form-card-head p,.guided-steps p,.approval-hint,.approval-composer .premium-field small,.form-submit>span,.stamp-toggle small,.page-note {font-size:.8125rem;line-height:1.55}
 .form-card-head h3 {font-size:1.125rem}
@@ -158,7 +163,7 @@ input[type="checkbox"] {width:18px;height:18px;accent-color:var(--gold);flex-shr
 .review-queue-card[data-risk="high"]::before {background:var(--high)}
 .review-queue-card h3 {font-size:1.125rem;line-height:1.35;letter-spacing:-.015em}
 .review-queue-card>p {font-size:.875rem;color:var(--ink-2);line-height:1.5}
-.rqc-stage,.rqc-meta span,.rqc-foot b,.kc-cp,.kc-val,.kc-days {font-size:.8125rem}
+.rqc-stage,.rqc-meta span,.rqc-foot b,.kcard .kc-cp,.kcard .kc-val,.kcard .kc-days {font-size:.8125rem}
 .rqc-meta span {padding:5px 8px;background:var(--material-inset)}
 .rqc-icon {margin:18px 0 14px}
 .rqc-foot {gap:10px;flex-wrap:wrap}
@@ -168,7 +173,7 @@ input[type="checkbox"] {width:18px;height:18px;accent-color:var(--gold);flex-shr
 .lane-head .lh-count {font-size:.8125rem}
 .premium-pipeline .lane-body {background:var(--material-inset);border:1px solid var(--material-edge);border-radius:16px;padding:9px}
 .kcard {padding:17px}
-.kc-title {font-size:1rem;line-height:1.45}
+.kcard .kc-title {font-size:1rem;line-height:1.45}
 .kc-top {flex-wrap:wrap;gap:9px}
 .lane-empty {font-size:.8125rem;padding:18px;min-height:96px;border-color:var(--line-2)}
 .demo-note {align-items:flex-start;font-size:.8125rem;line-height:1.5;background:var(--gold-soft);border:1px solid var(--gold-ring);border-radius:12px;padding:12px 15px}
@@ -184,6 +189,7 @@ input[type="checkbox"] {width:18px;height:18px;accent-color:var(--gold);flex-shr
 .section-tabs a {min-height:44px;font-size:.875rem;padding:10px 13px}
 .section-tabs a[aria-current="location"] {background:var(--gold-soft);color:var(--gold-ink)}
 .review-document {background:var(--material-paper)}
+@media(min-width:1181px) {.review-layout>#approval{position:sticky;top:168px}}
 .doc {font-size:1rem;line-height:1.85;padding:24px}
 .doc h5 {font-size:1rem;line-height:1.6}
 .doc p {font-size:1rem;line-height:1.85}
@@ -203,8 +209,8 @@ input[type="checkbox"] {width:18px;height:18px;accent-color:var(--gold);flex-shr
 .section-tabs ~ * [id],.review-layout [id] {scroll-margin-top:166px}
 .funnel {padding:18px 20px;gap:14px}
 .fb-label,.fb-val {font-size:.875rem}
-.fb-track {height:10px;border-radius:4px;background:var(--material-inset)}
-.fb-fill {border-radius:4px;background:var(--gold-grad)}
+.fbar .fb-track {height:10px;border-radius:4px;background:var(--material-inset)}
+.fbar .fb-fill {border-radius:4px;background:var(--gold-grad)}
 .insight .i-body {font-size:.9375rem;line-height:1.6}
 .insight .i-time {font:500 .75rem/1.5 var(--font-ui);color:var(--muted)}
 .insight-feed {max-height:none}

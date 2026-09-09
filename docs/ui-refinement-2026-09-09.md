@@ -36,7 +36,10 @@ The authenticated staging product was inspected before implementation. The audit
 - Frontend standalone typecheck: passed.
 - Existing `scripts/check-ux.js` gate: 17/17 passed.
 - `git diff --check`: passed.
-- Live deployment inspection is required after pushing this change; a successful local build alone does not establish visual correctness.
+- Railway successfully deployed `95be012` from current GitHub `main` (deployment `f143f817-c511-409b-93ea-202744b091d9`). The existing authenticated session continued to work after reload.
+- Post-deployment desktop screenshots covered the command center, contract pipeline, contract review and approval navigation, intake, authoring, templates, repository, obligations, e-signature and archive, notifications, audit and ingestion.
+- Verified risk filtering and contract drill-down, section selection, template edit/cancel and confirmation dismissal (without deletion), repository no-results/clear behavior, and signatory addition/removal and stamp-field visibility (without sending).
+- Live inspection identified and prompted follow-up fixes for metric height alignment, a sidebar overflow strip, legacy card typography, the review/approval column layout, a literal newline in the approval placeholder, and command-palette keyboard order and focus visibility.
 
 ### Responsive and accessibility scope
 
@@ -47,3 +50,5 @@ The available authenticated browser does not expose viewport resizing or media e
 ### Existing staging observations
 
 The product reports illustrative records on some portfolio screens and degraded local-disk storage. Those pre-existing environment/data indicators are preserved and are outside this frontend pass. Browser workflow QA is read-only: it does not send signature invitations, approve contracts, delete templates, create intake requests or send reminders.
+
+The live Audit screen also reports failed audit persistence and an unverified chain: Prisma cannot deserialize a `void` result from a raw query. This backend problem is unresolved by the frontend refinement. The audit failure remains visible; the application must not be represented as having a verified, complete audit trail. Backend implementation and database configuration were not modified in this pass.
