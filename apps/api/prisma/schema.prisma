@@ -1,0 +1,251 @@
+// Concord CLM · Prisma schema
+// Activated when DATABASE_URL is set. Run `pnpm db:generate` then
+// `pnpm db:migrate` and `pnpm db:seed`. Without a DB the API uses in-memory
+// stores seeded from @concord/shared.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  name     String
+  // Least privilege by default. A user whose identity-provider claims map to
+  // nothing recognised must not inherit write or approval rights.
+  role     String @default("viewer")
+  // 'sso'       — taken from Entra app-role/group claims, refreshed on sign-in
+  // 'manual'    — set by an administrator here; SSO must not overwrite it
+  // 'bootstrap' — from ADMIN_BOOTSTRAP_EMAILS configuration
+  roleSource String @default("sso")
+  password  String // bcrypt hash
+  createdAt DateTime @default(now())
+}
+
+model Template {
+  id           String   @id
+  name         String
+  contractType String
+  description  String
+  clauseIds    String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Clause {
+  id               String  @id
+  title            String
+  category         String
+  text             String
+  playbookStandard Boolean @default(true)
+}
+
+model IntakeRequest {
+  id                  String   @id
+  title               String
+  counterparty        String
+  businessUnit        String
+  requestor           String
+  contractType        String
+  description         String
+  suggestedTemplateId String?
+  triageRisk          String?
+  status              String   @default("new")
+  createdAt           DateTime @default(now())
+}
+
+model Contract {
+  id String @id
+  title String
+  counterparty String
+  type String
+  valueDisplay String
+  stage String
+  risk String
+  version String
+  source String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  documents Document[]
+  @@index([counterparty])
+  @@index([stage])
+  @@index([risk])
+}
+
+model Document {
+  id           String   @id @default(cuid())
+  contractId   String?
+  contract     Contract? @relation(fields: [contractId], references: [id], onDelete: SetNull)
+  filename     String
+  documentType String?
+  pages        Int?
+  confidence   Int
+  status       String
+  extraction   Json
+  validations  Json
+  notes        String[]
+  model        String
+  blobPath     String?
+  extractedText String?
+  sha256       String?
+  createdAt    DateTime @default(now())
+  @@index([contractId])
+}
+
+model SignatureRequest {
+  id            String    @id
+  contractId    String
+  contractTitle String
+  status        String
+  provider      String
+  envelopeId    String?
+  signingUrl    String?
+  message       String?
+  signatories   Json
+  stampPaper    Json?
+  audit         Json
+  createdAt     DateTime  @default(now())
+  sentAt        DateTime?
+  completedAt   DateTime?
+  lastNudgedAt  DateTime?
+  documentId     String?
+  documentSha256 String?
+  contractVersion String?
+  // Optimistic concurrency (finding C-D15). Every state change is a
+  // read-modify-write of the whole row; without a version, two webhooks that
+  // interleave silently erase each other's signature events.
+  version       Int       @default(0)
+
+  @@index([envelopeId])
+  @@unique([contractId, contractVersion, documentId])
+}
+
+///
+/// Who a contract was routed to for approval (finding C-D6).
+///
+/// This lived in a per-process Map, so a restart, a deploy, or a callback landing
+/// on a different replica left the legitimate approver with a 403 and no way in.
+model ApprovalRouting {
+  contractId String   @id
+  approvers  String[]
+  stage      String   @default("approval")
+  routedBy   String?
+  routedAt   DateTime @default(now())
+  expiresAt  DateTime
+  documentId String?
+  documentSha256 String?
+  contractVersion String?
+
+  @@index([expiresAt])
+}
+
+///
+/// The first (and only) approval decision for a contract (finding C-D8).
+///
+/// The decision is written here in the same atomic statement that claims the
+/// one-shot slot, so a crash between "claim" and "record" can no longer lose a
+/// legally significant decision while permanently locking out the approver.
+model ApprovalDecision {
+  contractId String   @id
+  decision   String
+  decidedBy  String
+  comment    String?
+  tokenVerified Boolean @default(true)
+  documentId String?
+  documentSha256 String?
+  contractVersion String?
+  decidedAt  DateTime @default(now())
+}
+
+///
+/// Cross-replica one-shot claims (idempotency + "exactly one replica runs this
+/// sweep"). Previously created by runtime `CREATE TABLE IF NOT EXISTS`, which
+/// kept it out of migrations and out of drift checking (finding C-D33).
+model JobClaim {
+  key       String   @id @map("claim_key")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("job_claim")
+  @@index([createdAt])
+}
+
+/// Per-run claim for the scheduled obligations digest (see JobClaim).
+model DigestRun {
+  key       String   @id @map("run_key")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("digest_run")
+  @@index([createdAt])
+}
+
+model ArchivedDocument {
+  id                 String   @id
+  requestId          String   @unique
+  contractId         String
+  contractTitle      String
+  signatories        Json
+  stampCertificateNo String?
+  stampState         String?
+  completedAt        DateTime
+  archivedAt         DateTime @default(now())
+  storageKey         String
+  checksum           String
+  format             String
+  filename           String?
+  size               Int
+  retentionUntil     DateTime?
+  legalHold          Boolean   @default(false)
+}
+
+///
+/// High-water mark for the audit chain.
+///
+/// The hash chain proves that the events which REMAIN have not been edited or
+/// re-ordered. On its own it cannot detect DELETION: truncate the table and a
+/// chain walk finds nothing wrong to report, so verification would happily
+/// attest "chain intact — 0 events". This single row records the highest seq and
+/// hash ever committed, written inside the same transaction as the append, so a
+/// tip that has gone backwards is detectable.
+///
+/// It raises the bar; it is not a substitute for a database role that holds only
+/// INSERT + SELECT on the audit tables and WAL shipped to write-once storage,
+/// both of which are in the deployment guide. Anyone able to edit AuditEvent can
+/// also edit this row.
+model AuditAnchor {
+  id        String   @id @default("chain")
+  seq       Int
+  hash      String
+  updatedAt DateTime @updatedAt
+}
+
+// Immutable, hash-chained audit trail (assessment finding C2).
+// Append-only: the application never issues UPDATE or DELETE against this table.
+// In production, lock it down further with a DB role that holds INSERT + SELECT
+// only, and ship WAL to write-once storage for regulator-grade immutability.
+model AuditEvent {
+  id         String   @id
+  seq        Int      @unique
+  at         DateTime @default(now())
+  actorId    String?
+  actorEmail String?
+  actorRole  String?
+  action     String
+  entity     String
+  entityId   String?
+  summary    String
+  request       Json?
+  metadata      Json?
+  ai            Json?
+  correlationId String?
+  prevHash      String
+  hash          String   @unique
+
+  @@index([entity, entityId])
+  @@index([action])
+  @@index([at])
+}

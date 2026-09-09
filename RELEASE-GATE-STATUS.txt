@@ -1,0 +1,11 @@
+Concord RC local gate summary
+Generated UTC: 2026-09-08T08:04:42Z
+PASS source invariants
+PASS offline security preflight 23/23
+PASS TypeScript/TSX syntax 141 files
+PASS workflow YAML parse 4 files
+PASS CSS structural check
+BLOCKED pnpm verify: pnpm unavailable; Corepack registry fetch EAI_AGAIN
+BLOCKED real migration apply: no DATABASE_URL/Postgres runtime
+BLOCKED external SCA/SAST/container scans: no registry/scanner runtime
+BLOCKED real staging E2E: no staging URLs/credentials/repository exposed to connector

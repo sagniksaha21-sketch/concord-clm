@@ -1,0 +1,26 @@
+CONCORD CLM — ADVERSARIAL RELEASE GATE STATUS
+Review date: 2026-09-08
+
+PASS  Source invariants
+PASS  Offline security preflight (23/23)
+PASS  TypeScript/TSX syntax parse (141 files, 0 errors)
+PASS  Document/hash/version lifecycle pinning implemented
+PASS  Entra unmapped-user deny-by-default implemented
+PASS  Persisted-role reauthorization implemented
+PASS  Approval recipient authorization before send
+PASS  Approval routing / approval authority separation
+PASS  Duplicate signing-envelope DB uniqueness guard
+PASS  Executed-artifact fail-closed retrieval/lineage gate implemented
+PASS  Completion/archive retry recovery implemented
+PASS  OOXML ZIP-bomb/structure validation implemented
+PASS  Production malware scanner required
+
+BLOCKED  pnpm verify — pnpm/workspace dependencies unavailable in this sandbox
+BLOCKED  Prisma migrate deploy — no staging DATABASE_URL/Postgres available here
+BLOCKED  Staging browser + Entra E2E — no staging environment/credentials available here
+BLOCKED  pnpm audit / Gitleaks / Trivy / CodeQL / ZAP execution — external runner/tools required
+BLOCKED  Melento document + executed-artifact vendor UAT
+BLOCKED  Supported Next.js major upgrade — dependency registry access required
+BLOCKED  Cloud backup/restore, WAF/distributed rate limiting and private-network validation
+
+RELEASE DECISION: HOLD. Do not deploy to production until every BLOCKED gate is independently green.

@@ -1,0 +1,389 @@
+{
+  "360x800": {
+    "vw": 360,
+    "vh": 800,
+    "scrollWidth": 360,
+    "horizontalOverflow": false,
+    "topbar": {
+      "clientWidth": 360,
+      "scrollWidth": 360,
+      "overflow": false,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 360,
+        "h": 70,
+        "right": 360,
+        "bottom": 70
+      },
+      "controls": [
+        {
+          "c": "page-title",
+          "x": 12,
+          "y": 18,
+          "w": 230,
+          "h": 34,
+          "right": 242,
+          "bottom": 52
+        },
+        {
+          "c": "top-search",
+          "x": 250,
+          "y": 13,
+          "w": 44,
+          "h": 44,
+          "right": 294,
+          "bottom": 57
+        },
+        {
+          "c": "account-menu",
+          "x": 302,
+          "y": 13,
+          "w": 46,
+          "h": 44,
+          "right": 348,
+          "bottom": 57
+        }
+      ],
+      "title": {
+        "x": 12,
+        "y": 30,
+        "w": 230,
+        "h": 22,
+        "right": 242,
+        "bottom": 52
+      },
+      "search": {
+        "x": 250,
+        "y": 13,
+        "w": 44,
+        "h": 44,
+        "right": 294,
+        "bottom": 57
+      },
+      "account": {
+        "x": 302,
+        "y": 13,
+        "w": 46,
+        "h": 44,
+        "right": 348,
+        "bottom": 57
+      }
+    },
+    "mobileNav": {
+      "rect": {
+        "x": 8,
+        "y": 726,
+        "w": 344,
+        "h": 66,
+        "right": 352,
+        "bottom": 792
+      },
+      "items": [
+        {
+          "t": "Home",
+          "x": 16,
+          "y": 733,
+          "w": 66,
+          "h": 50,
+          "right": 82,
+          "bottom": 783
+        },
+        {
+          "t": "Pipeline",
+          "x": 82,
+          "y": 734,
+          "w": 66,
+          "h": 50,
+          "right": 147,
+          "bottom": 784
+        },
+        {
+          "t": "AI Review",
+          "x": 147,
+          "y": 734,
+          "w": 66,
+          "h": 50,
+          "right": 213,
+          "bottom": 784
+        },
+        {
+          "t": "Repository",
+          "x": 213,
+          "y": 734,
+          "w": 66,
+          "h": 50,
+          "right": 278,
+          "bottom": 784
+        },
+        {
+          "t": "More",
+          "x": 278,
+          "y": 734,
+          "w": 66,
+          "h": 50,
+          "right": 344,
+          "bottom": 784
+        }
+      ]
+    }
+  },
+  "390x844": {
+    "vw": 390,
+    "vh": 844,
+    "scrollWidth": 390,
+    "horizontalOverflow": false,
+    "topbar": {
+      "clientWidth": 390,
+      "scrollWidth": 390,
+      "overflow": false,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 390,
+        "h": 70,
+        "right": 390,
+        "bottom": 70
+      },
+      "controls": [
+        {
+          "c": "page-title",
+          "x": 12,
+          "y": 18,
+          "w": 260,
+          "h": 34,
+          "right": 272,
+          "bottom": 52
+        },
+        {
+          "c": "top-search",
+          "x": 280,
+          "y": 13,
+          "w": 44,
+          "h": 44,
+          "right": 324,
+          "bottom": 57
+        },
+        {
+          "c": "account-menu",
+          "x": 332,
+          "y": 13,
+          "w": 46,
+          "h": 44,
+          "right": 378,
+          "bottom": 57
+        }
+      ],
+      "title": {
+        "x": 12,
+        "y": 30,
+        "w": 260,
+        "h": 22,
+        "right": 272,
+        "bottom": 52
+      },
+      "search": {
+        "x": 280,
+        "y": 13,
+        "w": 44,
+        "h": 44,
+        "right": 324,
+        "bottom": 57
+      },
+      "account": {
+        "x": 332,
+        "y": 13,
+        "w": 46,
+        "h": 44,
+        "right": 378,
+        "bottom": 57
+      }
+    },
+    "mobileNav": {
+      "rect": {
+        "x": 8,
+        "y": 770,
+        "w": 374,
+        "h": 66,
+        "right": 382,
+        "bottom": 836
+      },
+      "items": [
+        {
+          "t": "Home",
+          "x": 16,
+          "y": 777,
+          "w": 72,
+          "h": 50,
+          "right": 88,
+          "bottom": 827
+        },
+        {
+          "t": "Pipeline",
+          "x": 88,
+          "y": 778,
+          "w": 72,
+          "h": 50,
+          "right": 159,
+          "bottom": 828
+        },
+        {
+          "t": "AI Review",
+          "x": 159,
+          "y": 778,
+          "w": 72,
+          "h": 50,
+          "right": 231,
+          "bottom": 828
+        },
+        {
+          "t": "Repository",
+          "x": 231,
+          "y": 778,
+          "w": 72,
+          "h": 50,
+          "right": 302,
+          "bottom": 828
+        },
+        {
+          "t": "More",
+          "x": 302,
+          "y": 778,
+          "w": 72,
+          "h": 50,
+          "right": 374,
+          "bottom": 828
+        }
+      ]
+    }
+  },
+  "430x932": {
+    "vw": 430,
+    "vh": 932,
+    "scrollWidth": 430,
+    "horizontalOverflow": false,
+    "topbar": {
+      "clientWidth": 430,
+      "scrollWidth": 430,
+      "overflow": false,
+      "rect": {
+        "x": 0,
+        "y": 0,
+        "w": 430,
+        "h": 70,
+        "right": 430,
+        "bottom": 70
+      },
+      "controls": [
+        {
+          "c": "page-title",
+          "x": 12,
+          "y": 18,
+          "w": 300,
+          "h": 34,
+          "right": 312,
+          "bottom": 52
+        },
+        {
+          "c": "top-search",
+          "x": 320,
+          "y": 13,
+          "w": 44,
+          "h": 44,
+          "right": 364,
+          "bottom": 57
+        },
+        {
+          "c": "account-menu",
+          "x": 372,
+          "y": 13,
+          "w": 46,
+          "h": 44,
+          "right": 418,
+          "bottom": 57
+        }
+      ],
+      "title": {
+        "x": 12,
+        "y": 30,
+        "w": 300,
+        "h": 22,
+        "right": 312,
+        "bottom": 52
+      },
+      "search": {
+        "x": 320,
+        "y": 13,
+        "w": 44,
+        "h": 44,
+        "right": 364,
+        "bottom": 57
+      },
+      "account": {
+        "x": 372,
+        "y": 13,
+        "w": 46,
+        "h": 44,
+        "right": 418,
+        "bottom": 57
+      }
+    },
+    "mobileNav": {
+      "rect": {
+        "x": 8,
+        "y": 858,
+        "w": 414,
+        "h": 66,
+        "right": 422,
+        "bottom": 924
+      },
+      "items": [
+        {
+          "t": "Home",
+          "x": 16,
+          "y": 865,
+          "w": 80,
+          "h": 50,
+          "right": 96,
+          "bottom": 915
+        },
+        {
+          "t": "Pipeline",
+          "x": 96,
+          "y": 866,
+          "w": 80,
+          "h": 50,
+          "right": 175,
+          "bottom": 916
+        },
+        {
+          "t": "AI Review",
+          "x": 175,
+          "y": 866,
+          "w": 80,
+          "h": 50,
+          "right": 255,
+          "bottom": 916
+        },
+        {
+          "t": "Repository",
+          "x": 255,
+          "y": 866,
+          "w": 80,
+          "h": 50,
+          "right": 334,
+          "bottom": 916
+        },
+        {
+          "t": "More",
+          "x": 334,
+          "y": 866,
+          "w": 80,
+          "h": 50,
+          "right": 414,
+          "bottom": 916
+        }
+      ]
+    }
+  }
+}

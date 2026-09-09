@@ -1,0 +1,97 @@
+# Concord CLM · local full stack (api + web + Postgres).
+#   docker compose up --build
+# Schema changes are applied by a dedicated one-shot `migrate` service using
+# versioned `prisma migrate deploy` (NOT `db push` at app start). Seeding is
+# gated by SEED_ON_START and is off by default in production.
+
+services:
+  db:
+    # pgvector image = Postgres 16 with the `vector` extension available, so the
+    # Repository's semantic search can CREATE EXTENSION vector on start.
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: concord
+      POSTGRES_PASSWORD: concord
+      POSTGRES_DB: concord
+    ports:
+      - "5432:5432"
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U concord"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot: apply versioned migrations (and seed only when SEED_ON_START=true).
+  # Runs to completion before the API starts; the API never migrates or seeds.
+  migrate:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      DATABASE_URL: postgresql://concord:concord@db:5432/concord
+      # Local convenience: seed the dev database. Leave FALSE/unset in production —
+      # production data is loaded by a separate, reviewed, idempotent job.
+      # NODE_ENV must be development here or seed.ts's production guard refuses.
+      NODE_ENV: development
+      SEED_ON_START: "true"
+      SEED_USER_PASSWORD: concord
+    command: >
+      sh -c "pnpm --filter @concord/api db:migrate &&
+             if [ \"$$SEED_ON_START\" = \"true\" ]; then pnpm --filter @concord/api db:seed; fi"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    environment:
+      PORT: "4000"
+      WEB_ORIGIN: http://localhost:3000
+      DATABASE_URL: postgresql://concord:concord@db:5432/concord
+      # Local dev only. Must NOT look like a placeholder or the boot guard
+      # refuses to start; in production this comes from Key Vault.
+      NODE_ENV: development
+      AUTH_JWT_SECRET: t7Qm2xVb9RkPzL4eHs1WyC6oJdA3uNfG
+      MELENTO_WEBHOOK_SECRET: local-webhook-hmac-key-for-dev-only
+      # Scheduled jobs — enabled here so the stack fires them on cadence (IST).
+      SCHEDULE_TZ: Asia/Kolkata
+      OBLIGATIONS_DIGEST_ENABLED: "true"
+      OBLIGATIONS_DIGEST_CRON: "0 8 * * *"
+      OBLIGATIONS_DIGEST_RECIPIENTS: legal@lakmelever.com
+      MELENTO_NUDGE_ENABLED: "true"
+      MELENTO_NUDGE_CRON: "0 9 * * *"
+      MELENTO_NUDGE_AFTER_DAYS: "2"
+      MELENTO_NUDGE_EVERY_DAYS: "1"
+    command: ["node", "apps/api/dist/main.js"]
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://localhost:4000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "4000:4000"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_BASE: http://localhost:4000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  dbdata:

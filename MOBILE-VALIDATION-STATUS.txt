@@ -1,0 +1,34 @@
+Concord CLM — Mobile Validation Status
+======================================
+Build: Premium UI/UX 2026 + mobile remediation
+Date: 2026-09-08
+
+RESULT: PASS — browser-layout mobile validation
+
+Tested viewports:
+- 360x800
+- 390x844
+- 430x932
+
+Initial issue found:
+- Phone topbar compressed page title to 0/19/59 px and search to ~20x20.
+
+Remediated:
+- Phone topbar now prioritizes page title + search + account.
+- Search target is 44x44.
+- Page title allocation is 230/260/300 px.
+- E-sign utility/remove control is 44x44.
+- Sheet close control is 44x44.
+- Footer/nav spacing strengthened for mobile safe areas.
+
+Post-fix gates:
+- UX: 17/17 PASS
+- Offline security: 23/23 PASS
+- Source invariants: PASS
+- CSS structure: PASS
+
+No page-level horizontal overflow observed in shell, login, More sheet,
+command centre or dense workflow harnesses.
+
+Remaining final-signoff requirement:
+- Full Next/Nest staging E2E on real iOS Safari / Android Chrome devices.

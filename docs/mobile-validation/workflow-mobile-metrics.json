@@ -1,0 +1,266 @@
+{
+  "360x800": {
+    "overflow": false,
+    "scrollWidth": 360,
+    "form": {
+      "x": 37,
+      "y": 186,
+      "w": 286,
+      "h": 279,
+      "right": 323,
+      "bottom": 465,
+      "scrollW": 286,
+      "clientW": 286
+    },
+    "review": {
+      "x": 16,
+      "y": 643,
+      "w": 328,
+      "h": 321,
+      "right": 344,
+      "bottom": 964,
+      "scrollW": 328,
+      "clientW": 328
+    },
+    "tabs": {
+      "x": 16,
+      "y": 584,
+      "w": 328,
+      "h": 45,
+      "right": 344,
+      "bottom": 629,
+      "scrollW": 490,
+      "clientW": 326
+    },
+    "signatory": {
+      "x": 37,
+      "y": 1151,
+      "w": 286,
+      "h": 148,
+      "right": 323,
+      "bottom": 1299,
+      "scrollW": 284,
+      "clientW": 284
+    },
+    "remove": {
+      "x": 269,
+      "y": 1161,
+      "w": 44,
+      "h": 44,
+      "right": 313,
+      "bottom": 1205,
+      "scrollW": 44,
+      "clientW": 44
+    },
+    "stamp": {
+      "x": 37,
+      "y": 1311,
+      "w": 286,
+      "h": 146,
+      "right": 323,
+      "bottom": 1457,
+      "scrollW": 286,
+      "clientW": 286
+    },
+    "pipeline": {
+      "x": 16,
+      "y": 1500,
+      "w": 328,
+      "h": 144,
+      "right": 344,
+      "bottom": 1644,
+      "scrollW": 936,
+      "clientW": 328
+    },
+    "tableWrap": {
+      "x": 16,
+      "y": 1644,
+      "w": 328,
+      "h": 81,
+      "right": 344,
+      "bottom": 1725,
+      "scrollW": 640,
+      "clientW": 328
+    },
+    "viewport": {
+      "w": 360,
+      "h": 800
+    }
+  },
+  "390x844": {
+    "overflow": false,
+    "scrollWidth": 390,
+    "form": {
+      "x": 37,
+      "y": 194,
+      "w": 315,
+      "h": 278,
+      "right": 353,
+      "bottom": 472,
+      "scrollW": 316,
+      "clientW": 316
+    },
+    "review": {
+      "x": 17,
+      "y": 649,
+      "w": 357,
+      "h": 321,
+      "right": 373,
+      "bottom": 970,
+      "scrollW": 358,
+      "clientW": 358
+    },
+    "tabs": {
+      "x": 17,
+      "y": 590,
+      "w": 357,
+      "h": 45,
+      "right": 373,
+      "bottom": 635,
+      "scrollW": 490,
+      "clientW": 356
+    },
+    "signatory": {
+      "x": 37,
+      "y": 1156,
+      "w": 315,
+      "h": 148,
+      "right": 353,
+      "bottom": 1304,
+      "scrollW": 314,
+      "clientW": 314
+    },
+    "remove": {
+      "x": 299,
+      "y": 1166,
+      "w": 44,
+      "h": 44,
+      "right": 343,
+      "bottom": 1210,
+      "scrollW": 44,
+      "clientW": 44
+    },
+    "stamp": {
+      "x": 37,
+      "y": 1316,
+      "w": 315,
+      "h": 146,
+      "right": 353,
+      "bottom": 1461,
+      "scrollW": 316,
+      "clientW": 316
+    },
+    "pipeline": {
+      "x": 17,
+      "y": 1504,
+      "w": 357,
+      "h": 144,
+      "right": 373,
+      "bottom": 1648,
+      "scrollW": 936,
+      "clientW": 358
+    },
+    "tableWrap": {
+      "x": 17,
+      "y": 1648,
+      "w": 357,
+      "h": 81,
+      "right": 373,
+      "bottom": 1728,
+      "scrollW": 640,
+      "clientW": 358
+    },
+    "viewport": {
+      "w": 390,
+      "h": 844
+    }
+  },
+  "430x932": {
+    "overflow": false,
+    "scrollWidth": 430,
+    "form": {
+      "x": 38,
+      "y": 194,
+      "w": 355,
+      "h": 278,
+      "right": 392,
+      "bottom": 472,
+      "scrollW": 356,
+      "clientW": 356
+    },
+    "review": {
+      "x": 17,
+      "y": 649,
+      "w": 397,
+      "h": 321,
+      "right": 413,
+      "bottom": 970,
+      "scrollW": 398,
+      "clientW": 398
+    },
+    "tabs": {
+      "x": 17,
+      "y": 590,
+      "w": 397,
+      "h": 45,
+      "right": 413,
+      "bottom": 635,
+      "scrollW": 490,
+      "clientW": 396
+    },
+    "signatory": {
+      "x": 38,
+      "y": 1156,
+      "w": 355,
+      "h": 148,
+      "right": 392,
+      "bottom": 1304,
+      "scrollW": 354,
+      "clientW": 354
+    },
+    "remove": {
+      "x": 339,
+      "y": 1166,
+      "w": 44,
+      "h": 44,
+      "right": 382,
+      "bottom": 1210,
+      "scrollW": 44,
+      "clientW": 44
+    },
+    "stamp": {
+      "x": 38,
+      "y": 1316,
+      "w": 355,
+      "h": 146,
+      "right": 392,
+      "bottom": 1461,
+      "scrollW": 356,
+      "clientW": 356
+    },
+    "pipeline": {
+      "x": 17,
+      "y": 1504,
+      "w": 397,
+      "h": 144,
+      "right": 413,
+      "bottom": 1648,
+      "scrollW": 936,
+      "clientW": 398
+    },
+    "tableWrap": {
+      "x": 17,
+      "y": 1648,
+      "w": 397,
+      "h": 81,
+      "right": 413,
+      "bottom": 1728,
+      "scrollW": 640,
+      "clientW": 398
+    },
+    "viewport": {
+      "w": 430,
+      "h": 932
+    }
+  }
+}

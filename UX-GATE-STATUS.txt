@@ -1,0 +1,56 @@
+Concord CLM — Premium UI/UX Gate Status
+Date: 2026-09-08
+
+Concord — UI/UX regression gate
+========================================
+  PASS  permission-filtered adaptive navigation
+  PASS  task-oriented nav groups
+  PASS  full mobile More sheet
+  PASS  mobile dialog traps keyboard focus
+  PASS  command centre exposes recent + quick actions
+  PASS  command centre traps keyboard focus
+  PASS  slash and Cmd/Ctrl-K shortcuts
+  PASS  system/light/dark appearance controls
+  PASS  route motion layer
+  PASS  reduced-motion safety
+  PASS  progressive reduced-transparency support
+  PASS  keyboard focus-visible treatment
+  PASS  safe-area-aware mobile chrome
+  PASS  showcase splash is opt-in
+========================================
+  14 passed · 0 failed
+
+Source invariants:
+OK — source invariants hold. Scope: 121 TypeScript file(s) across 7 root(s), all covered; 114 scanned for the fetch rule; 152 env vars documented; manifests, README and the Prisma schema checked.
+
+Offline security preflight:
+
+Concord — offline security preflight
+==============================================
+  PASS  No browser JWT stored in local/session storage
+  PASS  No wildcard CORS origin
+  PASS  No CSP unsafe-eval
+  PASS  No production demo-user opt-in in manifests/IaC
+  PASS  No hardcoded sample review route in web app
+  PASS  Document download does not expose storage keys in routes
+  PASS  Production security gate rejects placeholder secrets
+  PASS  Production storage supports managed identity
+  PASS  Browser mutations have Origin enforcement
+  PASS  JWT verification pins algorithm, issuer and audience
+  PASS  Production sample-ingest endpoint is disabled
+  PASS  CI blocks high/critical dependency advisories
+  PASS  CI runs secret + vulnerability/IaC scans
+  PASS  CodeQL is enabled for JavaScript/TypeScript
+  PASS  Staging workflow includes passive DAST
+  PASS  Production password sign-in is disabled
+  PASS  No eval/new Function in application source
+  PASS  Runtime process execution is limited to the hardened OCR adapter
+  PASS  No committed E2E default credentials in journey
+  PASS  No committed AWS access key
+  PASS  No committed GitHub token
+  PASS  No committed PEM private key
+  PASS  No committed Slack token
+==============================================
+  23 passed · 0 failed
+  Offline security preflight GREEN.
+
