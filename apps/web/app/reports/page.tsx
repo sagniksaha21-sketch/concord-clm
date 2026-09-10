@@ -85,6 +85,7 @@ export default function ReportsPage() {
               <h3>One source for every conversation</h3>
               <p>Concord calculates the findings once from the records your role can see. Every download uses this same snapshot, so the Excel register, PDF brief and PowerPoint deck stay aligned.</p>
               <div className="report-proof"><IconShield /><span>Source text and provider secrets stay out of exports.</span></div>
+              <div className={`report-ai-note report-ai-${report.ai?.status ?? 'disabled'}`}><IconChart /><span>{report.ai?.status === 'generated' ? `AI-assisted narrative from ${report.ai.model ?? 'GCP Gemini'} · advisory only` : report.ai?.status === 'fallback' ? 'AI provider unavailable — deterministic findings retained' : 'Deterministic findings · AI narrative is optional'}</span></div>
             </div>
             <div className="report-metrics" aria-label="Report metrics">
               {report.metrics.slice(0, 4).map((metric) => <div className="report-metric" key={metric.key}><span>{metric.label}</span><b>{metric.displayValue}</b><small>{metric.detail}</small></div>)}
@@ -106,9 +107,9 @@ export default function ReportsPage() {
 
           <div className="reports-layout">
             <section className="card report-insights-card">
-              <div className="card-head"><h3><IconChart />Derived insights</h3><span className="ch-act">Updated {labelDate(report.generatedAt)}</span></div>
+              <div className="card-head"><h3><IconChart />Derived insights</h3><span className="ch-act">{report.ai?.status === 'generated' ? 'AI-assisted · advisory' : report.ai?.status === 'fallback' ? 'Rules fallback' : 'Rules-based'} · {labelDate(report.generatedAt)}</span></div>
               <div className="report-insights-list">
-                {report.insights.map((insight) => <div className={`report-insight report-insight-${insight.tone}`} key={insight.id}><span className="report-insight-dot" /><div><b>{insight.title}</b><p>{insight.body}</p></div></div>)}
+                {report.insights.map((insight) => <div className={`report-insight report-insight-${insight.tone}`} key={insight.id}><span className="report-insight-dot" /><div><b>{insight.source === 'ai' && <em className="report-insight-source">AI</em>}{insight.title}</b><p>{insight.body}</p>{insight.source === 'ai' && insight.evidenceIds?.length ? <small>Grounded in {insight.evidenceIds.length} report row{insight.evidenceIds.length === 1 ? '' : 's'}</small> : null}</div></div>)}
               </div>
             </section>
 
@@ -139,4 +140,3 @@ export default function ReportsPage() {
     </>
   );
 }
-

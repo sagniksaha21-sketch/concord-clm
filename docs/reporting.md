@@ -18,7 +18,22 @@ the same snapshot shown on the Reports page. When the API is running without
 PostgreSQL or with `DEMO_SAMPLES=true`, the export labels itself as
 illustrative. It does not present fixture rows as a live portfolio.
 
+## Optional AI narrative
+
+Set `REPORT_AI_PROVIDER=gcp` together with the approved `GCP_PROJECT_ID`,
+`GCP_LOCATION` and `GCP_GEMINI_MODEL` configuration to enable grounded Gemini
+narrative. The model receives only the role-scoped report metadata (metrics,
+stages, risks, dates and row IDs); raw contract text, owner emails and provider
+tokens are not sent. It returns advisory titles and explanations with evidence
+row IDs and a confidence score. Metrics and dates in every export remain the
+database snapshot, never model-generated values.
+
+If Vertex AI is unavailable, returns invalid JSON, or produces an ungrounded
+evidence ID, Concord keeps the deterministic findings and labels the report
+`Deterministic fallback`. Generated exports record the provider/model and
+advisory provenance in the audit event. AI never approves, signs, changes a
+workflow state or executes an agreement.
+
 Each successful binary export appends a `report.exported` event to the
 hash-chained audit trail with the signed-in actor, format, row counts and data
 mode.
-

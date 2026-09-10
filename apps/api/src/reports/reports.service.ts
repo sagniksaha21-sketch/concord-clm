@@ -19,6 +19,7 @@ import { AuditService } from '../audit/audit.service';
 import { buildXlsx } from './xlsx-exporter';
 import { buildPdf } from './pdf-exporter';
 import { buildPptx } from './pptx-exporter';
+import { ReportAiService } from './report-ai.service';
 
 const STAGE_LABELS: Record<string, string> = {
   intake: 'Intake',
@@ -44,7 +45,8 @@ export interface ReportFile {
  *
  * Keeping the insight calculation in the API means the Excel, PDF, PowerPoint
  * and on-screen preview cannot quietly disagree. The language is deterministic
- * and traceable to persisted rows. No model call is needed to make a report.
+ * and traceable to persisted rows. An optional advisory model can enrich the
+ * narrative without changing the authoritative metrics or register rows.
  */
 @Injectable()
 export class ReportsService {
@@ -56,9 +58,21 @@ export class ReportsService {
     private readonly esign: ESignService,
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
+    private readonly reportAi: ReportAiService,
   ) {}
 
   async portfolio(role: Role): Promise<PortfolioReport> {
+    const report = await this.buildPortfolio(role);
+    const deterministicInsights = report.insights.map((insight) => ({ ...insight, source: 'rules' as const }));
+    const enrichment = await this.reportAi.enrich(report);
+    report.ai = enrichment.meta;
+    report.insights = enrichment.insights?.length
+      ? [...enrichment.insights, ...deterministicInsights.slice(0, 1)]
+      : deterministicInsights;
+    return report;
+  }
+
+  private async buildPortfolio(role: Role): Promise<PortfolioReport> {
     const [contracts, obligations] = await Promise.all([
       this.contracts.listFresh(),
       this.obligations.list(),
@@ -185,7 +199,14 @@ export class ReportsService {
         agreementCount: report.agreements.length,
         obligationCount: report.obligations.length,
         dataMode: report.dataMode,
+        aiStatus: report.ai?.status ?? 'disabled',
+        aiProvider: report.ai?.provider ?? 'none',
+        aiModel: report.ai?.model,
+        aiInsightCount: report.insights.filter((insight) => insight.source === 'ai').length,
       },
+      ...(report.ai?.status === 'generated'
+        ? { ai: this.audit.aiProvenance('report', { model: report.ai.model, advisory: true }) }
+        : {}),
     }).catch((error) => {
       // An export remains useful when a non-critical audit append is briefly
       // unavailable, but the failure is visible in service logs and readiness.

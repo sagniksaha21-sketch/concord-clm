@@ -562,6 +562,22 @@ export interface ReportInsight {
   title: string;
   body: string;
   tone: 'info' | 'watch' | 'risk';
+  /** Rules are traceable portfolio heuristics; AI is advisory narrative only. */
+  source?: 'rules' | 'ai';
+  /** Record IDs supporting the observation; never model-invented metrics. */
+  evidenceIds?: string[];
+  /** Provider-reported confidence, 0–1, when this is an AI observation. */
+  confidence?: number;
+}
+
+export interface ReportAiMeta {
+  status: 'disabled' | 'generated' | 'fallback';
+  provider: 'none' | 'gcp';
+  model?: string;
+  generatedAt?: string;
+  /** Short advisory context shown to users and in exports. */
+  summary?: string;
+  advisoryOnly: true;
 }
 
 /** A report row deliberately contains metadata, not contract source text. */
@@ -610,6 +626,8 @@ export interface PortfolioReport {
   dataMode: 'live' | 'illustrative';
   sampleData: boolean;
   restricted: string[];
+  /** Optional so older API snapshots remain backwards-compatible. */
+  ai?: ReportAiMeta;
   metrics: ReportMetric[];
   insights: ReportInsight[];
   stageCounts: PipelineStageCount[];

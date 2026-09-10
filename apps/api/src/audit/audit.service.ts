@@ -26,7 +26,7 @@ export interface AuditInput {
 }
 
 /** Which AI capability an event relates to, for the provenance helper. */
-export type AiCapability = 'chat' | 'embeddings' | 'extract' | 'ocr' | 'review' | 'triage';
+export type AiCapability = 'chat' | 'embeddings' | 'extract' | 'ocr' | 'review' | 'triage' | 'report';
 
 /**
  * Advisory-lock key for the audit chain. Transaction-scoped, so it is released
@@ -637,6 +637,10 @@ export class AuditService implements OnModuleInit {
       case 'extract':
         provider = env.EXTRACT_PROVIDER || env.CHAT_PROVIDER || (env.AZURE_OPENAI_ENDPOINT ? 'azure' : 'local');
         model = env.CHAT_MODEL ?? env.AZURE_OPENAI_DEPLOYMENT;
+        break;
+      case 'report':
+        provider = env.REPORT_AI_PROVIDER ?? 'none';
+        model = env.GCP_GEMINI_MODEL;
         break;
       case 'ocr':
         provider = env.OCR_PROVIDER ?? 'none';

@@ -10,11 +10,12 @@ const report: PortfolioReport = {
   dataMode: 'live',
   sampleData: false,
   restricted: [],
+  ai: { status: 'generated', provider: 'gcp', model: 'gcp:gemini-test', summary: 'Grounded narrative', advisoryOnly: true },
   metrics: [
     { key: 'agreements', label: 'Agreements', value: 2, displayValue: '2', detail: 'Persisted contract records' },
     { key: 'high-risk', label: 'High risk', value: 1, displayValue: '1', detail: 'Playbook risk flagged' },
   ],
-  insights: [{ id: 'risk', title: '1 high-risk agreement', body: 'Senior counsel review is recommended.', tone: 'risk' }],
+  insights: [{ id: 'risk', title: '1 high-risk agreement', body: 'Senior counsel review is recommended.', tone: 'risk', source: 'ai', evidenceIds: ['CLM-1'], confidence: 0.9 }],
   stageCounts: [{ stage: 'review', label: 'Review', count: 2 }],
   risk: { low: 1, medium: 0, high: 1 },
   agreements: [{
@@ -52,6 +53,7 @@ describe('ReportsService role scoping', () => {
       { list: async () => [{ id: 'SIG-1', contractId: 'CLM-1', contractTitle: 'A', status: 'sent', provider: 'stub', signatories: [], createdAt: new Date().toISOString() }] } as any,
       { enabled: true } as any,
       { record: async () => undefined } as any,
+      { enrich: async () => ({ meta: { status: 'disabled', provider: 'none', advisoryOnly: true } }) } as any,
     );
     const result = await service.portfolio('viewer');
     expect(result.signatures).toEqual([]);

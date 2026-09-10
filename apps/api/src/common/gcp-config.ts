@@ -11,6 +11,17 @@ export function legalAiProvider(capability: 'review' | 'authoring'): 'gcp' | 'az
   return process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY ? 'azure' : 'none';
 }
 
+/** Explicit opt-in for portfolio narrative enrichment. Reports remain local
+ * and deterministic unless an operator selects a managed provider. */
+export function reportAiProvider(): 'gcp' | 'none' {
+  const explicit = process.env.REPORT_AI_PROVIDER?.trim().toLowerCase();
+  if (explicit) {
+    if (explicit === 'gcp' || explicit === 'none') return explicit;
+    throw new Error('REPORT_AI_PROVIDER must be gcp or none');
+  }
+  return 'none';
+}
+
 export function gcpSetting(name: string, fallback?: string): string {
   const value = process.env[name]?.trim() || fallback;
   if (!value || !/^[a-zA-Z0-9][a-zA-Z0-9._@-]{0,127}$/.test(value)) {
@@ -27,7 +38,11 @@ export function geminiEmbeddingModel(): string { return gcpSetting('GCP_EMBEDDIN
 
 export function gcpConfigurationIssues(): string[] {
   const issues: string[] = [];
-  const selected = ['CHAT_PROVIDER', 'EMBEDDINGS_PROVIDER', 'EXTRACT_PROVIDER', 'AI_REVIEW_PROVIDER', 'AUTHORING_PROVIDER']
+  const reportProvider = process.env.REPORT_AI_PROVIDER?.trim().toLowerCase();
+  if (reportProvider && !['gcp', 'none'].includes(reportProvider)) {
+    issues.push('REPORT_AI_PROVIDER must be gcp or none');
+  }
+  const selected = ['CHAT_PROVIDER', 'EMBEDDINGS_PROVIDER', 'EXTRACT_PROVIDER', 'AI_REVIEW_PROVIDER', 'AUTHORING_PROVIDER', 'REPORT_AI_PROVIDER']
     .some((key) => process.env[key]?.toLowerCase() === 'gcp');
   const ocr = process.env.OCR_PROVIDER?.toLowerCase() === 'gcp';
   const grounding = process.env.GCP_GROUNDING_CHECK === 'true';
@@ -35,7 +50,7 @@ export function gcpConfigurationIssues(): string[] {
   if (selected || ocr || grounding) check(gcpProjectId);
   if (selected) {
     check(gcpLocation);
-    if (['CHAT_PROVIDER', 'EXTRACT_PROVIDER', 'AI_REVIEW_PROVIDER', 'AUTHORING_PROVIDER']
+    if (['CHAT_PROVIDER', 'EXTRACT_PROVIDER', 'AI_REVIEW_PROVIDER', 'AUTHORING_PROVIDER', 'REPORT_AI_PROVIDER']
       .some((key) => process.env[key]?.toLowerCase() === 'gcp')) check(geminiModel);
     if (process.env.EMBEDDINGS_PROVIDER?.toLowerCase() === 'gcp') {
       check(geminiEmbeddingModel);

@@ -104,8 +104,11 @@ function buildPages(report: PortfolioReport): string[] {
   const metrics = new Map(report.metrics.map((metric) => [metric.key, metric]));
   const pages: string[] = [];
 
-  let first = pageHeader('Portfolio intelligence', 'A concise view of agreement exposure, legal work and upcoming commitments');
+  let first = pageHeader('Portfolio intelligence', report.ai?.status === 'generated'
+    ? 'AI-assisted narrative grounded to the same snapshot; metrics remain source-of-truth'
+    : 'A concise view of agreement exposure, legal work and upcoming commitments');
   first += textLine(report.dataMode === 'live' ? 'Live persisted records' : 'Illustrative fixtures', 36, 652, 10, report.dataMode === 'live' ? '#3e7c5a' : '#ae7113', true);
+  first += textLine(report.ai?.status === 'generated' ? `AI narrative: ${report.ai.model ?? 'GCP Gemini'} (advisory only)` : report.ai?.status === 'fallback' ? 'AI narrative unavailable; deterministic findings retained' : 'Narrative findings: deterministic rules', 36, 632, 8.8, report.ai?.status === 'generated' ? '#3e7c5a' : '#637184', report.ai?.status === 'generated');
   first += kpi('AGREEMENTS', metrics.get('agreements')?.displayValue ?? '0', 'in the report scope', 36, 555);
   first += kpi('LEGAL REVIEW', metrics.get('legal-review')?.displayValue ?? '0', 'review + approval stages', 219, 555);
   first += kpi('HIGH RISK', metrics.get('high-risk')?.displayValue ?? '0', 'playbook risk flagged', 402, 555);
@@ -114,7 +117,7 @@ function buildPages(report: PortfolioReport): string[] {
   first += textLine('Derived insights', 36, 420, 15, '#172333', true);
   let y = 397;
   for (const insight of report.insights.slice(0, 4)) {
-    first += insightBlock(insight.title, insight.body, insight.tone, 36, y);
+    first += insightBlock(insight.source === 'ai' ? `AI - ${insight.title}` : insight.title, insight.body, insight.tone, 36, y);
     y -= Math.max(66, wrap(insight.body, 74).length * 13 + 42);
   }
   first += footer(1, report.generatedAt);
@@ -146,6 +149,7 @@ function buildPages(report: PortfolioReport): string[] {
   third += textLine('Definitions', 36, 154, 13, '#172333', true);
   third += textLine('Risk follows the stored playbook level. Due dates are sorted from the persisted obligation records.', 36, 134, 9.4, '#637184');
   third += textLine(report.restricted.includes('signatures') ? 'Signature detail is restricted by the signed-in role.' : `Signature rows included: ${report.signatures.length}.`, 36, 118, 9.4, '#637184');
+  third += textLine(report.ai?.status === 'generated' ? 'AI narrative is advisory and linked to the supplied evidence rows; it does not change workflow state.' : 'AI narrative is not enabled; findings are produced by deterministic portfolio rules.', 36, 102, 8.7, '#637184');
   third += footer(3, report.generatedAt);
   pages.push(third);
   return pages;
@@ -189,4 +193,3 @@ export function buildPdf(report: PortfolioReport): Buffer {
   chunks.push(Buffer.from(xref.join(''), 'latin1'));
   return Buffer.concat(chunks);
 }
-

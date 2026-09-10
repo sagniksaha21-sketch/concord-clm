@@ -72,10 +72,11 @@ function metricCard(id: number, metric: ReportMetric, x: number, y: number): str
 function insightCard(id: number, insight: ReportInsight, x: number, y: number, width = 530): string[] {
   const bg = insight.tone === 'risk' ? 'FBE9E9' : insight.tone === 'watch' ? 'FFF4DA' : 'EDF4FB';
   const edge = insight.tone === 'risk' ? 'C64A4A' : insight.tone === 'watch' ? 'D58A20' : '4F86B4';
+  const label = insight.source === 'ai' ? `AI · ${insight.title}` : insight.title;
   return [
     rectShape(id, x, y, width, 82, bg, true),
     rectShape(id + 1, x, y, 6, 82, edge),
-    textShape(id + 2, x + 20, y + 14, width - 36, 22, insight.title, { size: 14, fill: INK, bold: true }),
+    textShape(id + 2, x + 20, y + 14, width - 36, 22, label, { size: 14, fill: INK, bold: true }),
     textShape(id + 3, x + 20, y + 39, width - 36, 32, insight.body, { size: 10.5, fill: '344255' }),
   ];
 }
@@ -99,15 +100,16 @@ function createSlides(report: PortfolioReport): string[] {
     textShape(5, 78, 120, 1120, 40, 'CONCORD', { size: 16, fill: GOLD, bold: true, font: 'Aptos Display' }),
     textShape(6, 78, 196, 920, 122, 'Portfolio intelligence', { size: 46, fill: 'F7F9FC', bold: true, font: 'Aptos Display' }),
     textShape(7, 82, 337, 820, 54, 'Agreement exposure, legal work and commitments in one accountable view', { size: 19, fill: 'B6C0CE' }),
-    textShape(8, 82, 510, 760, 24, report.dataMode === 'live' ? 'Based on live persisted agreement records' : 'Based on illustrative fixture records', { size: 12, fill: report.dataMode === 'live' ? '9DD4AF' : GOLD, bold: true }),
+    textShape(8, 82, 510, 900, 24, report.dataMode === 'live' ? 'Based on live persisted agreement records' : 'Based on illustrative fixture records', { size: 12, fill: report.dataMode === 'live' ? '9DD4AF' : GOLD, bold: true }),
     textShape(9, 82, 548, 760, 22, `Generated ${report.generatedAt.slice(0, 10)}`, { size: 11, fill: 'B6C0CE' }),
+    textShape(13, 82, 578, 900, 20, report.ai?.status === 'generated' ? `AI-assisted narrative · ${report.ai.model ?? 'GCP Gemini'} · advisory only` : report.ai?.status === 'fallback' ? 'Deterministic narrative fallback · AI provider unavailable' : 'Deterministic narrative · database metrics remain authoritative', { size: 10, fill: report.ai?.status === 'generated' ? '9DD4AF' : 'B6C0CE', bold: report.ai?.status === 'generated' }),
     rectShape(10, 1015, 112, 112, 112, '243143', true),
     textShape(11, 1038, 142, 66, 38, String(report.agreements.length), { size: 32, fill: GOLD, bold: true, align: 'ctr' }),
     textShape(12, 1025, 185, 94, 20, 'agreements', { size: 10, fill: 'B6C0CE', align: 'ctr' }),
   ], '172333'));
 
   // 2. Executive summary.
-  let summary: string[] = [...titleBand('Portfolio at a glance', 'Deterministic metrics and findings calculated from the report snapshot')];
+  let summary: string[] = [...titleBand('Portfolio at a glance', report.ai?.status === 'generated' ? 'AI-assisted narrative grounded to the same snapshot; metrics remain source-of-truth' : 'Deterministic metrics and findings calculated from the report snapshot')];
   metrics.forEach((metric, i) => summary.push(...metricCard(10 + i * 4, metric, 56 + (i % 4) * 288, 160 + Math.floor(i / 4) * 142)));
   summary.push(textShape(40, 56, 452, 360, 26, 'Derived insights', { size: 16, fill: INK, bold: true }));
   report.insights.slice(0, 2).forEach((insight, i) => summary.push(...insightCard(41 + i * 4, insight, 56 + i * 588, 492, 550)));
@@ -184,6 +186,7 @@ function createSlides(report: PortfolioReport): string[] {
     'Legal review counts agreements in the review or approval stage.',
     'Due dates are sorted from persisted obligation and extracted document records.',
     'Source document text, signatory email addresses and provider envelope tokens are excluded from exports.',
+    report.ai?.status === 'generated' ? `AI narrative is advisory only (${report.ai.model ?? 'GCP Gemini'}); evidence IDs remain linked to the supplied rows.` : 'Narrative findings use deterministic rules because no report AI provider is enabled.',
   ];
   definitions.forEach((item, i) => {
     scope.push(textShape(20 + i * 2, 72, 366 + i * 48, 1080, 30, `- ${item}`, { size: 13, fill: '344255' }));

@@ -24,3 +24,20 @@ export const EXTRACTION_SCHEMA = object({
 }, ['parties']);
 
 export const DRAFT_SCHEMA = object({ sections: array(object({ heading: string, body: string })) });
+
+/**
+ * Portfolio reporting deliberately lets Gemini author narrative only. Numeric
+ * metrics, dates and rows stay outside this schema and are always rendered
+ * from the role-scoped database snapshot.
+ */
+export const REPORT_INSIGHTS_SCHEMA = object({
+  summary: { type: 'STRING' },
+  insights: array(object({
+    id: string,
+    title: string,
+    body: string,
+    tone: { type: 'STRING', enum: ['info', 'watch', 'risk'] },
+    evidenceIds: array(string),
+    confidence: { type: 'NUMBER', minimum: 0, maximum: 1 },
+  })),
+});
