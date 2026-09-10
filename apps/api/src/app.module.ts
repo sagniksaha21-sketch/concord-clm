@@ -21,6 +21,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { ESignModule } from './esign/esign.module';
 import { WorkspaceModule } from './workspace/workspace.module';
+import { ReportsModule } from './reports/reports.module';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { WorkspaceModule } from './workspace/workspace.module';
     AuthoringModule,
     ESignModule,
     WorkspaceModule,
+    ReportsModule,
   ],
 })
 export class AppModule {}

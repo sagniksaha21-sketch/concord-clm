@@ -14,6 +14,7 @@ import {
   IconAlert,
   IconBell,
   IconBox,
+  IconChart,
   IconCalendar,
   IconChevronDown,
   IconChevronLeft,
@@ -71,6 +72,7 @@ const NAV: NavEntry[] = [
   { href: '/esign', label: 'E-signature & e-Stamp', match: '/esign', icon: IconSign, count: 'esign', needs: 'esign:send', group: 'execute', description: 'Prepare signature and e-stamp workflows' },
 
   { href: '/notifications', label: 'Outlook Notifications', match: '/notifications', icon: IconMail, needs: 'audit:read', group: 'governance', description: 'Review legal workflow notifications' },
+  { href: '/reports', label: 'Portfolio Reports', match: '/reports', icon: IconChart, group: 'governance', description: 'Export agreement insights for review and leadership' },
   { href: '/audit', label: 'Audit Trail', match: '/audit', icon: IconShield, needs: 'audit:read', group: 'governance', description: 'Inspect lifecycle events and decision evidence' },
 ];
 

@@ -26,6 +26,8 @@ import type {
   Permission,
   Role,
   SearchResult,
+  PortfolioReport,
+  ReportFormat,
 } from '@concord/shared';
 
 // Browser calls stay same-origin and are proxied by Next.js to the API. This
@@ -393,6 +395,27 @@ export async function getPermissions(
   const res = await apiFetch(`${API_BASE}/api/auth/permissions`, { cache: 'no-store', headers: auth(token) });
   if (!res.ok) throw new Error(`Permissions unavailable (${res.status})`);
   return res.json();
+}
+
+// ─── Portfolio reporting ─────────────────────────────────────────────────────
+
+export async function getPortfolioReport(token?: string): Promise<PortfolioReport> {
+  const res = await apiFetch(`${API_BASE}/api/reports/portfolio`, {
+    cache: 'no-store',
+    headers: auth(token),
+  });
+  if (!res.ok) throw new Error(`Reports unavailable (${res.status})`);
+  return res.json();
+}
+
+/** Fetches a role-scoped binary report while preserving the HttpOnly session. */
+export async function downloadPortfolioReport(format: ReportFormat, token?: string): Promise<Response> {
+  const res = await apiFetch(`${API_BASE}/api/reports/portfolio/${format}`, {
+    cache: 'no-store',
+    headers: auth(token),
+  });
+  if (!res.ok) throw new Error(`Report export failed (${res.status})`);
+  return res;
 }
 
 // ─── Audit trail ─────────────────────────────────────────────────────────────

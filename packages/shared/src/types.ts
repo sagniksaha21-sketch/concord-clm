@@ -543,3 +543,78 @@ export interface NavCounts {
   esign: number;
   notifications: number;
 }
+
+// ─── Portfolio reporting ─────────────────────────────────────────────────────
+
+/** Formats supported by the protected portfolio report endpoint. */
+export type ReportFormat = 'xlsx' | 'pdf' | 'pptx';
+
+export interface ReportMetric {
+  key: string;
+  label: string;
+  value: number;
+  displayValue: string;
+  detail?: string;
+}
+
+export interface ReportInsight {
+  id: string;
+  title: string;
+  body: string;
+  tone: 'info' | 'watch' | 'risk';
+}
+
+/** A report row deliberately contains metadata, not contract source text. */
+export interface ReportAgreementRow {
+  id: string;
+  title: string;
+  counterparty: string;
+  type: string;
+  valueDisplay: string;
+  stage: string;
+  risk: RiskLevel;
+  version: string;
+  source: string;
+  obligationCount: number;
+  nextDueDate?: string;
+  signatureStatus?: string;
+}
+
+export interface ReportObligationRow {
+  id: string;
+  contractId: string;
+  contractTitle: string;
+  title: string;
+  dueDate: string;
+  status: ObligationStatus;
+  type: ObligationType;
+  risk: RiskLevel;
+  ownerEmail: string;
+}
+
+export interface ReportSignatureRow {
+  id: string;
+  contractId: string;
+  contractTitle: string;
+  status: SignatureStatus;
+  provider: string;
+  signatoryCount: number;
+  createdAt: string;
+  completedAt?: string;
+}
+
+/** Preview payload shared by the Reports page and all three exports. */
+export interface PortfolioReport {
+  scope: 'portfolio';
+  generatedAt: string;
+  dataMode: 'live' | 'illustrative';
+  sampleData: boolean;
+  restricted: string[];
+  metrics: ReportMetric[];
+  insights: ReportInsight[];
+  stageCounts: PipelineStageCount[];
+  risk: RiskDistribution;
+  agreements: ReportAgreementRow[];
+  obligations: ReportObligationRow[];
+  signatures: ReportSignatureRow[];
+}

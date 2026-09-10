@@ -99,6 +99,9 @@ export const IconCheck = (p: P) => (
 export const IconUpload = (p: P) => (
   <svg {...base} {...p}><path d="M12 16V4M7 9l5-5 5 5M5 20h14" /></svg>
 );
+export const IconDownload = (p: P) => (
+  <svg {...base} {...p}><path d="M12 4v12m0 0 5-5m-5 5-5-5M5 20h14" /></svg>
+);
 export const IconCopy = (p: P) => (
   <svg {...base} {...p}><rect x="8" y="8" width="11" height="11" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></svg>
 );
@@ -123,4 +126,7 @@ export const IconMore = (p: P) => (
 );
 export const IconCommand = (p: P) => (
   <svg {...base} {...p}><path d="M9 6V5a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v14a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6Z" /></svg>
+);
+export const IconChart = (p: P) => (
+  <svg {...base} {...p}><path d="M4 19V5M4 19h16" /><path d="m7 15 3-4 3 2 5-7" /><path d="M18 6h-3M18 6v3" /></svg>
 );
