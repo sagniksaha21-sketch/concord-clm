@@ -13,7 +13,7 @@ Azure Container Apps (recommended) — plus a sizing and cost model.
 | **Web** | Next.js | The portal (login, intake, authoring, templates, review, repository, obligations, ingest). Stateless. |
 | **API** | NestJS | All services + integrations. Stateless. |
 | **Database** | PostgreSQL 16 + **pgvector** | Users, intake, templates, clauses, document metadata + extractions, and the semantic-search embeddings. |
-| **Object storage** | Azure Blob **or** Amazon S3 | The original agreement files (PDF/DOCX/scans). Provider chosen by env. |
+| **Object storage** | Google Cloud Storage, Azure Blob **or** Amazon S3 | The original agreement files (PDF/DOCX/scans). Provider chosen by env. |
 | **Secrets** | Key Vault / Secrets Manager | DB URL, JWT secret, Graph + AI keys. |
 | **AI (optional, consumption)** | Managed model **or self-hosted** | Extraction, drafting, embeddings. **Can run at zero API cost** — see §9. |
 | **Email** | Microsoft Graph (Exchange Online) | Outlook notifications. No infra to run. |
@@ -180,8 +180,11 @@ federated identity `AcrPush` + `Contributor` on the resource group.
 
 ## 8. Document storage & SSO
 
-- **Originals** live in object storage, provider chosen by env in order **Azure
-  Blob → Amazon S3 → local disk** (dev). Azure Blob: set
+- **Originals** live in object storage, provider chosen by env in order **Google
+  Cloud Storage → Azure Blob → Amazon S3 → local disk** (dev). Google Cloud
+  Storage: set `GCS_BUCKET` and use the attached workload identity on Cloud Run
+  (the app's native JSON API adapter obtains short-lived metadata-server
+  tokens). Azure Blob: set
   `AZURE_STORAGE_CONNECTION_STRING` (container `documents`). Amazon S3: set
   `AWS_S3_BUCKET` (+ `AWS_REGION`; credentials from env or the instance IAM role;
   `AWS_S3_ENDPOINT` for S3-compatible stores like MinIO). Files are uploaded on

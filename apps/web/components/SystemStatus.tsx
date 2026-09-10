@@ -18,7 +18,7 @@ export default function SystemStatus() {
           if (!live) return;
           if (r.status === 'ready') {
             setState('ready');
-            setDetail('All required services are ready');
+            setDetail('Platform readiness check passed');
           } else {
             setState('degraded');
             setDetail(r.degradedModes[0] ?? 'A required integration needs attention');
@@ -43,7 +43,7 @@ export default function SystemStatus() {
     <span className={`system-status ${state}`} title={detail} aria-label={`System status: ${detail}`}>
       <span className="system-status-dot">{ok ? <IconCheck /> : state === 'checking' ? null : <IconAlert />}</span>
       <span className="system-status-label">
-        {state === 'checking' ? 'Checking' : ok ? 'Secure & ready' : state === 'degraded' ? 'Degraded' : 'Offline'}
+        {state === 'checking' ? 'Checking' : ok ? 'Services available' : state === 'degraded' ? 'Degraded' : 'Offline'}
       </span>
     </span>
   );

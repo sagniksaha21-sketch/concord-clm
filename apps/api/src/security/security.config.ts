@@ -37,7 +37,7 @@ export function degradedModes(): string[] {
   const m: string[] = [];
   const env = process.env;
   if (!env.DATABASE_URL) m.push('persistence: in-memory (no DATABASE_URL)');
-  if (!(env.AZURE_STORAGE_CONNECTION_STRING || env.AZURE_STORAGE_ACCOUNT_URL || env.AWS_S3_BUCKET)) m.push('storage: local-disk (no Blob/S3)');
+  if (!(env.AZURE_STORAGE_CONNECTION_STRING || env.AZURE_STORAGE_ACCOUNT_URL || env.AWS_S3_BUCKET || env.GCS_BUCKET)) m.push('storage: local-disk (no object storage configured)');
   // Must mirror graph.client.ts exactly — a partial config previously reported
   // "healthy" while every email silently dry-ran.
   if (!(env.AZURE_TENANT_ID && env.AZURE_CLIENT_ID && env.AZURE_CLIENT_SECRET && env.GRAPH_SENDER_UPN)) {
