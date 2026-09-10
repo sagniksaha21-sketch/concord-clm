@@ -1,0 +1,26 @@
+name: Concord GCP provider verification
+on:
+  push:
+    branches: [main]
+    paths: ['apps/**', 'packages/**', 'scripts/gcp/**', 'infra/gcp/**', '.github/workflows/gcp-provider-tests.yml']
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @concord/shared build
+      - run: pnpm --filter @concord/api db:generate
+      - run: pnpm --filter @concord/api typecheck
+      - run: pnpm --filter @concord/api test
+      - run: pnpm build
+      - run: node --test scripts/gcp/render-config.test.cjs
+      - run: node scripts/check-ux.js

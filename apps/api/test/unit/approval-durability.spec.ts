@@ -13,9 +13,30 @@ const contract = {
   title: 'Zenoti MSA',
   counterparty: 'Zenoti',
   valueDisplay: '₹1.2 Cr',
+  version: 'v1',
 } as any;
 
 function makeService(overrides: Partial<Record<string, any>> = {}) {
+  const routing = new Map<string, any>();
+  const decisions = new Map<string, any>();
+  const persisted = { enabled: true, client: {
+    document: { findFirst: async () => ({ id: 'DOC-1', sha256: 'approved-document-hash' }) },
+    approvalRouting: {
+      findUnique: async ({ where }: any) => routing.get(where.contractId) ?? null,
+      upsert: async ({ where, create, update }: any) => {
+        const row = routing.has(where.contractId) ? { ...routing.get(where.contractId), ...update } : create;
+        routing.set(where.contractId, row); return row;
+      },
+      delete: async ({ where }: any) => routing.delete(where.contractId),
+    },
+    approvalDecision: {
+      findUnique: async ({ where }: any) => decisions.get(where.contractId) ?? null,
+      create: async ({ data }: any) => {
+        if (decisions.has(data.contractId)) throw Object.assign(new Error('duplicate decision'), { code: 'P2002' });
+        decisions.set(data.contractId, data); return data;
+      },
+    },
+  } };
   const audited: any[] = [];
   const audit = {
     record: async (e: any) => {
@@ -26,7 +47,7 @@ function makeService(overrides: Partial<Record<string, any>> = {}) {
   } as any;
 
   const svc = new WorkflowService(
-    { getById: () => contract } as any,
+    { getByIdFresh: async () => contract } as any,
     {
       getReview: async () => ({
         riskLevel: 'medium',
@@ -35,13 +56,14 @@ function makeService(overrides: Partial<Record<string, any>> = {}) {
         deviations: [],
         summary: 'stub',
         clauses: [],
+        documentId: 'DOC-1', documentSha256: 'approved-document-hash', contractVersion: 'v1',
       }),
     } as any,
     overrides.notifications ??
       ({ sendEmail: async () => ({ status: 'dry-run', to: [], subject: '', channel: 'outlook-email', dryRun: true, sentAt: '' }) } as any),
     audit,
     overrides.auth ?? ({ findRole: async () => 'approver' } as any),
-    overrides.prisma ?? ({ enabled: false, client: null } as any),
+    overrides.prisma ?? persisted as any,
   );
   return { svc, audited };
 }

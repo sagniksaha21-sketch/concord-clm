@@ -33,11 +33,13 @@ describe('Production security posture (H5 + fallback governance)', () => {
     expect(modes.join(' ')).toMatch(/dry-run/);
   });
 
-  it('passes with a strong secret and no strict-integration requirement', () => {
+  it('still requires real production integrations even when the optional legacy flag is absent', () => {
     process.env.NODE_ENV = 'production';
     process.env.AUTH_JWT_SECRET = 'a-genuinely-strong-random-secret-value-9f3b7';
     delete process.env.PROD_REQUIRE_REAL_INTEGRATIONS;
     const errors = inspectSecurityConfig().filter((i) => i.level === 'error');
-    expect(errors).toHaveLength(0);
+    expect(errors.some((error) => error.message.includes('Entra SSO'))).toBe(true);
+    expect(errors.some((error) => error.message.includes('degraded/fallback'))).toBe(true);
+    expect(errors.some((error) => error.message.includes('AUTH_JWT_SECRET'))).toBe(false);
   });
 });

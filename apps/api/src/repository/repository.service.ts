@@ -1,4 +1,4 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import {
   ArchivedDocument,
   Citation,
@@ -11,6 +11,7 @@ import { PrismaService } from '../persistence/prisma.service';
 import { ESignService } from '../esign/esign.service';
 import { ContractsService } from '../contracts/contracts.service';
 import { fetchWithTimeout, withDeadline } from '../common/http';
+import { generateWithGemini, checkGoogleGrounding } from '../common/gcp-ai';
 
 interface KbChunk {
   id: string;
@@ -35,6 +36,7 @@ interface KbChunk {
 export class RepositoryService implements OnModuleInit {
   private readonly logger = new Logger(RepositoryService.name);
   private index: KbChunk[] = [];
+  private indexLoaded = false;
   private pgReady = false;
 
   constructor(
@@ -67,6 +69,7 @@ export class RepositoryService implements OnModuleInit {
     const chunks = await this.buildKnowledgeBase();
     const vecs = await this.embeddings.embedBatch(chunks.map((c) => c.text));
     this.index = chunks.map((c, i) => ({ ...c, vec: vecs[i] }));
+    this.indexLoaded = true;
     this.logger.log(
       `Indexed ${this.index.length} passages · embeddings=${this.embeddings.provider} (${this.embeddings.cost()}) · dim=${this.embeddings.dim}`,
     );
@@ -161,6 +164,9 @@ export class RepositoryService implements OnModuleInit {
 
   /** Top-k passages by cosine similarity — pgvector if available, else in-memory. */
   private async retrieve(query: string, k: number): Promise<RetrievedChunk[]> {
+    if (this.embeddings.provider === 'gcp' && !this.indexLoaded) {
+      throw new ServiceUnavailableException('The semantic index is not ready. Use the repository search field and try again after indexing completes.');
+    }
     const qv = await this.embeddings.embed(query);
 
     if (this.pgReady) {
@@ -189,7 +195,7 @@ export class RepositoryService implements OnModuleInit {
     const db = this.prisma.client;
     const dim = this.embeddings.dim;
     try {
-      await db.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS vector');
+      if (process.env.ALLOW_VECTOR_DDL !== 'false') await db.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS vector');
       // kb_chunk is the one table still created at runtime rather than by a
       // migration (finding C-D33): its column type is `vector(EMBEDDINGS_DIM)`,
       // and that dimension is chosen by configuration — 768 local/Ollama, 1024
@@ -224,7 +230,7 @@ export class RepositoryService implements OnModuleInit {
         return;
       }
       // Re-load the corpus for the active provider so a provider swap re-indexes.
-      await db.$executeRawUnsafe('DELETE FROM kb_chunk WHERE provider <> $1', this.embeddings.provider);
+      await db.$executeRawUnsafe('DELETE FROM kb_chunk WHERE provider <> $1', this.embeddings.indexProvider);
       for (const c of this.index) {
         const literal = `[${c.vec.join(',')}]`;
         await db.$executeRawUnsafe(
@@ -236,11 +242,11 @@ export class RepositoryService implements OnModuleInit {
           c.id,
           c.text,
           JSON.stringify(c.citations),
-          this.embeddings.provider,
+          this.embeddings.indexProvider,
           literal,
         );
       }
-      await db.$executeRawUnsafe(
+      if (process.env.ALLOW_VECTOR_DDL !== 'false') await db.$executeRawUnsafe(
         `CREATE INDEX IF NOT EXISTS kb_chunk_embedding_idx
            ON kb_chunk USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100)`,
       );
@@ -277,9 +283,12 @@ export class RepositoryService implements OnModuleInit {
     const rows: any[] = await db.$queryRawUnsafe(
       `SELECT id, text, citations, 1 - (embedding <=> $1::vector) AS score
          FROM kb_chunk
+        WHERE provider = $2 AND id = ANY($3::text[])
         ORDER BY embedding <=> $1::vector
         LIMIT ${Math.max(1, Math.floor(k))}`,
       literal,
+      this.embeddings.indexProvider,
+      this.index.map((chunk) => chunk.id),
     );
     return rows.map((r) => ({
       id: r.id,
@@ -296,13 +305,14 @@ export class RepositoryService implements OnModuleInit {
    *   CHAT_PROVIDER=ollama  → local, free (CHAT_MODEL e.g. llama3.1)
    *   CHAT_PROVIDER=bedrock → Amazon Bedrock (managed, paid, no GPU)
    *   CHAT_PROVIDER=azure   → Azure OpenAI (managed, paid)
+   *   CHAT_PROVIDER=gcp     → Gemini on Google Cloud (managed, paid)
    *   CHAT_PROVIDER=openai  → OpenAI (managed, paid)
    *   CHAT_PROVIDER=none / unset → return the retrieved passage (zero cost)
    * Unset auto-selects Azure when AZURE_OPENAI_* is configured, else none.
    */
-  chatProvider(): 'ollama' | 'azure' | 'openai' | 'bedrock' | 'none' {
+  chatProvider(): 'ollama' | 'azure' | 'openai' | 'bedrock' | 'gcp' | 'none' {
     const p = (process.env.CHAT_PROVIDER || '').toLowerCase();
-    if (p === 'ollama' || p === 'azure' || p === 'openai' || p === 'bedrock' || p === 'none') return p;
+    if (p === 'ollama' || p === 'azure' || p === 'openai' || p === 'bedrock' || p === 'gcp' || p === 'none') return p;
     if (process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY) return 'azure';
     return 'none';
   }
@@ -323,6 +333,16 @@ export class RepositoryService implements OnModuleInit {
         return { answer: await this.composeOpenAI(question, context), model: `openai:${process.env.CHAT_MODEL || 'gpt-4o-mini'}` };
       if (provider === 'bedrock')
         return { answer: await this.composeBedrock(question, context), model: `bedrock:${process.env.BEDROCK_CHAT_MODEL || 'amazon.nova-lite-v1:0'}` };
+      if (provider === 'gcp') {
+        const result = await this.composeGcp(question, context);
+        if (process.env.GCP_GROUNDING_CHECK === 'true') {
+          const minimum = Number(process.env.GCP_GROUNDING_MIN_SCORE || 0.9);
+          if (!Number.isFinite(minimum) || minimum < 0 || minimum > 1) throw new Error('Invalid grounding threshold');
+          const score = await checkGoogleGrounding(result.text, matches);
+          if (score < minimum) return { answer: fallback, model: 'retrieval' };
+        }
+        return { answer: result.text, model: `gcp:${result.model}` };
+      }
       return { answer: await this.composeAzure(question, context), model: `azure:${process.env.AZURE_OPENAI_DEPLOYMENT || 'gpt-4o'}` };
     } catch (err) {
       this.logger.warn(
@@ -417,6 +437,15 @@ export class RepositoryService implements OnModuleInit {
       }),
     );
     return (res.output?.message?.content?.[0]?.text || '').trim();
+  }
+
+  private async composeGcp(question: string, context: string): Promise<{ text: string; model: string }> {
+    return generateWithGemini({
+      system: this.systemPrompt(),
+      user: `Context:\n${context}\n\nQuestion: ${question}`,
+      temperature: 0.1,
+      maxOutputTokens: 4096,
+    });
   }
 
   private systemPrompt(): string {

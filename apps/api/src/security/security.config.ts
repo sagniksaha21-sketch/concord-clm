@@ -1,4 +1,5 @@
 import { Logger } from '@nestjs/common';
+import { gcpConfigurationIssues } from '../common/gcp-config';
 
 /**
  * Boot-time security posture (assessment: identity/secret hardening).
@@ -49,6 +50,7 @@ export function degradedModes(): string[] {
   if (!emb || emb === 'local') m.push('embeddings: local fallback');
   const ocr = (env.OCR_PROVIDER || '').toLowerCase();
   if (!ocr || ocr === 'none') m.push('OCR: none (no text extraction from scans)');
+  m.push(...gcpConfigurationIssues().map((issue) => `GCP AI: ${issue}`));
   // Mirrors MelentoService.enabled (key AND base URL) — with only the key set the
   // service runs in stub mode and would emit fake e-stamp certificates.
   if (!(env.MELENTO_API_KEY && env.MELENTO_BASE_URL)) {
@@ -81,6 +83,7 @@ interface ConfigIssue {
 export function inspectSecurityConfig(): ConfigIssue[] {
   const issues: ConfigIssue[] = [];
   const prod = isProduction();
+  issues.push(...gcpConfigurationIssues().map((message): ConfigIssue => ({ level: prod ? 'error' : 'warn', message })));
   const scannerConfigured = Boolean(process.env.MALWARE_SCAN_URL || process.env.CLAMAV_HOST);
   const secret = process.env.AUTH_JWT_SECRET ?? '';
 

@@ -15,6 +15,7 @@ import { isDocIntelligenceConfigured, ocrDocument } from './doc-intelligence';
 import { ocrWithTextract, selectedOcrProvider } from './textract';
 import { ocrWithBDA } from './bda';
 import { ocrWithTesseract } from './tesseract-ocr';
+import { ocrWithGcpDocumentAi } from './gcp-document-ai';
 import { PrismaService } from '../persistence/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { FileSecurityService } from '../security/file-security.service';
@@ -23,8 +24,10 @@ import { AuditService } from '../audit/audit.service';
 import { fetchWithTimeout } from '../common/http';
 import { uploadsQuarantined } from '../telemetry/telemetry';
 import { createHash } from 'crypto';
+import { generateWithGemini } from '../common/gcp-ai';
+import { EXTRACTION_SCHEMA } from '../common/gcp-schemas';
 
-type ExtractProvider = 'azure' | 'bedrock' | 'openai' | 'none';
+type ExtractProvider = 'azure' | 'gcp' | 'bedrock' | 'openai' | 'none';
 
 export interface UploadedFile {
   originalname: string;
@@ -104,7 +107,7 @@ export class IngestionService {
   /** Which model does the structured extraction. Mirrors the chat switch. */
   private extractProvider(): ExtractProvider {
     const p = (process.env.EXTRACT_PROVIDER || process.env.CHAT_PROVIDER || '').toLowerCase();
-    if (p === 'azure' || p === 'bedrock' || p === 'openai' || p === 'none') return p;
+    if (p === 'azure' || p === 'gcp' || p === 'bedrock' || p === 'openai' || p === 'none') return p;
     if (this.openAiConfigured) return 'azure';
     return 'none';
   }
@@ -122,6 +125,14 @@ export class IngestionService {
       } catch (e) {
         if ((process.env.NODE_ENV ?? '').toLowerCase() === 'production') throw e;
         this.logger.warn(`Azure OCR failed for ${filename}: ${String(e)}`);
+      }
+    }
+    if (provider === 'gcp') {
+      try {
+        return { text: await ocrWithGcpDocumentAi(buffer, filename), engine: 'google-document-ai' };
+      } catch (e) {
+        if ((process.env.NODE_ENV ?? '').toLowerCase() === 'production') throw e;
+        this.logger.warn(`Google Document AI OCR failed for ${filename}: ${String(e)}`);
       }
     }
     if (provider === 'textract') {
@@ -466,6 +477,7 @@ export class IngestionService {
         extraction: await this.extractWithBedrock(text),
         model: `bedrock:${process.env.BEDROCK_CHAT_MODEL || 'amazon.nova-lite-v1:0'}`,
       };
+    if (provider === 'gcp') return this.extractWithGcp(text);
     if (provider === 'openai')
       return {
         extraction: await this.extractWithOpenAI(text),
@@ -545,5 +557,30 @@ export class IngestionService {
       }),
     );
     return this.parseExtraction(res.output?.message?.content?.[0]?.text || '');
+  }
+
+  /** Gemini structured extraction, grounded on OCR text. */
+  private async extractWithGcp(text: string): Promise<{ extraction: ExtractedAgreement; model: string }> {
+    if (text.length > 120000) throw new Error('Agreement exceeds the complete-extraction limit; no truncated extraction was produced');
+    const result = await generateWithGemini({
+      system: IngestionService.EXTRACT_SYSTEM + ' Output only the JSON object.',
+      user: this.userPrompt(text),
+      temperature: 0,
+      maxOutputTokens: 4096,
+      schema: EXTRACTION_SCHEMA,
+    });
+    const raw = JSON.parse(result.text);
+    const optionalText = (v: unknown) => v === undefined || (typeof v === 'string' && v.length <= 12000);
+    if (!raw || !Array.isArray(raw.parties) || raw.parties.length > 100 ||
+      !['effectiveDate', 'term', 'expiryDate'].every((key) => optionalText(raw[key])) ||
+      !raw.parties.every((p: any) => p && ['role', 'name', 'address', 'pan', 'gstin'].every((key) => optionalText(p[key])))) {
+      throw new Error('Gemini extraction failed schema validation');
+    }
+    // Only the existing validators may set panValid/gstinValid/confidence.
+    const extraction: ExtractedAgreement = {
+      effectiveDate: raw.effectiveDate, term: raw.term, expiryDate: raw.expiryDate,
+      parties: raw.parties.map((p: any) => ({ role: p.role || '', name: p.name || '', address: p.address || '', pan: p.pan, gstin: p.gstin })),
+    };
+    return { extraction, model: `gcp:${result.model}` };
   }
 }

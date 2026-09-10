@@ -1,0 +1,28 @@
+{
+  "projectId": "your-project-id",
+  "region": "asia-south1",
+  "service": "concord",
+  "runtimeServiceAccount": "concord-runtime@your-project-id.iam.gserviceaccount.com",
+  "migrationServiceAccount": "concord-migrate@your-project-id.iam.gserviceaccount.com",
+  "cloudSqlInstance": "your-project-id:asia-south1:concord",
+  "bucket": "concord-documents-your-project-id",
+  "webOrigin": "https://concord.example.com",
+  "apiImage": "asia-south1-docker.pkg.dev/your-project-id/concord/concord-api:RELEASE",
+  "webImage": "asia-south1-docker.pkg.dev/your-project-id/concord/concord-web:RELEASE",
+  "inferenceLocation": "SET_APPROVED_LOCATION",
+  "geminiModel": "SET_APPROVED_MODEL",
+  "documentAiLocation": "SET_APPROVED_PROCESSOR_LOCATION",
+  "documentAiProcessor": "SET_PROCESSOR_ID",
+  "documentAiProcessorVersion": "SET_PROCESSOR_VERSION",
+  "embeddingsDimension": 768,
+  "secretRefs": {
+    "DATABASE_URL": { "name": "concord-database-url", "version": "1" },
+    "AUTH_JWT_SECRET": { "name": "concord-auth-jwt", "version": "1" },
+    "ENTRA_CLIENT_SECRET": { "name": "concord-entra-client-secret", "version": "1" },
+    "AZURE_CLIENT_SECRET": { "name": "concord-graph-client-secret", "version": "1" },
+    "MELENTO_API_KEY": { "name": "concord-melento-api-key", "version": "1" },
+    "MELENTO_WEBHOOK_SECRET": { "name": "concord-melento-webhook", "version": "1" }
+  },
+  "migrationDatabaseSecret": { "name": "concord-migration-database-url", "version": "1" },
+  "extraEnv": {}
+}

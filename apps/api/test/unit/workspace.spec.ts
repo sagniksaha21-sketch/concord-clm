@@ -95,7 +95,7 @@ function auditFake(rows = AUDIT_ROWS) {
 function make(over: { contracts?: any[]; prismaEnabled?: boolean; audit?: any } = {}) {
   return new WorkspaceService(
     { enabled: over.prismaEnabled ?? false, client: { document: { count: async () => 4 } } } as any,
-    { list: () => over.contracts ?? [contract()] } as any,
+    { listFresh: async () => over.contracts ?? [contract()] } as any,
     { list: async () => [obligation] } as any,
     { list: async () => [signature] } as any,
     { list: async () => [intakeRow] } as any,
@@ -230,7 +230,7 @@ describe('Command Center reports the portfolio, not a plausible fiction', () => 
   it('survives a store that is down rather than failing the whole page', async () => {
     const svc = new WorkspaceService(
       { enabled: false, client: null } as any,
-      { list: () => [contract()] } as any,
+      { listFresh: async () => [contract()] } as any,
       { list: async () => { throw new Error('obligations unavailable'); } } as any,
       { list: async () => { throw new Error('esign unavailable'); } } as any,
       { list: async () => [] } as any,

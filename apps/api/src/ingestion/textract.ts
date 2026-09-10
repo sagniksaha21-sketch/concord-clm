@@ -9,7 +9,7 @@
  * - Images / single-page: the sync API (DetectDocumentText) on the bytes.
  */
 
-export type OcrProvider = 'azure' | 'textract' | 'bda' | 'tesseract' | 'none';
+export type OcrProvider = 'azure' | 'gcp' | 'textract' | 'bda' | 'tesseract' | 'none';
 
 /**
  * Which OCR engine to use. Paid AWS engines (textract, bda) are opt-in, so
@@ -23,7 +23,7 @@ export type OcrProvider = 'azure' | 'textract' | 'bda' | 'tesseract' | 'none';
  */
 export function selectedOcrProvider(): OcrProvider {
   const p = (process.env.OCR_PROVIDER || '').toLowerCase();
-  if (['azure', 'textract', 'bda', 'tesseract', 'none'].includes(p)) return p as OcrProvider;
+  if (['azure', 'gcp', 'textract', 'bda', 'tesseract', 'none'].includes(p)) return p as OcrProvider;
   if (process.env.DOC_INTELLIGENCE_ENDPOINT && process.env.DOC_INTELLIGENCE_KEY) return 'azure';
   return 'none';
 }

@@ -200,9 +200,10 @@ federated identity `AcrPush` + `Contributor` on the resource group.
 
 Two bills, and they behave differently. **Hosting** (compute + database + object
 storage) is unavoidable on any cloud — that's the ~$90–170/month baseline in §5.
-**AI is a choice.** As shipped, the app calls managed AI (Azure OpenAI, Document
-Intelligence) which is consumption-billed, but every AI feature has a fallback
-seam, so you can run it with **no AI API bill** in three ways:
+**AI is a choice.** As shipped, the app can call managed AI (Google Gemini/
+Document AI, Azure OpenAI/Document Intelligence, or Bedrock/Textract) when the
+corresponding provider is enabled. Every AI feature still has a fallback seam,
+so you can run it with **no AI API bill** in three ways:
 
 1. **Local open-source models (recommended — real AI, no per-use bill).**
    - *Semantic search embeddings* (the new Repository feature): set
@@ -237,11 +238,13 @@ prod = managed, or any mix) and redeploy:
 
 | Switch | Job | Values |
 |--------|-----|--------|
-| `EMBEDDINGS_PROVIDER` | Semantic-search vectors | `local` (free, offline, default) · `ollama` (free, self-hosted) · `bedrock` (AWS, managed) · `azure` · `openai` (managed, paid) |
-| `CHAT_PROVIDER` | Writes the answer from retrieved clauses | `none`/unset (free — returns top passage) · `ollama` (free) · `bedrock` (AWS, managed) · `azure` · `openai` (managed, paid) |
+| `EMBEDDINGS_PROVIDER` | Semantic-search vectors | `local` (free, offline, default) · `ollama` (free, self-hosted) · `gcp` (Gemini, managed) · `bedrock` (AWS, managed) · `azure` · `openai` (managed, paid) |
+| `CHAT_PROVIDER` | Writes the answer from retrieved clauses | `none`/unset (free — returns top passage) · `ollama` (free) · `gcp` (Gemini, managed) · `bedrock` (AWS, managed) · `azure` · `openai` (managed, paid) |
 
 Supporting vars: `EMBEDDINGS_MODEL`, `CHAT_MODEL`, `OLLAMA_BASE_URL`,
-`OPENAI_API_KEY`, `AZURE_OPENAI_*`, `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT`. The
+`OPENAI_API_KEY`, `AZURE_OPENAI_*`, `AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT`,
+`GCP_PROJECT_ID`, `GCP_LOCATION`, `GCP_GEMINI_MODEL`, `GCP_EMBEDDINGS_MODEL` and
+`GCP_DOCUMENT_AI_PROCESSOR`. The
 active provider and vector store are shown in the `/repository` UI and API
 response, so it's visible which one served each answer.
 

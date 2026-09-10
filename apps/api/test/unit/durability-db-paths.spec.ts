@@ -21,6 +21,7 @@ function fakeDb() {
   const stats = { claimInserts: 0, claimDeletes: 0 };
 
   const client: any = {
+    document: { findFirst: async () => ({ id: 'DOC-1', sha256: 'approved-document-hash' }) },
     approvalRouting: {
       findUnique: async ({ where }: any) =>
         routing.has(where.contractId) ? { ...routing.get(where.contractId) } : null,
@@ -69,18 +70,19 @@ function fakeDb() {
   return { enabled: true, client, _routing: routing, _decisions: decisions, _claims: claims, _stats: stats } as any;
 }
 
-const contract = { id: 'CTR-1', title: 'Zenoti MSA', counterparty: 'Zenoti', valueDisplay: '₹1.2 Cr' } as any;
+const contract = { id: 'CTR-1', title: 'Zenoti MSA', counterparty: 'Zenoti', valueDisplay: '₹1.2 Cr', version: 'v1' } as any;
 
 function makeWorkflow(prisma: any, sendStatus: 'sent' | 'failed' | 'dry-run' = 'sent') {
   const audited: any[] = [];
   return {
     audited,
     svc: new WorkflowService(
-      { getById: () => contract } as any,
+      { getByIdFresh: async () => contract } as any,
       {
         getReview: async () => ({
           riskLevel: 'medium', riskScore: 40, model: 'local',
           deviations: [], summary: 'stub', clauses: [],
+          documentId: 'DOC-1', documentSha256: 'approved-document-hash', contractVersion: 'v1',
         }),
       } as any,
       {

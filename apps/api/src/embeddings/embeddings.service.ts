@@ -1,7 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { fetchWithTimeout } from '../common/http';
+import { embedWithGemini, EmbeddingTask } from '../common/gcp-ai';
 
-export type EmbeddingsProvider = 'local' | 'ollama' | 'azure' | 'openai' | 'bedrock';
+export type EmbeddingsProvider = 'local' | 'ollama' | 'azure' | 'openai' | 'bedrock' | 'gcp';
 
 /**
  * Turns text into vectors for semantic search. The provider is chosen by env,
@@ -14,10 +15,12 @@ export type EmbeddingsProvider = 'local' | 'ollama' | 'azure' | 'openai' | 'bedr
  *                               (e.g. `nomic-embed-text`) — free, self-hosted.
  *   EMBEDDINGS_PROVIDER=openai  OpenAI `text-embedding-3-*` (managed, paid).
  *   EMBEDDINGS_PROVIDER=azure   Azure OpenAI embeddings deployment (managed, paid).
+ *   EMBEDDINGS_PROVIDER=gcp     Gemini embeddings through Google Cloud (managed, paid).
  *
  * Every provider emits vectors of EMBEDDINGS_DIM (default 768) so the pgvector
  * column and index stay stable when you switch providers (re-index after a swap).
- * Any remote error falls back to the local embedder, so search never crashes.
+ * GCP failures never substitute hash vectors into a semantic index. Other
+ * providers retain their existing fallback behavior.
  */
 @Injectable()
 export class EmbeddingsService {
@@ -36,6 +39,8 @@ export class EmbeddingsService {
         return process.env.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT || 'text-embedding-3-small';
       case 'bedrock':
         return process.env.BEDROCK_EMBEDDINGS_MODEL || 'amazon.titan-embed-text-v2:0';
+      case 'gcp':
+        return process.env.GCP_EMBEDDINGS_MODEL || 'gemini-embedding-001';
       default:
         return 'local-hash-v1';
     }
@@ -43,12 +48,12 @@ export class EmbeddingsService {
 
   /** One vector for one string. */
   async embed(text: string): Promise<number[]> {
-    const [v] = await this.embedBatch([text]);
+    const [v] = await this.embedBatch([text], 'RETRIEVAL_QUERY');
     return v;
   }
 
   /** Vectors for many strings (one round-trip where the provider supports it). */
-  async embedBatch(texts: string[]): Promise<number[][]> {
+  async embedBatch(texts: string[], task: EmbeddingTask = 'RETRIEVAL_DOCUMENT'): Promise<number[][]> {
     if (!texts.length) return [];
     try {
       switch (this.provider) {
@@ -60,10 +65,16 @@ export class EmbeddingsService {
           return await this.embedAzure(texts);
         case 'bedrock':
           return await this.embedBedrock(texts);
+        case 'gcp':
+          return await this.embedGcp(texts, task);
         default:
           return texts.map((t) => this.embedLocal(t));
       }
     } catch (err) {
+      if (this.provider === 'gcp') {
+        this.logger.warn('Google embeddings unavailable; no replacement vectors were written');
+        throw new ServiceUnavailableException('Semantic search is temporarily unavailable. Use the repository search field or try again.');
+      }
       this.logger.warn(
         `Embeddings provider "${this.provider}" failed (${String(err)}) — falling back to local`,
       );
@@ -72,7 +83,7 @@ export class EmbeddingsService {
   }
 
   cost(): 'free' | 'paid' {
-    return this.provider === 'openai' || this.provider === 'azure' || this.provider === 'bedrock'
+    return this.provider === 'openai' || this.provider === 'azure' || this.provider === 'bedrock' || this.provider === 'gcp'
       ? 'paid'
       : 'free';
   }
@@ -212,6 +223,17 @@ export class EmbeddingsService {
       out.push(this.fit(payload.embedding as number[]));
     }
     return out;
+  }
+
+  // ─── Google Cloud Gemini embeddings: managed, paid ────────────────────────
+  private async embedGcp(texts: string[], task: EmbeddingTask): Promise<number[][]> {
+    const result = await embedWithGemini(texts, this.dim, task);
+    return result.vectors.map((vector) => this.fit(vector));
+  }
+
+  /** Isolates Google model/dimension changes during re-indexing and rolling releases. */
+  get indexProvider(): string {
+    return this.provider === 'gcp' ? `gcp:${this.model}:${this.dim}:retrieval-v1` : this.provider;
   }
 
   // ─── helpers ────────────────────────────────────────────────────────────────

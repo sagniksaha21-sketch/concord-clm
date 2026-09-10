@@ -182,6 +182,6 @@ describe('Boot guard on the scanning configuration', () => {
   it('accepts the one coherent production configuration', () => {
     process.env.MALWARE_SCAN_URL = 'https://scan.internal/scan';
     process.env.UPLOAD_REQUIRE_SCAN = 'true';
-    expect(errorsAbout(/scan/i)).toHaveLength(0);
+    expect(errorsAbout(/malware scanner|MALWARE_SCAN_URL|CLAMAV_HOST|UPLOAD_REQUIRE_SCAN/i)).toHaveLength(0);
   });
 });

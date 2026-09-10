@@ -10,6 +10,7 @@ import {
 import { PrismaService } from '../persistence/prisma.service';
 import { isProduction } from '../security/security.config';
 import { auditAppendFailures } from '../telemetry/telemetry';
+import { legalAiProvider } from '../common/gcp-config';
 
 /** Input to record an event — the chain fields (seq/prevHash/hash) are computed here. */
 export interface AuditInput {
@@ -243,7 +244,9 @@ export class AuditService implements OnModuleInit {
             const lockWait = Number(process.env.AUDIT_LOCK_TIMEOUT_MS || 5_000);
             await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = '${lockWait}ms'`);
             // Serialize chain appends cluster-wide. Released on commit/rollback.
-            await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock($1)', AUDIT_LOCK_KEY);
+            // Prisma cannot deserialize PostgreSQL's void result. Acquire the
+            // same transaction lock while returning a supported integer column.
+            await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock($1)', AUDIT_LOCK_KEY);
 
             // Did a previous attempt already commit this exact event?
             const already = await tx.auditEvent.findUnique({ where: { id: eventId } });
@@ -619,22 +622,30 @@ export class AuditService implements OnModuleInit {
     let model: string | undefined;
     switch (capability) {
       case 'chat':
-      case 'review':
       case 'triage':
         provider = env.CHAT_PROVIDER ?? (env.AZURE_OPENAI_ENDPOINT ? 'azure' : 'local');
         model = env.CHAT_MODEL ?? env.BEDROCK_CHAT_MODEL ?? env.AZURE_OPENAI_DEPLOYMENT;
+        break;
+      case 'review':
+        provider = legalAiProvider('review');
+        model = provider === 'gcp' ? env.GCP_GEMINI_MODEL : env.AZURE_OPENAI_DEPLOYMENT;
         break;
       case 'embeddings':
         provider = env.EMBEDDINGS_PROVIDER ?? 'local';
         model = env.EMBEDDINGS_MODEL ?? env.BEDROCK_EMBEDDINGS_MODEL ?? env.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT;
         break;
       case 'extract':
-        provider = env.EXTRACT_PROVIDER ?? (env.AZURE_OPENAI_ENDPOINT ? 'azure' : 'local');
+        provider = env.EXTRACT_PROVIDER || env.CHAT_PROVIDER || (env.AZURE_OPENAI_ENDPOINT ? 'azure' : 'local');
         model = env.CHAT_MODEL ?? env.AZURE_OPENAI_DEPLOYMENT;
         break;
       case 'ocr':
         provider = env.OCR_PROVIDER ?? 'none';
         break;
+    }
+    if (provider === 'gcp') {
+      model = capability === 'embeddings' ? env.GCP_EMBEDDINGS_MODEL || 'gemini-embedding-001'
+        : capability === 'ocr' ? `document-ai:${env.GCP_DOCUMENT_AI_PROCESSOR || 'unconfigured'}`
+        : env.GCP_GEMINI_MODEL;
     }
     return { capability, provider, model, advisory: true, ...extra };
   }

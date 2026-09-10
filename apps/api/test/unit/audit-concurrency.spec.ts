@@ -86,6 +86,9 @@ function fakePostgres() {
         auditAnchor: anchorTable,
         $executeRawUnsafe: async () => 0, // SET LOCAL lock_timeout
         $queryRawUnsafe: async (sql: string) => {
+          // PostgreSQL returns void for a bare lock-function projection; Prisma
+          // rejects that result before any event can be appended.
+          if (/^SELECT\s+pg_advisory_xact_lock/i.test(sql)) throw new Error('Failed to deserialize column of type void');
           if (/pg_advisory_xact_lock/.test(sql)) {
             await acquire();
             took = true;
