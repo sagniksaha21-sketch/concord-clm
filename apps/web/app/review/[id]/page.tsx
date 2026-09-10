@@ -18,6 +18,9 @@ export default async function ReviewPage({ params }: { params: { id: string } })
     getContract(params.id, token),
     getReview(params.id, token),
   ]);
+  const exampleReview = review.model === 'built-in';
+  const metadataReview = review.model === 'synthesized';
+  const reviewBasis = exampleReview ? 'Example findings' : metadataReview ? 'Metadata overview' : 'Document findings';
 
   return (
     <>
@@ -42,7 +45,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
 
       <div className="ai-advisory" role="note">
         <IconShield />
-        <div><b>AI is advisory, not dispositive.</b><span>Findings are grounded in the linked agreement and must be verified by counsel before approval or signature.</span></div>
+        <div><b>{exampleReview ? 'Illustrative review' : metadataReview ? 'Document review is not available yet' : 'AI is advisory, not dispositive.'}</b><span>{exampleReview ? 'These are built-in example findings. They are not a live AI assessment of an uploaded agreement.' : metadataReview ? 'This overview uses contract metadata. Link an extracted agreement for a document-based assessment.' : 'Findings must be checked against the linked agreement by counsel before approval or signature.'}</span></div>
         <span className="ai-model"><IconSparkle />{review.model}</span>
       </div>
 
@@ -52,7 +55,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
         <section className="card review-document" id="document">
           <div className="card-head review-doc-head">
             <div><b>{contract.title}</b><span className="id">{contract.id} · {review.clausesParsed} clauses parsed</span></div>
-            <span className="ai-tag"><IconSparkle /> grounded findings</span>
+            <span className="ai-tag"><IconSparkle />{reviewBasis}</span>
           </div>
           <div className="doc review-doc-body">
             {review.clauses.length === 0 && (
@@ -75,7 +78,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
         </section>
 
           <section className="card card-pad" id="terms">
-            <div className="section-kicker">AI-extracted key terms</div>
+            <div className="section-kicker">{exampleReview ? 'Example key terms' : metadataReview ? 'Contract metadata' : 'AI-extracted key terms'}</div>
             <p className="section-summary">{review.summary}</p>
             <div className="kv premium-kv">
               {review.extractedTerms.map((t) => (
@@ -98,7 +101,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
           </section>
       </div>
 
-      <p className="page-note">Review generated from the contract system of record. Model provenance and the resulting decision are captured in the audit trail.</p>
+      <p className="page-note">Verify the source agreement, review findings and approval authority before making a legal decision.</p>
     </>
   );
 }

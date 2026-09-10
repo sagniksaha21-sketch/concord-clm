@@ -217,7 +217,7 @@ export default function CommandCenter() {
         </div>
       </div>
 
-      <div className="bento">
+      <div className="bento dashboard-records">
         {/* Needs attention */}
         <div className="card col-8">
           <div className="card-head">
@@ -240,14 +240,14 @@ export default function CommandCenter() {
                       <div className="t-id">{a.id}</div>
                     </td>
                     <td role="cell" data-label="Counterparty">{a.counterparty}</td>
-                    <td role="cell" data-label="Value">{a.valueDisplay}</td>
+                    <td role="cell" data-label="Value" className="t-nowrap">{a.valueDisplay}</td>
                     <td role="cell" data-label="Stage"><span className="badge neutral">{a.stage}</span></td>
                     <td role="cell" data-label="Risk">
                       <span className={`badge ${a.risk === 'medium' ? 'med' : a.risk}`}>
                         <i className="bd" />{a.risk}
                       </span>
                     </td>
-                    <td role="cell" data-label="Key date" className="t-id">{a.keyDate}</td>
+                    <td role="cell" data-label="Key date" className="t-id t-nowrap">{a.keyDate}</td>
                   </tr>
                 ))}
                 {!data.attention.length && (

@@ -26,6 +26,28 @@ The earlier reported Audit persistence/chain failure remains unresolved and visi
 
 The final implementation passed the shared package/frontend production build, including Next.js type validation, all 17 existing UX regression checks, and `git diff --check`.
 
-The original reference screenshot and current live desktop login were inspected. The new secure browser sign-in did not complete, and its session ended; a fresh target-domain page still shows login. Internal post-deployment workflow inspection therefore remains pending. The available cloud browser does not provide viewport resizing or preference emulation: exact 360px, 390px, 430px, and tablet visual checks remain pending, as documented in the prior audit. Responsive source review is not equivalent to these visual checks.
+## Authenticated follow-up review
 
-Railway status and public login appearance are checked after publication; the actual result is reported with the delivered commit rather than presumed from compilation.
+The secure sign-in subsequently succeeded. The original cream/black/gold login, the full authenticated greeting, and the internal workspace were inspected on the live Railway URL.
+
+The follow-up covers Command Center, intake, pipeline, AI review and contract detail/approval controls, authoring, clauses, templates, repository/search, executed-copy empty states, obligations, signature preparation, notifications, ingestion, Audit, and the command/account controls. Desktop light and dark views were inspected. Verified interactions include pipeline risk filtering, clause expansion, template edit/cancel, repository no-result/clear recovery, signature add/remove and stamp disclosure, and command navigation.
+
+Additional findings addressed in this release:
+
+- Hydrate account name and role from the existing authenticated `/auth/me` endpoint so restored cookies do not depend on localStorage identity.
+- Reflow the dashboard attention table and key dates onto separate rows at intermediate widths; keep short status pills, monetary values and dates intact.
+- Rank an exact command label ahead of matches in another command's description. Searching “Templates” previously selected Authoring first.
+- Distinguish built-in review examples and metadata summaries from document findings using existing API provenance. Preserve every finding and legal workflow action.
+- Add an executed-copy empty state in the repository and simplify notifications and signature guidance.
+- Keep the failed audit verification visible, with technical diagnostic details under an accessible disclosure. Remove unconditional claims of audit completeness and archive immutability from general UI copy.
+- Call the existing keyword-based intake classification “Guided triage.” No classification or business logic changes.
+
+Remaining verification limits and findings:
+
+- The browser exposes no viewport resize or preference-emulation capability. Exact 360px, 390px, 430px and tablet visual checks, and emulated reduced-motion/transparency checks, remain pending. Responsive source review and the UX gate are not substitutes for device screenshots.
+- The staging Audit screen explicitly reports failed persistence and an unverifiable/incomplete chain. Its diagnostic cites Prisma raw-query deserialization of PostgreSQL `void`. No backend/audit fix is included in this frontend release.
+- Staging reports degraded local-disk storage, sample pipeline records and a built-in contract review. These are not production integration acceptance evidence.
+- Notification and signing histories are empty. No approval email, reminder or signing envelope was sent as part of UI inspection; no legal record was edited.
+- Fresh full login submission after the final deployment remains a separate acceptance check; the signed-in session and public login appearance are rechecked after deployment.
+
+The final source build/type validation and all 17 existing UX checks pass. Deployment success and the resulting live screen checks are reported with the released commit. No authentication handlers, cookies, API rewrites, RBAC rules, dependencies, database data or Railway source settings were changed.

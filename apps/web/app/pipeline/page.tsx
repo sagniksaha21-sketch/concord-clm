@@ -29,7 +29,7 @@ export default function PipelinePage() {
 
   return (
     <>
-      {board.sampleData && <div className="demo-note"><IconAlert /><span><b>Development data.</b> These cards are sample contracts because this environment has no database.</span></div>}
+      {board.sampleData && <div className="demo-note"><IconAlert /><span><b>Illustrative data.</b> This board is showing sample contracts, not a verified live portfolio.</span></div>}
       <div className="view-head"><div className="vh-left"><div className="eyebrow">Lifecycle command board</div><h2>Contract pipeline</h2><p>See work, risk and bottlenecks across every lifecycle stage without creating a second source of truth.</p></div><div className="view-actions"><Link className="btn btn-gold" href="/intake">New request</Link></div></div>
 
       <div className="metric-strip compact-metrics"><div><span>Portfolio</span><b>{board.total}</b><small>contracts on board</small></div><div><span>In legal review</span><b>{reviewCount}</b><small>review + approval</small></div><div><span>High risk</span><b>{highCount}</b><small>priority exposure</small></div></div>

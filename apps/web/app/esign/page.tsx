@@ -76,13 +76,13 @@ export default function ESignPage() {
     <>
       <div className="view-head">
         <div className="vh-left"><div className="eyebrow">Execution control</div><h2>Send &amp; track signatures</h2><p>Route a persisted contract through the configured e-signature provider, procure digital stamp paper when required, and file the executed copy back into the protected archive.</p></div>
-        <div className="trust-inline"><IconShield /><span>Verified webhooks · immutable archive · SHA-256 integrity</span></div>
+        <div className="trust-inline"><IconShield /><span>Controlled signing · Execution evidence · File integrity</span></div>
       </div>
 
       <div className="metric-strip compact-metrics"><div><span>Active envelopes</span><b>{loading ? '—' : pending}</b><small>awaiting completion</small></div><div><span>Completed</span><b>{loading ? '—' : completed}</b><small>execution lifecycle</small></div><div><span>Archived copies</span><b>{loading ? '—' : archive.length}</b><small>sealed records</small></div></div>
 
       <section className="card esign-compose">
-        <div className="form-card-head"><span className="document-avatar"><IconSign /></span><div><h3>New signing request</h3><p>The selected contract is resolved again on the server before an envelope is created.</p></div></div>
+        <div className="form-card-head"><span className="document-avatar"><IconSign /></span><div><h3>New signing request</h3><p>Choose the agreement and confirm who is signing before you send.</p></div></div>
         <div className="esign-grid">
           <label className="premium-field"><span>Contract *</span><select value={contractId} onChange={(e) => setContractId(e.target.value)} disabled={!contracts.length}>{contracts.length ? contracts.map((c) => <option value={c.id} key={c.id}>{c.title} — {c.counterparty} · {c.id}</option>) : <option>{loading ? 'Loading contracts…' : 'No persisted contracts available'}</option>}</select></label>
           <label className="premium-field"><span>Message to signatories <small>optional</small></span><input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Please review and sign by the requested date." maxLength={1200} /></label>
@@ -118,7 +118,7 @@ export default function ESignPage() {
         {loading ? <LoadingState compact label="Loading executed copies" /> : !error && !archive.length && <EmptyState title="No executed copies yet" icon={<IconShield />}>Completed envelopes will be sealed and filed here, with their signature evidence and integrity checksum.</EmptyState>}
       </section>
 
-      <p className="page-note">Signing status can advance in production only through the authenticated provider workflow and verified webhook path. Executed copies are retained in durable object storage and their access is audited.</p>
+      <p className="page-note">Confirm approval and signing authority before sending. Completed documents will appear in the executed-contract archive.</p>
     </>
   );
 }

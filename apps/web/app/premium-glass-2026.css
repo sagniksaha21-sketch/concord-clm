@@ -130,12 +130,19 @@ svg {flex-shrink:0}
 .badge,.chip,.meta-chip {font:600 .75rem/1.4 var(--font-ui);padding:4px 8px;letter-spacing:0}
 .badge {border:1px solid color-mix(in srgb,currentColor 12%,transparent);box-shadow:var(--edge-highlight);text-transform:capitalize;max-width:100%;white-space:normal;overflow-wrap:anywhere}
 .badge.medium {color:var(--med);background:var(--med-bg)}
+.tbl .badge {white-space:nowrap;overflow-wrap:normal;flex-shrink:0}
+.badge .bd,.badge .d {flex-shrink:0}
 .t-id,.mono-badge,.kc-id {font-size:.75rem;line-height:1.5;overflow-wrap:anywhere}
 .result-count {font:500 .8125rem/1.4 var(--font-ui);white-space:normal}
+.verification-copy {font-size:.875rem;line-height:1.6;margin:6px 0 0}
+.verification-details {font-size:.8125rem;margin-top:8px;overflow-wrap:anywhere}
+.verification-details summary {min-height:44px;display:flex;align-items:center;cursor:pointer;text-decoration:underline;text-underline-offset:4px}
+.verification-details p {margin:4px 0 0;line-height:1.6}
 .tbl-wrap {max-width:100%;overscroll-behavior-x:contain}
 table.tbl {font-size:.875rem;min-width:0}
 table.tbl th {font:650 .75rem/1.4 var(--font-ui);letter-spacing:.06em;color:var(--ink-2);background:var(--material-inset);padding:13px 16px}
 table.tbl td {padding:16px;line-height:1.5;overflow-wrap:anywhere}
+table.tbl .t-nowrap {white-space:nowrap;overflow-wrap:normal}
 .tbl .t-strong {font-weight:650;font-size:.9375rem}
 .tbl a.t-strong {text-decoration:underline;text-decoration-color:var(--gold-ring);text-underline-offset:4px}
 .tbl tbody tr:hover {background:var(--material-inset)}
@@ -323,6 +330,7 @@ details[open]>.quick-popover,details[open]>.account-popover,details[open]>.retri
 .login-trust,.login-footnote {font-size:.75rem;line-height:1.6}
 .login-footnote {max-width:44ch}
 @media(min-width:1600px) {.topbar .u-meta{display:flex}.topbar .u-meta b{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.top-search{flex-basis:340px}.topbar{gap:18px}}
+@media(max-width:1500px) {.dashboard-records>.col-8,.dashboard-records>.col-4{grid-column:1/-1}}
 @media(min-width:961px) and (max-width:1200px) {.top-search{width:44px;flex:0 0 44px;padding:0;justify-content:center}.top-search span{display:none}.topbar .theme-toggle{display:none}.topbar{gap:10px}.page-title{min-width:120px}}
 @media(max-width:1200px) {.grid{grid-template-columns:minmax(0,1fr)}.authoring-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.authoring-controls>.btn{grid-column:1/-1;justify-self:start}}
 @media(max-width:960px) {

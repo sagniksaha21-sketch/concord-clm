@@ -110,7 +110,10 @@ export default function AuditPage() {
           />
           <div>
             <b>{verify.ok ? 'Chain intact' : 'Chain NOT verified'}</b>
-            <div style={{ fontSize: 12.5, marginTop: 4, lineHeight: 1.55 }}>{verify.message}</div>
+            {verify.ok ? <p className="verification-copy">{verify.message}</p> : <>
+              <p className="verification-copy">The audit trail could not be verified. Ask your system administrator to investigate before relying on it as complete decision evidence.</p>
+              <details className="verification-details"><summary>View verification details</summary><p>{verify.message}</p></details>
+            </>}
           </div>
         </div>
       )}

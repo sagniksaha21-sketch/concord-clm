@@ -63,7 +63,7 @@ const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   '/obligations': 'Track commitments, renewals and deadlines',
   '/esign': 'Prepare signature and e-stamp workflows',
   '/notifications': 'Review legal workflow notifications',
-  '/audit': 'Inspect immutable lifecycle evidence',
+  '/audit': 'Inspect lifecycle events and decision evidence',
 };
 
 function Glyph({ href }: { href: string }) {
@@ -204,7 +204,11 @@ export default function CommandPalette({
       return out;
     }
 
-    for (const c of commands) {
+    const labelRank = (c: PaletteCommand) => {
+      const label = c.label.toLowerCase();
+      return label === term ? 0 : label.startsWith(term) ? 1 : label.includes(term) ? 2 : 3;
+    };
+    for (const c of [...commands].sort((a, b) => labelRank(a) - labelRank(b))) {
       const hay = `${c.label} ${c.description ?? ''} ${DEFAULT_DESCRIPTIONS[c.href] ?? ''}`.toLowerCase();
       if (!hay.includes(term)) continue;
       out.push({

@@ -15,7 +15,7 @@ const TONE: Record<NotificationRecord['status'], string> = {
 };
 
 const LABEL: Record<NotificationRecord['status'], string> = {
-  sent: 'delivered',
+  sent: 'sent',
   'dry-run': 'dry-run',
   failed: 'not delivered',
   unknown: 'recorded',
@@ -37,9 +37,8 @@ export default function NotificationsPage() {
         <div className="vh-left">
           <div className="eyebrow">Communication history</div><h2>Outlook notifications</h2>
           <p>
-            Every notice <ConcordWordmark /> sent — approval requests, signature dispatches, execution seals and
-            the obligations digest. Read from the immutable audit trail rather than a separate log,
-            so this page cannot disagree with the evidentiary record.
+            Review approval requests, signature updates and obligation reminders recorded by <ConcordWordmark />.
+            Check each event’s status to see whether it was sent, failed or recorded as a dry-run.
           </p>
         </div>
       </div>
@@ -80,9 +79,8 @@ export default function NotificationsPage() {
 
       <div className="card card-pad u-mt">
         <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.6 }}>
-          <b>“Dry-run” means nothing was sent.</b> Microsoft Graph is not configured, so <ConcordWordmark />
-          logged the message it would have sent instead of delivering it. In production a dry-run is
-          treated as a delivery failure — an approval that nobody received is not a routed approval.
+          <b>“Dry-run” means nothing was sent.</b> A planned notice was recorded without sending email.
+          A sent status confirms dispatch; it does not confirm that the recipient read the message.
         </p>
       </div>
     </>

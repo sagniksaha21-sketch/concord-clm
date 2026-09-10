@@ -113,7 +113,7 @@ export default function RepositoryPage() {
 
       {!loading && !searchError && docs.length > 0 && (
         <section className="card archive-panel">
-          <div className="archive-head"><div><span className="section-kicker">Immutable archive</span><h3>Executed &amp; signed copies</h3></div><span className="badge low"><span className="d" />{docs.length}</span></div>
+          <div className="archive-head"><div><span className="section-kicker">Document archive</span><h3>Executed &amp; signed copies</h3></div><span className="badge low"><span className="d" />{docs.length}</span></div>
           <div className="archive-list">
             {docs.map((a) => (
               <article className="archive-row" key={a.id}>
@@ -147,7 +147,10 @@ export default function RepositoryPage() {
         </div>
       </section>
 
-      <p className="page-note">Search and answers respect the signed-in user’s permissions. Retrieval/model provenance is surfaced so counsel can distinguish evidence from generated synthesis.</p>
+      {!loading && !searchError && !q.trim() && !docs.length && hits.length > 0 && <section className="card archive-panel" aria-label="Executed document archive">
+        <EmptyState title="No executed copies yet" icon={<IconDoc />}>Completed signature requests will appear here with their signed documents and file checksums.</EmptyState>
+      </section>}
+      <p className="page-note">Use the cited records to verify an answer. Retrieval and model details show how each response was produced.</p>
     </>
   );
 }

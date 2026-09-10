@@ -75,7 +75,7 @@ export default function IntakePage() {
 
         <aside className="card intake-guide">
           <div className="section-kicker">What happens next</div>
-          <ol className="guided-steps"><li><span>1</span><div><b>Request validation</b><p>Required commercial context is captured and normalized.</p></div></li><li><span>2</span><div><b>AI-assisted triage</b><p>Contract type, template fit and preliminary risk are suggested.</p></div></li><li><span>3</span><div><b>Legal ownership</b><p>The request moves into the controlled contract lifecycle.</p></div></li></ol>
+          <ol className="guided-steps"><li><span>1</span><div><b>Request validation</b><p>Required commercial context is captured and normalized.</p></div></li><li><span>2</span><div><b>Guided triage</b><p>Contract type, template fit and preliminary risk are suggested.</p></div></li><li><span>3</span><div><b>Legal ownership</b><p>The request moves into the controlled contract lifecycle.</p></div></li></ol>
         </aside>
       </div>
 

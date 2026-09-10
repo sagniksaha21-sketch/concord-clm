@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ROLE_LABELS, normalizeRole } from '@concord/shared';
 import type { NavCounts, Permission, Role } from '@concord/shared';
-import { getNavCounts, getPermissions, logout as apiLogout } from '@/app/lib/api';
+import { getMe, getNavCounts, getPermissions, logout as apiLogout } from '@/app/lib/api';
 import CommandPalette, { type PaletteCommand } from '@/components/CommandPalette';
 import XcelerateSplash from '@/components/XcelerateSplash';
 import SystemStatus from '@/components/SystemStatus';
@@ -71,7 +71,7 @@ const NAV: NavEntry[] = [
   { href: '/esign', label: 'E-signature & e-Stamp', match: '/esign', icon: IconSign, count: 'esign', needs: 'esign:send', group: 'execute', description: 'Prepare signature and e-stamp workflows' },
 
   { href: '/notifications', label: 'Outlook Notifications', match: '/notifications', icon: IconMail, needs: 'audit:read', group: 'governance', description: 'Review legal workflow notifications' },
-  { href: '/audit', label: 'Audit Trail', match: '/audit', icon: IconShield, needs: 'audit:read', group: 'governance', description: 'Inspect immutable lifecycle evidence' },
+  { href: '/audit', label: 'Audit Trail', match: '/audit', icon: IconShield, needs: 'audit:read', group: 'governance', description: 'Inspect lifecycle events and decision evidence' },
 ];
 
 const BARE = ['/login'];
@@ -155,16 +155,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (bare) return;
     let live = true;
-    try {
-      const raw = localStorage.getItem('concord_user');
-      if (raw) {
-        const u = JSON.parse(raw);
+    getMe()
+      .then((u) => {
+        if (!live) return;
         const role = normalizeRole(u.role);
-        setWho({ name: u.name ?? u.email ?? 'Signed in', role, roleLabel: ROLE_LABELS[role] });
-      }
-    } catch {
-      /* storage unavailable — identity will still be enforced server-side */
-    }
+        setWho({ name: u.name?.trim() || u.email || 'Signed in', role, roleLabel: ROLE_LABELS[role] });
+      })
+      .catch(() => live && setWho(null));
     getPermissions()
       .then((p) => live && setPerms(p.permissions))
       .catch(() => live && setPerms(null));
@@ -487,7 +484,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
         <footer className="foot">
           <span><ConcordWordmark /> CLM · Lakmē Lever Private Limited</span><span className="dotsep" />
-          <span>Every state change is recorded in the immutable audit trail</span>
+          <span>Legal workflows · Accountable decisions</span>
         </footer>
       </div>
 
