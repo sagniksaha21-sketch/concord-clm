@@ -5,6 +5,7 @@ import Link from 'next/link';
 import type { DashboardSummary } from '@concord/shared';
 import { getDashboard } from '@/app/lib/api';
 import { CountUp, Gauge, Skeleton } from '@/components/Motion';
+import { ErrorState } from '@/components/WorkspaceUI';
 import {
   IconAlert, IconArrowDown, IconArrowUp, IconCalendar, IconClock, IconDoc,
   IconFlow, IconRupee, IconSparkle,
@@ -39,10 +40,7 @@ export default function CommandCenter() {
 
   if (err) {
     return (
-      <div className="card card-pad">
-        <b>The portfolio could not be loaded.</b>
-        <p style={{ color: 'var(--muted)', marginTop: 6, fontSize: 13 }}>{err}</p>
-      </div>
+      <ErrorState title="The portfolio could not be loaded.">{err}</ErrorState>
     );
   }
   if (!data) {
@@ -51,15 +49,16 @@ export default function CommandCenter() {
     // a broken page. The placeholders are deliberately shapeless — mimicking
     // rows would imply a row count nothing has counted yet.
     return (
-      <>
-        <div className="skeleton" style={{ height: 78, marginBottom: 18 }} />
+      <div role="status" aria-label="Loading your portfolio">
+        <span className="sr-only">Loading your portfolio</span>
+        <div className="skeleton" aria-hidden="true" style={{ height: 78, marginBottom: 18 }} />
         <div className="bento" style={{ marginBottom: 18 }}>
           {[0, 1, 2, 3].map((i) => (
             <div className="skeleton sk-card col-3" key={i} />
           ))}
         </div>
         <div className="card card-pad"><Skeleton lines={4} /></div>
-      </>
+      </div>
     );
   }
 
@@ -73,6 +72,9 @@ export default function CommandCenter() {
   const stat = (key: string) => data.stats.find((s) => s.key === key)?.value ?? '0';
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  // The dashboard API supplies the authenticated user's display name. Preserve
+  // it in full: taking its first word can turn an account name into our brand.
+  const displayName = data.greetingName?.trim();
   const reviewHref = data.attention.find((a) => a.href?.startsWith('/review/'))?.href ?? '/review';
 
   return (
@@ -93,7 +95,7 @@ export default function CommandCenter() {
           <div className="eyebrow">Portfolio overview</div>
           <h2>
             {greeting}
-            {data.greetingName ? `, ${data.greetingName.split(' ')[0]}` : ''}.
+            {displayName ? <>, <span className="greeting-name">{displayName}</span></> : null}.
           </h2>
           <p>
             {stat('contracts')} contracts in the portfolio ·{' '}

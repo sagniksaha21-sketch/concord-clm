@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { search as searchApi } from '@/app/lib/api';
 import type { SearchHit } from '@concord/shared';
+import { ConcordText, ConcordWordmark } from '@/components/ConcordBrand';
 import {
   IconArrowRight,
   IconBox,
@@ -372,7 +373,7 @@ export default function CommandPalette({
                     <span className="palette-row-icon"><Glyph href={row.href} /></span>
                     <span className="pi-main">
                       <span className="pi-title">{row.title}</span>
-                      <span className="pi-sub">{row.subtitle}</span>
+                      <span className="pi-sub">{row.kind === 'command' ? <ConcordText>{row.subtitle}</ConcordText> : row.subtitle}</span>
                     </span>
                     {row.badge ? <span className={`badge ${row.badgeTone ?? 'neutral'}`}>{row.badge}</span> : null}
                     <IconArrowRight className="palette-arrow" />
@@ -387,7 +388,7 @@ export default function CommandPalette({
           <span><span className="kbd">↑↓</span> navigate</span>
           <span><span className="kbd">↵</span> open</span>
           <span><span className="kbd">/</span> search</span>
-          <span className="palette-foot-right">Concord · permission-aware search</span>
+          <span className="palette-foot-right"><ConcordWordmark /> · permission-aware search</span>
         </div>
       </div>
     </div>

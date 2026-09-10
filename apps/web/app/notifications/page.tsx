@@ -5,6 +5,7 @@ import type { NotificationRecord } from '@concord/shared';
 import { getNotifications } from '@/app/lib/api';
 import { EmptyState, ErrorState, LoadingState } from '@/components/WorkspaceUI';
 import { IconMail } from '@/components/icons';
+import { ConcordWordmark } from '@/components/ConcordBrand';
 
 const TONE: Record<NotificationRecord['status'], string> = {
   sent: 'low',
@@ -36,7 +37,7 @@ export default function NotificationsPage() {
         <div className="vh-left">
           <div className="eyebrow">Communication history</div><h2>Outlook notifications</h2>
           <p>
-            Every notice Concord sent — approval requests, signature dispatches, execution seals and
+            Every notice <ConcordWordmark /> sent — approval requests, signature dispatches, execution seals and
             the obligations digest. Read from the immutable audit trail rather than a separate log,
             so this page cannot disagree with the evidentiary record.
           </p>
@@ -79,7 +80,7 @@ export default function NotificationsPage() {
 
       <div className="card card-pad u-mt">
         <p style={{ margin: 0, fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.6 }}>
-          <b>“Dry-run” means nothing was sent.</b> Microsoft Graph is not configured, so Concord
+          <b>“Dry-run” means nothing was sent.</b> Microsoft Graph is not configured, so <ConcordWordmark />
           logged the message it would have sent instead of delivering it. In production a dry-run is
           treated as a delivery failure — an approval that nobody received is not a routed approval.
         </p>

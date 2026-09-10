@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import type { IngestResult } from '@concord/shared';
 import { API_BASE, getSampleIngest, uploadFiles } from '@/app/lib/api';
 import { IconAlert, IconCheck, IconDoc, IconShield, IconUpload } from '@/components/icons';
+import { ConcordWordmark } from '@/components/ConcordBrand';
 
 const MAX_FILES = 20;
 const MAX_BYTES = 25 * 1024 * 1024;
@@ -76,7 +77,7 @@ export default function IngestPage() {
           <div className="eyebrow">Secure intake pipeline</div>
           <h2>Ingest agreements</h2>
           <p>
-            Upload up to {MAX_FILES} agreements at once. Concord verifies the file, scans it,
+            Upload up to {MAX_FILES} agreements at once. <ConcordWordmark /> verifies the file, scans it,
             extracts text, validates identifiers and prepares structured contract data for counsel review.
           </p>
         </div>

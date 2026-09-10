@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ConcordWordmark } from '@/components/ConcordBrand';
 
 const SEEN_KEY = 'concord_splash_seen';
 
@@ -80,7 +81,7 @@ export default function XcelerateSplash() {
       <div className="splash-inner">
         <img className="splash-mark" src="/brand/xcelerate-2026.png" alt="" draggable={false} />
         <div className="splash-line" />
-        <div className="splash-cap">Concord · Contract Lifecycle Management</div>
+        <div className="splash-cap"><ConcordWordmark /> · Contract Lifecycle Management</div>
       </div>
       <button className="splash-skip" onClick={() => setShow(false)} tabIndex={-1}>
         Skip

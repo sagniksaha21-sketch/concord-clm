@@ -9,6 +9,7 @@ import { getNavCounts, getPermissions, logout as apiLogout } from '@/app/lib/api
 import CommandPalette, { type PaletteCommand } from '@/components/CommandPalette';
 import XcelerateSplash from '@/components/XcelerateSplash';
 import SystemStatus from '@/components/SystemStatus';
+import { ConcordText, ConcordWordmark } from '@/components/ConcordBrand';
 import {
   IconAlert,
   IconBell,
@@ -293,7 +294,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     apiLogout().catch(() => undefined).finally(() => router.push('/login'));
   }, [router]);
 
-  if (bare) return <>{children}</>;
+  const appearanceButtons = <>
+    <button type="button" title="Use system appearance" aria-pressed={appearance === 'system'} onClick={() => chooseAppearance('system')}><IconMonitor /><span>System</span></button>
+    <button type="button" title="Use light appearance" aria-pressed={appearance === 'light'} onClick={() => chooseAppearance('light')}><IconSun /><span>Light</span></button>
+    <button type="button" title="Use dark appearance" aria-pressed={appearance === 'dark'} onClick={() => chooseAppearance('dark')}><IconMoon /><span>Dark</span></button>
+  </>;
+
+  if (bare) return <>
+    <div className="login-appearance appearance-switch" role="group" aria-label="Appearance">{appearanceButtons}</div>
+    {children}
+  </>;
 
   const { eyebrow, title } = titleFor(path);
   const initials =
@@ -330,11 +340,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <aside className={`sidebar${menuOpen ? ' is-open' : ''}`} aria-label="Primary navigation">
         <div className="sidebar-brand-row">
           <div className="brand">
-            <div className="brand-full">
+            <Link className="brand-full brand-home" href="/" aria-label="Concord home">
               <img className="brand-logo" src="/brand/lakme-salon.png" alt="Lakmē Salon" draggable={false} />
-              <div className="brand-wordmark">Concord</div><div className="brand-caption">Legal operations workspace</div>
-            </div>
-            <div className="rail-mark" aria-hidden="true">C</div>
+              <ConcordWordmark variant="display" /><div className="brand-caption">Legal operations workspace</div>
+            </Link>
+            <Link className="rail-mark" href="/" aria-label="Concord home">C</Link>
           </div>
           <button
             className="sidebar-collapse"
@@ -379,7 +389,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="sidebar-foot">
-          <b>Concord</b> — contract lifecycle management for the LLPL legal function.
+          <ConcordWordmark /> — contract lifecycle management for the LLPL legal function.
           Signed in as <b>{who?.roleLabel ?? '—'}</b>.
         </div>
 
@@ -398,7 +408,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </button>
 
           <div className="page-title">
-            <span className="pt-eyebrow">{eyebrow}</span>
+            <span className="pt-eyebrow"><span className="desktop-eyebrow">{eyebrow}</span><span className="mobile-brand"><ConcordWordmark /></span></span>
             <h1>{title}</h1>
           </div>
 
@@ -425,13 +435,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   return (
                     <Link href={item.href} className="quick-item quick-item-card" key={item.href}>
                       <span className="quick-icon"><Icon /></span>
-                      <span><b>{item.label}</b><small>{item.detail}</small></span>
+                      <span><b><ConcordText>{item.label}</ConcordText></b><small>{item.detail}</small></span>
                     </Link>
                   );
                 })}
               </div>
               <button className="quick-search-row" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); setPaletteOpen(true); }}>
-                <IconSearch /><span>Search everything in Concord</span><span className="kbd">⌘K</span>
+                <IconSearch /><span>Search everything in <ConcordWordmark /></span><span className="kbd">⌘K</span>
               </button>
             </div>
           </details>
@@ -462,9 +472,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               <div className="appearance-block">
                 <span className="menu-section-label">Appearance</span>
                 <div className="appearance-switch" role="group" aria-label="Appearance">
-                  <button aria-pressed={appearance === 'system'} onClick={() => chooseAppearance('system')}><IconMonitor /><span>System</span></button>
-                  <button aria-pressed={appearance === 'light'} onClick={() => chooseAppearance('light')}><IconSun /><span>Light</span></button>
-                  <button aria-pressed={appearance === 'dark'} onClick={() => chooseAppearance('dark')}><IconMoon /><span>Dark</span></button>
+                  {appearanceButtons}
                 </div>
               </div>
               <button onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); setPaletteOpen(true); }}><span>Command centre</span><span className="kbd">⌘K</span></button>
@@ -478,7 +486,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </main>
 
         <footer className="foot">
-          <span>Concord CLM · Lakmē Lever Private Limited</span><span className="dotsep" />
+          <span><ConcordWordmark /> CLM · Lakmē Lever Private Limited</span><span className="dotsep" />
           <span>Every state change is recorded in the immutable audit trail</span>
         </footer>
       </div>
@@ -503,14 +511,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <section id="concord-destinations" ref={sheetRef} className={`mobile-sheet${mobileMoreOpen ? ' is-open' : ''}`} role="dialog" aria-modal="true" aria-hidden={!mobileMoreOpen} aria-label="All Concord destinations" onKeyDown={(e) => { if (e.key === 'Escape') closeMobileMore(); else trapDialogTab(e); }}>
         <div className="sheet-grabber" aria-hidden="true" />
         <div className="sheet-head">
-          <div><span className="pt-eyebrow">Concord</span><h2>Everything in one place</h2></div>
+          <div><ConcordWordmark /><h2>Everything in one place</h2></div>
           <button className="sheet-close" onClick={closeMobileMore} aria-label="Close menu">×</button>
         </div>
         <button className="sheet-search" onClick={() => { setMobileMoreOpen(false); setPaletteOpen(true); }}><IconSearch /><span>Search or jump to anything…</span><span className="kbd">⌘K</span></button>
         <div className="sheet-actions">
           {quickItems.slice(0, 4).map((item) => {
             const Icon = item.icon;
-            return <Link key={`action-${item.href}`} href={item.href}><span><Icon /></span><b>{item.label}</b></Link>;
+            return <Link key={`action-${item.href}`} href={item.href}><span><Icon /></span><b><ConcordText>{item.label}</ConcordText></b></Link>;
           })}
         </div>
         <div className="sheet-nav-scroll">
@@ -528,7 +536,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                     return (
                       <Link key={n.href} href={n.href} className={active ? 'is-active' : ''}>
                         <span className="sheet-link-icon"><Icon /></span>
-                        <span><b>{n.label}</b><small>{n.description}</small></span>
+                        <span><b>{n.label}</b><small><ConcordText>{n.description}</ConcordText></small></span>
                         {typeof c === 'number' && c > 0 ? <span className="n-badge">{c}</span> : <IconChevronDown className="sheet-link-arrow" />}
                       </Link>
                     );

@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import type { RepositoryAnswer, RepositoryHit, ArchivedDocument } from '@concord/shared';
 import { askRepository, searchRepository, getRepositoryDocuments, archiveFileUrl } from '@/app/lib/api';
 import { IconCopy, IconDoc, IconSearch, IconShield, IconSparkle } from '@/components/icons';
+import { ConcordWordmark } from '@/components/ConcordBrand';
 
 const SUGGESTED = [
   'Where do we have Singapore governing law?',
@@ -74,11 +75,11 @@ export default function RepositoryPage() {
       </div>
 
       <section className="ask-workbench card">
-        <div className="ask-workbench-head"><span className="ai-orb"><IconSparkle /></span><div><b>Concord AI</b><p>Ask about clauses, obligations, governing law, data terms, exposure or portfolio patterns.</p></div></div>
+        <div className="ask-workbench-head"><span className="ai-orb"><IconSparkle /></span><div><b><ConcordWordmark /> AI</b><p>Ask about clauses, obligations, governing law, data terms, exposure or portfolio patterns.</p></div></div>
         <form className="askrow premium-ask" onSubmit={(e) => { e.preventDefault(); ask(); }}>
           <IconSearch />
           <input value={question} onChange={(e) => setQuestion(e.target.value)} placeholder="Ask across every contract…" aria-label="Ask Concord AI about the contract repository" />
-          <button className="btn btn-gold" disabled={asking || !question.trim()}>{asking ? 'Reasoning…' : 'Ask Concord AI'}</button>
+          <button className="btn btn-gold" disabled={asking || !question.trim()}>{asking ? 'Reasoning…' : <span>Ask <ConcordWordmark /> AI</span>}</button>
         </form>
         <div className="suggest">
           {SUGGESTED.map((s) => <button type="button" key={s} onClick={() => ask(s)} disabled={asking}>{s}</button>)}

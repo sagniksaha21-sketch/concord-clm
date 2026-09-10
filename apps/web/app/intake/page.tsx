@@ -5,6 +5,7 @@ import type { IntakeRequest } from '@concord/shared';
 import { createIntake, getIntake } from '@/app/lib/api';
 import { LoadingState } from '@/components/WorkspaceUI';
 import { IconCheck, IconDoc, IconSparkle } from '@/components/icons';
+import { ConcordWordmark } from '@/components/ConcordBrand';
 
 const RISK: Record<string, string> = { low: 'low', medium: 'med', high: 'high' };
 const STATUS: Record<string, string> = { new: 'neutral', triaged: 'info', converted: 'low' };
@@ -48,7 +49,7 @@ export default function IntakePage() {
   return (
     <>
       <div className="view-head">
-        <div className="vh-left"><div className="eyebrow">Business-to-legal front door</div><h2>Contract requests</h2><p>Capture the commercial context once, route it consistently, and let Concord suggest the contract path and preliminary risk for legal review.</p></div>
+        <div className="vh-left"><div className="eyebrow">Business-to-legal front door</div><h2>Contract requests</h2><p>Capture the commercial context once, route it consistently, and let <ConcordWordmark /> suggest the contract path and preliminary risk for legal review.</p></div>
       </div>
 
       <div className="metric-strip compact-metrics">

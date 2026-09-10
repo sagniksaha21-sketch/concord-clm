@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE, login } from '@/app/lib/api';
+import { ConcordWordmark } from '@/components/ConcordBrand';
 
 export default function LoginPage() {
   const showDemo = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGIN === 'true';
@@ -33,7 +34,8 @@ export default function LoginPage() {
       <section className="login-original-content" aria-label="Sign in to Concord">
         <header className="login-brand-lockup">
           <img className="login-mark login-mark-wide" src="/brand/lakme-salon.png" alt="Lakmē Salon" draggable={false} />
-          <div className="login-product-line">Concord · Contract Lifecycle Management</div>
+          <ConcordWordmark variant="hero" />
+          <div className="login-product-line">Contract Lifecycle Management</div>
           <div className="login-owner-line"><img className="login-lever-logo" src="/brand/lakme-lever-logo.png" alt="Lakmē Lever" draggable={false} /><span>LAKMĒ LEVER · LEGAL</span></div>
         </header>
 
