@@ -1,26 +1,58 @@
-name: Concord GCP provider verification
+name: Concord CI
 on:
   push:
     branches: [main]
-    paths: ['apps/**', 'packages/**', 'scripts/gcp/**', 'infra/gcp/**', '.github/workflows/gcp-provider-tests.yml']
+    paths:
+      - '.github/workflows/**'
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - 'infra/**'
+      - 'Dockerfile.*'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
   pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'apps/**'
+      - 'packages/**'
+      - 'scripts/**'
+      - 'infra/**'
+      - 'Dockerfile.*'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: concord-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 jobs:
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: pnpm
       - run: corepack enable
+      - run: corepack prepare pnpm@9.7.0 --activate
+      - run: pnpm --version
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @concord/shared build
       - run: pnpm --filter @concord/api db:generate
-      - run: pnpm --filter @concord/api typecheck
+      - run: pnpm typecheck
       - run: pnpm --filter @concord/api test
       - run: pnpm build
       - run: node --test scripts/gcp/render-config.test.cjs
       - run: node scripts/check-ux.js
+      - name: Build API image
+        run: docker build --file Dockerfile.api --tag concord-api:ci .
+      - name: Build web image
+        run: docker build --file Dockerfile.web --build-arg NEXT_PUBLIC_API_BASE= --build-arg API_INTERNAL_BASE=http://localhost:4000 --tag concord-web:ci .

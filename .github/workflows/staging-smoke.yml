@@ -1,0 +1,30 @@
+name: Concord staging smoke
+
+on:
+  workflow_run:
+    workflows: [Concord CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: concord-staging-smoke
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CONCORD_STAGING_URL: https://concord-web-production-2f17.up.railway.app
+      STAGING_SMOKE_ATTEMPTS: '36'
+      STAGING_SMOKE_DELAY_MS: '10000'
+    steps:
+      - name: Checkout smoke script
+        uses: actions/checkout@v4
+      - name: Check public staging health
+        run: node scripts/smoke-staging.mjs
