@@ -32,6 +32,8 @@ export function createSlides(report: PortfolioReport): string[] {
   const options = { ...DEFAULT_REPORT_OPTIONS, ...report.options };
   const t = REPORT_THEMES[options.theme];
   const focus = REPORT_FOCUSES[options.focus];
+  const agreementLabel = report.agreements.length === 1 ? 'agreement' : 'agreements';
+  const obligationLabel = report.obligations.length === 1 ? 'obligation' : 'obligations';
   const slides: string[] = [];
   let shapeId = 10;
 
@@ -73,7 +75,7 @@ export function createSlides(report: PortfolioReport): string[] {
     text(67, 578, 960, 48, wrap(`${report.generatedAt.slice(0, 10)}. ${narrativeStatus}`, 105), 11, t.secondary),
     rect(1020, 250, 1, 202, t.line),
     text(1050, 270, 158, 100, String(report.agreements.length), 52, t.gold, false, 'Georgia'),
-    text(1052, 377, 154, 54, 'agreements\nin scope', 13, t.secondary),
+    text(1052, 377, 154, 54, `${agreementLabel}\nin scope`, 13, t.secondary),
   ]);
 
   const summary: string[] = [];
@@ -86,7 +88,7 @@ export function createSlides(report: PortfolioReport): string[] {
   });
   summary.push(text(64, 480, 1152, 26, report.ai?.status === 'generated' ? 'Executive perspective' : 'Report focus', 14, t.gold, true));
   summary.push(text(64, 525, 1110, 117, wrap(short(report.ai?.summary ?? report.selectionSummary ?? focus.label, 360), 98), 18, t.ink));
-  add('Portfolio at a glance', `${report.agreements.length} agreement rows selected from ${report.availableAgreements ?? report.agreements.length} available. ${report.sampleData ? 'Sample data.' : 'Current records.'}`, summary);
+  add('Portfolio at a glance', `${report.agreements.length} ${agreementLabel} selected from ${report.availableAgreements ?? report.agreements.length} available. ${report.sampleData ? 'Sample data.' : 'Current records.'}`, summary);
 
   // Every observation receives a readable slide, with its complete evidence IDs.
   report.insights.forEach((insight, index) => {
@@ -135,7 +137,7 @@ export function createSlides(report: PortfolioReport): string[] {
     watch.push(rect(64, y + 59, 1152, 1, t.line));
   });
   if (!report.agreements.length) watch.push(text(64, 270, 1120, 70, 'No agreements match this selection.', 23, t.secondary));
-  add('Priority agreements', `Showing ${Math.min(6, report.agreements.length)} of ${report.agreements.length} selected agreements, ordered by risk. The Excel register includes every row.`, watch);
+  add('Priority agreements', `Showing ${Math.min(6, report.agreements.length)} of ${report.agreements.length} selected ${agreementLabel}, ordered by risk. The Excel register includes every row.`, watch);
 
   const commitments: string[] = [];
   report.obligations.slice(0, 6).forEach((row, i) => {
@@ -151,7 +153,7 @@ export function createSlides(report: PortfolioReport): string[] {
   commitments.push(rect(868, 205, 1, 380, t.line), text(904, 205, 300, 30, 'SIGNATURE QUEUE', 11, t.secondary, true));
   commitments.push(text(904, 262, 300, 84, sigRestricted ? 'Restricted' : String(pending), sigRestricted ? 25 : 48, t.gold, false, 'Georgia'));
   commitments.push(text(904, 375, 290, 168, wrap(sigRestricted ? 'Execution detail is unavailable for this role or source.' : 'Open requests awaiting completion by the required signatories.', 27), 15, t.secondary));
-  add('Commitments & execution', `Showing ${Math.min(6, report.obligations.length)} of ${report.obligations.length} selected obligations, ordered by recorded due date.`, commitments);
+  add('Commitments & execution', `Showing ${Math.min(6, report.obligations.length)} of ${report.obligations.length} selected ${obligationLabel}, ordered by recorded due date.`, commitments);
 
   if (options.prompt) {
     const lines = wrap(options.prompt, 98).split('\n');
@@ -164,7 +166,7 @@ export function createSlides(report: PortfolioReport): string[] {
   add('Scope & evidence', 'The basis for this report and its observations.', [
     text(64, 184, 1120, 36, report.sampleData ? 'Illustrative sample records' : 'Live persisted records', 23, t.gold, false, 'Georgia'),
     text(64, 242, 1120, 68, wrap(short(report.selectionSummary ?? focus.label, 200), 100), 15, t.ink),
-    text(64, 332, 1120, 52, `Generated ${report.generatedAt.slice(0, 19).replace('T', ' ')} UTC.\n${report.agreements.length} agreements and ${report.obligations.length} obligations in this selection.`, 13, t.secondary),
+    text(64, 332, 1120, 52, `Generated ${report.generatedAt.slice(0, 19).replace('T', ' ')} UTC.\n${report.agreements.length} ${agreementLabel} and ${report.obligations.length} ${obligationLabel} in this selection.`, 13, t.secondary),
     text(64, 410, 1120, 142, wrap('Risk follows the stored playbook level. Review covers review and approval stages. Dates come from recorded obligations. Lists show priorities, while Excel contains every selected row. Raw contract text and provider credentials are excluded.', 110), 14, t.secondary),
     text(64, 567, 1120, 65, wrap(narrativeStatus, 115), 12, t.gold, true),
     text(64, 638, 1120, 20, report.ai?.status === 'generated' ? `Model: ${report.ai.model ?? 'configured AI provider'}. Observations are advisory and require review.` : 'Narrative findings use transparent portfolio rules.', 10, t.secondary),

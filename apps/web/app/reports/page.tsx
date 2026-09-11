@@ -53,7 +53,7 @@ export default function ReportsPage() {
       const value = await getPortfolioReport(undefined, options);
       setReport(value);
       setOptions({ ...DEFAULT_REPORT_OPTIONS, ...value.options });
-      setGenerationMessage(`${value.agreements.length} agreements and ${value.obligations.length} obligations selected.${options.prompt && value.ai?.status !== 'generated' ? ' Custom AI brief was not applied because AI is unavailable.' : ''}`);
+      setGenerationMessage(`${value.agreements.length} agreement${value.agreements.length === 1 ? '' : 's'} and ${value.obligations.length} obligation${value.obligations.length === 1 ? '' : 's'} selected.${options.prompt && value.ai?.status !== 'generated' ? ' Custom AI brief was not applied because AI is unavailable.' : ''}`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not update the report');
     } finally {
@@ -146,7 +146,7 @@ export default function ReportsPage() {
             <section className="card report-method-card">
               <div className="card-head"><h3><IconShield />Scope</h3></div>
               <div className="card-pad report-method-copy">
-                <p>{report.agreements.length} agreement rows and {report.obligations.length} obligation rows are in this snapshot.</p>
+                <p>{report.agreements.length} agreement{report.agreements.length === 1 ? '' : 's'} and {report.obligations.length} obligation{report.obligations.length === 1 ? '' : 's'} in this snapshot.</p>
                 {report.options?.prompt && report.ai?.status !== 'generated' && <p className="report-restricted"><IconAlert /> Your custom AI brief has not been applied. The report contains calculated findings for the selected records.</p>}
                 <p>Risk is the stored playbook level. Legal review means review or approval stage. Dates come from persisted obligations and extracted agreement records.</p>
                 {report.restricted.length > 0 && <p className="report-restricted"><IconAlert /> Signature detail is restricted by your current role.</p>}
