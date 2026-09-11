@@ -626,6 +626,9 @@ export interface PortfolioReport {
   dataMode: 'live' | 'illustrative';
   sampleData: boolean;
   restricted: string[];
+  options?: Required<import('./reporting').ReportOptions>;
+  selectionSummary?: string;
+  availableAgreements?: number;
   /** Optional so older API snapshots remain backwards-compatible. */
   ai?: ReportAiMeta;
   metrics: ReportMetric[];

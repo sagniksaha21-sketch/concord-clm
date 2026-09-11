@@ -5,6 +5,7 @@ import {
   Obligation,
   PortfolioReport,
   ReportFormat,
+  ReportOptions,
   ReportAgreementRow,
   ReportObligationRow,
   ReportSignatureRow,
@@ -20,6 +21,7 @@ import { buildXlsx } from './xlsx-exporter';
 import { buildPdf } from './pdf-exporter';
 import { buildPptx } from './pptx-exporter';
 import { ReportAiService } from './report-ai.service';
+import { describeReportSelection, normalizeReportOptions, selectReportRows } from './report-selection';
 
 const STAGE_LABELS: Record<string, string> = {
   intake: 'Intake',
@@ -61,10 +63,11 @@ export class ReportsService {
     private readonly reportAi: ReportAiService,
   ) {}
 
-  async portfolio(role: Role): Promise<PortfolioReport> {
-    const report = await this.buildPortfolio(role);
+  async portfolio(role: Role, input: ReportOptions = {}): Promise<PortfolioReport> {
+    const options = normalizeReportOptions(input);
+    const report = await this.buildPortfolio(role, options);
     const deterministicInsights = report.insights.map((insight) => ({ ...insight, source: 'rules' as const }));
-    const enrichment = await this.reportAi.enrich(report);
+    const enrichment = await this.reportAi.enrich(report, options.prompt);
     report.ai = enrichment.meta;
     report.insights = enrichment.insights?.length
       ? [...enrichment.insights, ...deterministicInsights.slice(0, 1)]
@@ -72,8 +75,8 @@ export class ReportsService {
     return report;
   }
 
-  private async buildPortfolio(role: Role): Promise<PortfolioReport> {
-    const [contracts, obligations] = await Promise.all([
+  private async buildPortfolio(role: Role, options: Required<ReportOptions>): Promise<PortfolioReport> {
+    const [allContracts, allObligations] = await Promise.all([
       this.contracts.listFresh(),
       this.obligations.list(),
     ]);
@@ -97,9 +100,12 @@ export class ReportsService {
     const sampleData = !this.prisma.enabled || process.env.DEMO_SAMPLES === 'true';
 
     const visibleObligations = maySeeSignatures
-      ? obligations
-      : obligations.filter((row) => row.type !== 'signature');
-    const obligationRows = visibleObligations
+      ? allObligations
+      : allObligations.filter((row) => row.type !== 'signature');
+    const selected = selectReportRows({ contracts: allContracts, obligations: visibleObligations, signatures }, options, generatedAt);
+    const contracts = selected.contracts;
+    signatures = selected.signatures;
+    const obligationRows = selected.obligations
       .map((row) => this.toObligationRow(row))
       .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
     const signatureRows = signatures.map((row) => this.toSignatureRow(row));
@@ -122,10 +128,10 @@ export class ReportsService {
       count: contracts.filter((c) => c.stage === stage).length,
     }));
 
-    const now = Date.now();
+    const now = Date.parse(generatedAt.slice(0, 10));
     const dueSoon = obligationRows.filter((row) => {
       const date = new Date(row.dueDate).getTime();
-      return Number.isFinite(date) && date <= now + 90 * DAY_MS;
+      return Number.isFinite(date) && date >= now && date <= now + options.horizonDays * DAY_MS;
     });
     const overdue = obligationRows.filter((row) => new Date(row.dueDate).getTime() < now);
     const next30 = obligationRows.filter((row) => {
@@ -141,7 +147,7 @@ export class ReportsService {
       { key: 'agreements', label: 'Agreements', value: contracts.length, displayValue: String(contracts.length), detail: 'Persisted contract records' },
       { key: 'legal-review', label: 'In legal review', value: legalReview, displayValue: String(legalReview), detail: 'Review and approval stages' },
       { key: 'high-risk', label: 'High risk', value: risk.high, displayValue: String(risk.high), detail: 'Playbook risk flagged' },
-      { key: 'due-90', label: 'Due in 90 days', value: dueSoon.length, displayValue: String(dueSoon.length), detail: 'Obligations and renewals' },
+      { key: `due-${options.horizonDays}`, label: `Due in ${options.horizonDays} days`, value: dueSoon.length, displayValue: String(dueSoon.length), detail: 'Upcoming obligations and renewals' },
       ...(signatureDetailAvailable
         ? [{ key: 'pending-signatures', label: 'Pending signature', value: pendingSignatures, displayValue: String(pendingSignatures), detail: 'Open signature requests' }]
         : []),
@@ -164,6 +170,9 @@ export class ReportsService {
       dataMode: sampleData ? 'illustrative' : 'live',
       sampleData,
       restricted,
+      options,
+      selectionSummary: describeReportSelection(options),
+      availableAgreements: allContracts.length,
       metrics,
       insights,
       stageCounts: stages,
@@ -174,19 +183,20 @@ export class ReportsService {
     };
   }
 
-  async export(format: string, role: Role, actor?: { id?: string; email?: string; role?: string }): Promise<ReportFile> {
+  async export(format: string, role: Role, actor?: { id?: string; email?: string; role?: string }, input: ReportOptions = {}): Promise<ReportFile> {
     const normalized = String(format).toLowerCase() as ReportFormat;
     if (!['xlsx', 'pdf', 'pptx'].includes(normalized)) {
       throw new BadRequestException('Report format must be xlsx, pdf, or pptx');
     }
-    const report = await this.portfolio(role);
+    const report = await this.portfolio(role, input);
     const stamp = report.generatedAt.slice(0, 10);
     const base = `concord-portfolio-report-${stamp}`;
-    const files: Record<ReportFormat, ReportFile> = {
-      xlsx: { buffer: buildXlsx(report), filename: `${base}.xlsx`, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
-      pdf: { buffer: buildPdf(report), filename: `${base}.pdf`, contentType: 'application/pdf' },
-      pptx: { buffer: buildPptx(report), filename: `${base}.pptx`, contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' },
+    const files: Record<ReportFormat, () => ReportFile> = {
+      xlsx: () => ({ buffer: buildXlsx(report), filename: `${base}.xlsx`, contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+      pdf: () => ({ buffer: buildPdf(report), filename: `${base}.pdf`, contentType: 'application/pdf' }),
+      pptx: () => ({ buffer: buildPptx(report), filename: `${base}-${report.options!.theme}.pptx`, contentType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' }),
     };
+    const file = files[normalized]();
 
     await this.audit.record({
       actor: actor ?? { email: 'report.export' },
@@ -203,6 +213,11 @@ export class ReportsService {
         aiProvider: report.ai?.provider ?? 'none',
         aiModel: report.ai?.model,
         aiInsightCount: report.insights.filter((insight) => insight.source === 'ai').length,
+        theme: report.options!.theme,
+        focus: report.options!.focus,
+        horizonDays: report.options!.horizonDays,
+        customBriefRequested: Boolean(report.options!.prompt),
+        agreementFilterApplied: Boolean(report.options!.query),
       },
       ...(report.ai?.status === 'generated'
         ? { ai: this.audit.aiProvenance('report', { model: report.ai.model, advisory: true }) }
@@ -213,7 +228,7 @@ export class ReportsService {
       this.logger.error(`Could not record report export: ${String(error)}`);
     });
 
-    return files[normalized];
+    return file;
   }
 
   private toAgreementRow(

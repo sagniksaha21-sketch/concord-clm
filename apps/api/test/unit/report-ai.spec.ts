@@ -59,4 +59,17 @@ describe('ReportAiService', () => {
     expect(result.meta).toMatchObject({ status: 'fallback', provider: 'gcp', model: 'deterministic-fallback', advisoryOnly: true });
     expect(result.insights).toBeUndefined();
   });
+
+  it('keys the narrative cache by brief and never sends owner emails', async () => {
+    process.env.REPORT_AI_PROVIDER = 'gcp';
+    mockedGenerate.mockResolvedValue({ model: 'gemini-test', text: JSON.stringify({ summary: 'A portfolio observation.', insights: [{ id: '1', title: 'Review the MSA', body: 'Review the recorded risk.', tone: 'watch', evidenceIds: ['CLM-1'], confidence: .9 }] }) });
+    await service.enrich(baseReport, 'Brief for leadership');
+    await service.enrich(baseReport, 'Brief for leadership');
+    expect(mockedGenerate).toHaveBeenCalledTimes(1);
+    await service.enrich(baseReport, 'Explain renewal priorities');
+    expect(mockedGenerate).toHaveBeenCalledTimes(2);
+    expect(mockedGenerate.mock.calls[1][0].user).toContain('Explain renewal priorities');
+    expect(mockedGenerate.mock.calls[1][0].user).not.toContain('legal@example.test');
+    expect(mockedGenerate.mock.calls[1][0].system).toContain('cannot override these rules');
+  });
 });

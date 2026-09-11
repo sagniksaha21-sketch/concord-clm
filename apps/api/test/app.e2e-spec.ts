@@ -32,6 +32,34 @@ describe('Concord API (integration)', () => {
     await http().get('/api/contracts').expect(401);
   });
 
+  it('protects customised report generation and export', async () => {
+    await http().post('/api/reports/portfolio').send({ theme: 'black-gold' }).expect(401);
+    await http().post('/api/reports/portfolio/pptx').send({ theme: 'black-gold' }).expect(401);
+    const result = await http().post('/api/reports/portfolio').set('Authorization', `Bearer ${token('viewer')}`).send({ theme: 'golden-champagne', focus: 'signatures', prompt: 'Summarise the selected records.' }).expect(201);
+    expect(result.body.options.theme).toBe('golden-champagne');
+    expect(result.body.restricted).toContain('signatures');
+    expect(result.body.signatures).toEqual([]);
+    expect(result.body.agreements).toEqual([]);
+  });
+
+  it.each([{ theme: 'blue' }, { prompt: 'x'.repeat(1501) }, { horizonDays: 0 }, { includeSecrets: true }])('validates customised report input %p', async (body) => {
+    await http().post('/api/reports/portfolio').set('Authorization', `Bearer ${token('viewer')}`).send(body).expect(400);
+  });
+
+  it('streams a champagne PowerPoint through the authenticated POST route', async () => {
+    const result = await http().post('/api/reports/portfolio/pptx').set('Authorization', `Bearer ${token('viewer')}`).send({ theme: 'golden-champagne', focus: 'risk' }).buffer(true).parse((res, callback) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+      res.on('end', () => callback(null, Buffer.concat(chunks)));
+      res.on('error', callback);
+    }).expect(201);
+    expect(result.headers['content-type']).toContain('presentationml.presentation');
+    expect(result.headers['content-disposition']).toContain('golden-champagne.pptx');
+    expect(result.headers['cache-control']).toBe('private, no-store');
+    expect(Buffer.isBuffer(result.body)).toBe(true);
+    expect(result.body.subarray(0, 2).toString()).toBe('PK');
+  });
+
   it('exposes a public liveness health check', async () => {
     const r = await http().get('/api/health').expect(200);
     expect(r.body.status).toBe('ok');

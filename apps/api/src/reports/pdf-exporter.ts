@@ -106,13 +106,14 @@ function buildPages(report: PortfolioReport): string[] {
 
   let first = pageHeader('Portfolio intelligence', report.ai?.status === 'generated'
     ? 'AI-assisted narrative grounded to the same snapshot; metrics remain source-of-truth'
-    : 'A concise view of agreement exposure, legal work and upcoming commitments');
+    : (report.selectionSummary ?? 'A concise view of agreement exposure, legal work and upcoming commitments').slice(0, 100));
   first += textLine(report.dataMode === 'live' ? 'Live persisted records' : 'Illustrative fixtures', 36, 652, 10, report.dataMode === 'live' ? '#3e7c5a' : '#ae7113', true);
   first += textLine(report.ai?.status === 'generated' ? `AI narrative: ${report.ai.model ?? 'GCP Gemini'} (advisory only)` : report.ai?.status === 'fallback' ? 'AI narrative unavailable; deterministic findings retained' : 'Narrative findings: deterministic rules', 36, 632, 8.8, report.ai?.status === 'generated' ? '#3e7c5a' : '#637184', report.ai?.status === 'generated');
   first += kpi('AGREEMENTS', metrics.get('agreements')?.displayValue ?? '0', 'in the report scope', 36, 555);
   first += kpi('LEGAL REVIEW', metrics.get('legal-review')?.displayValue ?? '0', 'review + approval stages', 219, 555);
   first += kpi('HIGH RISK', metrics.get('high-risk')?.displayValue ?? '0', 'playbook risk flagged', 402, 555);
-  first += kpi('DUE IN 90 DAYS', metrics.get('due-90')?.displayValue ?? '0', 'obligations and renewals', 36, 468);
+  const dueMetric = report.metrics.find((metric) => metric.key.startsWith('due-'));
+  first += kpi(dueMetric?.label.toUpperCase() ?? 'UPCOMING DATES', dueMetric?.displayValue ?? '0', 'obligations and renewals', 36, 468);
   if (metrics.has('pending-signatures')) first += kpi('OPEN SIGNATURES', metrics.get('pending-signatures')?.displayValue ?? '0', 'pending execution', 219, 468);
   first += textLine('Derived insights', 36, 420, 15, '#172333', true);
   let y = 397;

@@ -28,6 +28,7 @@ import type {
   SearchResult,
   PortfolioReport,
   ReportFormat,
+  ReportOptions,
 } from '@concord/shared';
 
 // Browser calls stay same-origin and are proxied by Next.js to the API. This
@@ -399,20 +400,24 @@ export async function getPermissions(
 
 // ─── Portfolio reporting ─────────────────────────────────────────────────────
 
-export async function getPortfolioReport(token?: string): Promise<PortfolioReport> {
+export async function getPortfolioReport(token?: string, options?: ReportOptions): Promise<PortfolioReport> {
   const res = await apiFetch(`${API_BASE}/api/reports/portfolio`, {
+    method: options ? 'POST' : 'GET',
+    body: options ? JSON.stringify(options) : undefined,
     cache: 'no-store',
-    headers: auth(token),
+    headers: { ...auth(token), ...(options ? { 'Content-Type': 'application/json' } : {}) },
   });
   if (!res.ok) throw new Error(`Reports unavailable (${res.status})`);
   return res.json();
 }
 
 /** Fetches a role-scoped binary report while preserving the HttpOnly session. */
-export async function downloadPortfolioReport(format: ReportFormat, token?: string): Promise<Response> {
+export async function downloadPortfolioReport(format: ReportFormat, token?: string, options?: ReportOptions): Promise<Response> {
   const res = await apiFetch(`${API_BASE}/api/reports/portfolio/${format}`, {
+    method: options ? 'POST' : 'GET',
+    body: options ? JSON.stringify(options) : undefined,
     cache: 'no-store',
-    headers: auth(token),
+    headers: { ...auth(token), ...(options ? { 'Content-Type': 'application/json' } : {}) },
   });
   if (!res.ok) throw new Error(`Report export failed (${res.status})`);
   return res;
