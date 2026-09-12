@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { INTAKE_REQUESTS, IntakeRequest, RiskLevel } from '@concord/shared';
 import { CreateIntakeDto } from './create-intake.dto';
 import { PrismaService } from '../persistence/prisma.service';
@@ -72,12 +72,18 @@ export class IntakeService {
   async allocateId(transaction?: any): Promise<string> {
     const year = new Date().getFullYear();
     if (this.prisma.enabled) {
-      const rows: Array<{ n: bigint | number }> = await (transaction ?? this.prisma.client).$queryRawUnsafe(
-        "SELECT nextval('intake_seq') AS n",
-      );
-      const n = Number(rows?.[0]?.n ?? 0);
-      if (n > 0) return `INT-${year}-${String(n).padStart(3, '0')}`;
-      throw new Error('intake_seq returned no value — has the migration been applied?');
+      const db = transaction ?? this.prisma.client;
+      // Fixtures/imports can be inserted after the sequence migration. Consume
+      // occupied values without resetting the shared sequence: setval(MAX(id))
+      // could move it behind values already reserved by another replica.
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const rows: Array<{ n: bigint | number }> = await db.$queryRawUnsafe("SELECT nextval('intake_seq') AS n");
+        const n = Number(rows?.[0]?.n ?? 0);
+        if (!(n > 0)) throw new Error('intake_seq returned no value — has the migration been applied?');
+        const id = `INT-${year}-${String(n).padStart(3, '0')}`;
+        if (!await db.intakeRequest.findUnique({ where: { id }, select: { id: true } })) return id;
+      }
+      throw new ServiceUnavailableException('Request numbering is catching up with imported records. Please submit again.');
     }
     this.seq += 1;
     return `INT-${year}-${String(this.seq).padStart(3, '0')}`;

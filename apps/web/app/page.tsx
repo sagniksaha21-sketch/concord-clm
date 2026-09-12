@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import type { DashboardSummary } from '@concord/shared';
-import { getDashboard } from '@/app/lib/api';
+import { getDashboard, getPermissions } from '@/app/lib/api';
 import { CountUp, Gauge, Skeleton } from '@/components/Motion';
+import { agreementHref } from '@/components/workspace-navigation';
 import { ErrorState } from '@/components/WorkspaceUI';
 import {
   IconAlert, IconArrowDown, IconArrowUp, IconCalendar, IconClock, IconDoc,
@@ -30,9 +31,11 @@ function Trend({ t }: { t: NonNullable<DashboardSummary['stats'][number]['trend'
 
 export default function CommandCenter() {
   const [data, setData] = useState<DashboardSummary | null>(null);
+  const [canRequest, setCanRequest] = useState(false);
   const [err, setErr] = useState('');
 
   useEffect(() => {
+    getPermissions().then(p => setCanRequest(p.permissions.includes('request:write'))).catch(() => undefined);
     getDashboard()
       .then(setData)
       .catch((e) => setErr(e instanceof Error ? e.message : 'Could not load the portfolio'));
@@ -75,7 +78,6 @@ export default function CommandCenter() {
   // The dashboard API supplies the authenticated user's display name. Preserve
   // it in full: taking its first word can turn an account name into our brand.
   const displayName = data.greetingName?.trim();
-  const reviewHref = data.attention.find((a) => a.href?.startsWith('/review/'))?.href ?? '/review';
 
   return (
     <>
@@ -104,11 +106,8 @@ export default function CommandCenter() {
           </p>
         </div>
         <div className="view-actions">
-          <Link className="btn" href="/intake">New request</Link>
-          <Link className="btn btn-gold" href={reviewHref}>
-            <IconSparkle />
-            Open AI Review
-          </Link>
+          <Link className="btn" href="/pipeline">View agreements</Link>
+          {canRequest && <Link className="btn btn-gold" href="/requests/new">Request an agreement</Link>}
         </div>
       </div>
 
@@ -236,7 +235,7 @@ export default function CommandCenter() {
                 {data.attention.map((a) => (
                   <tr role="row" key={a.id}>
                     <td role="cell" data-label="Contract">
-                      <Link href={a.href ?? '#'} className="t-strong">{a.title}</Link>
+                      <Link href={a.href?.startsWith('/review/') ? agreementHref(a.id) : a.href ?? '/pipeline'} className="t-strong">{a.title}</Link>
                       <div className="t-id">{a.id}</div>
                     </td>
                     <td role="cell" data-label="Counterparty">{a.counterparty}</td>

@@ -46,6 +46,19 @@ describeDb('Department portal on PostgreSQL', () => {
     await expect(service.create({ ...body, title: 'Different payload' }, actors.requester)).rejects.toThrow('already used');
     await expect(service.create(body, actors['other-client'])).rejects.toThrow('already used');
   });
+  it('skips legacy IDs inserted after migration without overwriting them or colliding across requests', async () => {
+    const year = new Date().getFullYear();
+    const legacyIds = [1, 2].map(n => `INT-${year}-${String(n).padStart(3, '0')}`);
+    await db.intakeRequest.createMany({ data: legacyIds.map(id => ({ id, title: 'Existing legacy intake', counterparty: 'Legacy counterparty', businessUnit: 'Legal', requestor: 'legacy@example.test', contractType: 'NDA', description: 'Preserve this record', status: 'triaged' })) });
+    // Deliberately reproduce migrate-then-seed ordering, only in the guarded
+    // dedicated test database; production allocation never resets a sequence.
+    await db.$queryRawUnsafe("SELECT setval('intake_seq', 1, false)");
+    const [a, b] = await Promise.all([service.create(dto(), actors.requester), service.create(dto(), actors.requester)]);
+    expect(a.id).not.toBe(b.id); expect(legacyIds).not.toContain(a.id); expect(legacyIds).not.toContain(b.id);
+    expect(await db.intakeRequest.count()).toBe(4); expect(await db.contract.count()).toBe(2);
+    expect(await db.requestNotification.count()).toBe(2);
+    expect((await db.intakeRequest.findUnique({ where: { id: legacyIds[0] } })).description).toBe('Preserve this record');
+  });
   it('rolls every new record back when the audit append fails', async () => {
     const fail = jest.spyOn(audit, 'recordInTransaction').mockRejectedValueOnce(new Error('Audit unavailable'));
     await expect(service.create(dto(), actors.requester)).rejects.toThrow('Audit unavailable'); fail.mockRestore();

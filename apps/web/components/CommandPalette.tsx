@@ -49,7 +49,7 @@ const GROUP_LABEL: Record<string, string> = {
   obligation: 'Obligations & renewals',
 };
 
-const QUICK_ORDER = ['/intake', '/authoring', '/review', '/repository', '/ingest', '/esign'];
+const QUICK_ORDER = ['/requests/new', '/pipeline', '/inbox', '/repository'];
 
 const DEFAULT_DESCRIPTIONS: Record<string, string> = {
   '/': 'Portfolio overview, risk and work queues',
@@ -230,7 +230,7 @@ export default function CommandPalette({
       out.push({
         key: `hit:${h.kind}:${h.id}`,
         section: GROUP_LABEL[h.kind] ?? h.kind,
-        href: h.href,
+        href: h.kind === 'contract' ? `/contracts/${encodeURIComponent(h.id)}` : h.href,
         title: h.title,
         subtitle: h.subtitle,
         badge: h.badge,

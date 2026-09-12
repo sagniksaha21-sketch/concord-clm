@@ -4,7 +4,7 @@ Concord’s `/requests` workspace lets department clients submit a structured te
 
 ## Access and onboarding
 
-An administrator opens **Team & Access** (`/team`), adds each colleague’s corporate name and Microsoft email, and selects their role:
+An administrator opens **Tools & settings → Team & access** (`/team`), adds each colleague’s corporate name and Microsoft email, and selects their role:
 
 - **Department client**: creates and reads their own agreement requests and personal inbox. No contract portfolio, AI review, repository, reports, approvals, signature, audit or user-administration access.
 - **Counsel**: appears in the legal dropdown; sees requests they raised or were assigned and can update requests assigned to them.
@@ -34,6 +34,10 @@ Only explicit safe provider rejection is retried, up to five attempts with backo
 The selected lawyer, a lead or an administrator can update the client-facing status and note. Updates use a version check to prevent stale overwrites and create an in-app notification for the request’s owner. They do not approve, sign, execute or otherwise move the linked agreement’s legal workflow. No AI-generated legal terms are substituted for the client’s inputs.
 
 ## Deployment and verification
+
+The legal workspace has six main destinations: Home, Requests, Agreements, Inbox, Repository and Obligations. Specialist functions remain available through Tools & settings, the mobile More sheet and search. Department clients see Requests and Inbox. Agreements opens a list by default; the lifecycle board is an optional view. General portfolio links open `/contracts/[id]`, which shows saved details and a suggested next step without automatically invoking AI review. Optional request fields are expandable. Signing and obligation links preserve the chosen agreement; all legal stage transitions continue through the existing controlled APIs.
+
+Request allocation consumes sequence values already occupied by records seeded or imported after migrations. It never resets the sequence or overwrites existing requests. The PostgreSQL regression suite reproduces migrate-then-seed ordering and concurrent submissions.
 
 Migration `20260911060000_department_requests` adds nullable linked-request fields and a persistent notification table; existing intake rows remain compatible. Run the standard Prisma migration before starting the new API. Railway already applies migrations during API pre-deploy. Keep the GitHub-source build configuration; no historical archive extraction is needed.
 

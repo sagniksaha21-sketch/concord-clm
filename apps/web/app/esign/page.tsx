@@ -34,7 +34,9 @@ export default function ESignPage() {
   async function load() {
     const [nextContracts, nextItems, nextArchive] = await Promise.all([getContracts(), getSignatures(), getArchive()]);
     setContracts(nextContracts); setItems(nextItems); setArchive(nextArchive);
-    setContractId((current) => current || nextContracts[0]?.id || '');
+    const requested = new URLSearchParams(window.location.search).get('contract');
+    setContractId(current => current || (requested ? nextContracts.find(c => c.id === requested)?.id ?? '' : nextContracts[0]?.id ?? ''));
+    if (requested && !nextContracts.some(c => c.id === requested)) setError('The linked agreement is unavailable. Choose an agreement before creating a signing request.');
   }
   useEffect(() => { load().catch((e) => setError(e instanceof Error ? e.message : 'E-signature workspace unavailable.')).finally(() => setLoading(false)); }, []);
 
@@ -75,7 +77,7 @@ export default function ESignPage() {
   return (
     <>
       <div className="view-head">
-        <div className="vh-left"><div className="eyebrow">Execution control</div><h2>Send &amp; track signatures</h2><p>Route a persisted contract through the configured e-signature provider, procure digital stamp paper when required, and file the executed copy back into the protected archive.</p></div>
+        <div className="vh-left"><div className="eyebrow">Execution control</div><h2>Send &amp; track signatures</h2><p>Choose an agreement, add the signatories and follow its progress. Completed copies are filed in the archive.</p></div>
         <div className="trust-inline"><IconShield /><span>Controlled signing · Execution evidence · File integrity</span></div>
       </div>
 
@@ -84,7 +86,7 @@ export default function ESignPage() {
       <section className="card esign-compose">
         <div className="form-card-head"><span className="document-avatar"><IconSign /></span><div><h3>New signing request</h3><p>Choose the agreement and confirm who is signing before you send.</p></div></div>
         <div className="esign-grid">
-          <label className="premium-field"><span>Contract *</span><select value={contractId} onChange={(e) => setContractId(e.target.value)} disabled={!contracts.length}>{contracts.length ? contracts.map((c) => <option value={c.id} key={c.id}>{c.title} — {c.counterparty} · {c.id}</option>) : <option>{loading ? 'Loading contracts…' : 'No persisted contracts available'}</option>}</select></label>
+          <label className="premium-field"><span>Contract *</span><select value={contractId} onChange={(e) => setContractId(e.target.value)} disabled={!contracts.length}>{contracts.length ? <><option value="">Choose an agreement</option>{contracts.map((c) => <option value={c.id} key={c.id}>{c.title} — {c.counterparty} · {c.id}</option>)}</> : <option>{loading ? 'Loading contracts…' : 'No persisted contracts available'}</option>}</select></label>
           <label className="premium-field"><span>Message to signatories <small>optional</small></span><input value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Please review and sign by the requested date." maxLength={1200} /></label>
         </div>
 

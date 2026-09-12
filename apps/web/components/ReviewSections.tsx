@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { IconDoc } from './icons';
 
-export default function ReviewSections({ deviations }: { deviations: number }) {
+export default function ReviewSections({ deviations, canRouteApproval = false }: { deviations: number; canRouteApproval?: boolean }) {
   const [active, setActive] = useState('document');
   useEffect(() => {
     const sync = () => setActive(window.location.hash.slice(1) || 'document');
@@ -16,7 +16,7 @@ export default function ReviewSections({ deviations }: { deviations: number }) {
       { id: 'document', label: 'Contract findings' },
       { id: 'terms', label: 'Key terms' },
       { id: 'deviations', label: 'Playbook deviations' },
-      { id: 'approval', label: 'Approval' },
+      ...(canRouteApproval ? [{ id: 'approval', label: 'Approval' }] : []),
     ].map((item) => <a key={item.id} href={`#${item.id}`} aria-current={active === item.id ? 'location' : undefined}
       onClick={() => setActive(item.id)}>
       {item.id === 'document' && <IconDoc />}{item.label}{item.id === 'deviations' && <span>{deviations}</span>}

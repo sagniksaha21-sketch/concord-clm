@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import type { ObligationStatus } from '@concord/shared';
@@ -24,12 +25,14 @@ const STATUS_LABEL: Record<ObligationStatus, string> = {
   done: 'Done',
 };
 
-export default async function ObligationsPage() {
+export default async function ObligationsPage({ searchParams }: { searchParams: { contract?: string } }) {
   // Global auth guard requires a token; forward the session cookie for SSR.
   const token = cookies().get('concord_token')?.value;
   if (!token) redirect('/login');
 
-  const obligations = await getObligations(token);
+  const allObligations = await getObligations(token);
+  const contractId = typeof searchParams.contract === 'string' ? searchParams.contract : undefined;
+  const obligations = contractId ? allObligations.filter(o => o.contractId === contractId) : allObligations;
 
   return (
     <>
@@ -43,8 +46,8 @@ export default async function ObligationsPage() {
         </div>
       </div>
 
-      <div style={{ marginBottom: 20 }}>
-        <DigestButton />
+      <div className="req-inline" style={{ marginBottom: 20 }}>
+        {contractId ? <><Link className="btn" href={`/contracts/${encodeURIComponent(contractId)}`}>← Agreement overview</Link><span className="req-help">Showing this agreement’s obligations</span><Link className="btn" href="/obligations">View all obligations</Link></> : <details className="workflow-disclosure"><summary>Team reminders &amp; weekly digest</summary><DigestButton /></details>}
       </div>
 
       <div className="card">
@@ -64,7 +67,7 @@ export default async function ObligationsPage() {
               {obligations.map((o) => (
                 <tr role="row" key={o.id}>
                   <td role="cell" data-label="Obligation" className="t-strong">{o.title}</td>
-                  <td role="cell" data-label="Contract">{o.contractTitle}</td>
+                  <td role="cell" data-label="Contract"><Link href={`/contracts/${encodeURIComponent(o.contractId)}`}>{o.contractTitle}</Link></td>
                   <td role="cell" data-label="Owner">
                     <span className="owner-av">{o.ownerInitials}</span>
                   </td>

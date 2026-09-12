@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getContract, getReview, getClientRequest } from '@/app/lib/api';
+import { getContract, getReview, getClientRequest, getPermissions } from '@/app/lib/api';
 import RiskGauge from '@/components/RiskGauge';
 import ReviewSections from '@/components/ReviewSections';
 import DeviationCard from '@/components/DeviationCard';
@@ -14,9 +14,10 @@ export default async function ReviewPage({ params }: { params: { id: string } })
   const token = cookies().get('concord_token')?.value;
   if (!token) redirect('/login');
 
-  const [contract, review] = await Promise.all([
+  const [contract, review, access] = await Promise.all([
     getContract(params.id, token),
     getReview(params.id, token),
+    getPermissions(token),
   ]);
   const clientRequest = contract.requestId ? await getClientRequest(contract.requestId, token).catch(() => null) : null;
   const exampleReview = review.model === 'built-in';
@@ -25,7 +26,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
 
   return (
     <>
-      <div className="review-breadcrumb"><Link href="/review">AI Review</Link><span>/</span><span>{contract.id}</span></div>
+      <div className="review-breadcrumb"><Link href={`/contracts/${encodeURIComponent(contract.id)}`}>Agreement overview</Link><span>/</span><span>{contract.id}</span></div>
 
       <section className="review-hero">
         <div className="review-hero-main">
@@ -51,7 +52,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
         <span className="ai-model"><IconSparkle />{review.model}</span>
       </div>
 
-      <ReviewSections deviations={review.deviations.length} />
+      <ReviewSections deviations={review.deviations.length} canRouteApproval={access.permissions.includes('approval:route')} />
 
       <div className="review-layout">
         <section className="card review-document" id="document">
@@ -97,10 +98,10 @@ export default async function ReviewPage({ params }: { params: { id: string } })
             {review.deviations.length > 0 ? review.deviations.map((d) => <DeviationCard key={d.id} d={d} />) : <p className="section-summary">No material deviations were returned for this agreement.</p>}
           </section>
 
-          <section className="card" id="approval">
+          {access.permissions.includes('approval:route') && <section className="card" id="approval">
             <div className="card-head"><div><b>Approval routing</b><span className="id">Outlook · controlled decision path</span></div><span className="ai-tag">Graph</span></div>
             <ApproveBar contractId={contract.id} />
-          </section>
+          </section>}
       </div>
 
       <p className="page-note">Verify the source agreement, review findings and approval authority before making a legal decision.</p>

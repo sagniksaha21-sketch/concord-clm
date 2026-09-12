@@ -10,13 +10,14 @@ const root = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 
 const shell = read('apps/web/components/AppShell.tsx');
+const navigation = read('apps/web/components/workspace-navigation.tsx');
 const palette = read('apps/web/components/CommandPalette.tsx');
 const css = read('apps/web/app/globals.css');
 const env = read('.env.example');
 
 const checks = [
   ['permission-filtered adaptive navigation', shell.includes("NAV.filter((n) => !n.needs") && shell.includes('is-sidebar-collapsed')],
-  ['task-oriented nav groups', ['Work', 'Knowledge', 'Execute', 'Governance'].every((x) => shell.includes(`'${x}'`))],
+  ['shared primary navigation and discoverable specialist tools', shell.includes('PRIMARY_NAV.includes') && shell.includes('href="/workspace"') && ['Draft & review', 'Library & insights', 'Signing', 'Administration'].every(x => navigation.includes(x))],
   ['full mobile More sheet', shell.includes('mobile-sheet') && shell.includes('Everything in one place')],
   ['mobile dialog traps keyboard focus', shell.includes('trapDialogTab') && shell.includes('aria-modal="true"')],
   ['command centre exposes recent + quick actions', palette.includes("section: 'Recent'") && palette.includes("section: 'Quick actions'")],

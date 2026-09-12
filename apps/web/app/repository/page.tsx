@@ -136,7 +136,7 @@ export default function RepositoryPage() {
               {loading && <tr role="row"><td role="cell" colSpan={6}><LoadingState label="Searching contract records" /></td></tr>}
               {!loading && !searchError && hits.map((h) => (
                 <tr role="row" key={h.contract.id}>
-                  <td role="cell" data-label="Contract"><Link className="t-strong" href={`/review/${encodeURIComponent(h.contract.id)}`}>{h.contract.title}</Link><br /><span className="t-id">{h.contract.id}</span></td>
+                  <td role="cell" data-label="Contract"><Link className="t-strong" href={`/contracts/${encodeURIComponent(h.contract.id)}`}>{h.contract.title}</Link><br /><span className="t-id">{h.contract.id}</span></td>
                   <td role="cell" data-label="Counterparty">{h.contract.counterparty}</td><td role="cell" data-label="Type">{h.contract.type}</td><td role="cell" data-label="Value">{h.contract.valueDisplay}</td>
                   <td role="cell" data-label="Risk"><span className={`badge ${h.contract.risk === 'medium' ? 'med' : h.contract.risk}`}><span className="d" />{h.contract.risk}</span></td><td role="cell" data-label="Stage">{h.contract.stage}</td>
                 </tr>
