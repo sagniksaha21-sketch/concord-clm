@@ -1,5 +1,7 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
+import { CreateUserDto } from './create-user.dto';
 import jwt from 'jsonwebtoken';
 import { AuthUser, LoginResult, ROLES, Role, ROLE_LABELS, isRole, normalizeRole } from '@concord/shared';
 import { PrismaService } from '../persistence/prisma.service';
@@ -263,6 +265,23 @@ export class AuthService {
     return this.demoUsers.map(this.toManaged);
   }
 
+  async createUser(dto: CreateUserDto, actor: AuthUser): Promise<ManagedUser> {
+    if (!this.prisma.enabled) throw new ServiceUnavailableException('A database connection is required to add team members.');
+    const email = normaliseEmail(dto.email);
+    if (this.isBootstrapAdmin(email) && dto.role !== 'admin') throw new BadRequestException('This address is a configured administrator.');
+    try {
+      return await this.prisma.client.$transaction(async (tx: any) => {
+        const user = await tx.user.create({ data: { id: randomUUID(), email, name: dto.name.trim(), role: dto.role, roleSource: 'manual', password: '' } });
+        await this.audit.recordInTransaction(tx, { actor, action: 'auth.user_provisioned', entity: 'user', entityId: user.id,
+          summary: `Corporate account provisioned with ${ROLE_LABELS[normalizeRole(dto.role)]} access`, metadata: { email, role: dto.role } });
+        return this.toManaged(user);
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') throw new ConflictException('This person already has an account. Update their access in the team list.');
+      throw error;
+    }
+  }
+
   /**
    * Assigns a canonical role to a user. This is the endpoint that makes an
    * approver exist without touching the database by hand.
@@ -292,12 +311,13 @@ export class AuthService {
 
     const existing = await this.prisma.client.user.findUnique({ where: { email: target } });
     if (!existing) throw new NotFoundException(`No user ${email}`);
-    const updated = await this.prisma.client.user.update({
-      where: { email: target },
-      data: { role, roleSource: 'manual' },
+    if (actor && normaliseEmail(actor.email) === target && role !== 'admin') throw new BadRequestException('Ask another administrator to change your own access.');
+    return this.prisma.client.$transaction(async (tx: any) => {
+      const updated = await tx.user.update({ where: { email: target }, data: { role, roleSource: 'manual' } });
+      await this.audit.recordInTransaction(tx, { actor, action: 'auth.role_assigned', entity: 'user', entityId: target,
+        summary: `${target} role changed ${existing.role} → ${role}`, metadata: { email: target, from: existing.role, to: role, assignedBy: actor?.email } });
+      return this.toManaged(updated);
     });
-    await this.auditRoleChange(target, existing.role, role, actor);
-    return this.toManaged(updated);
   }
 
   private async auditRoleChange(

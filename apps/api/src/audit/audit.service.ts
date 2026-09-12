@@ -238,37 +238,7 @@ export class AuditService implements OnModuleInit {
     for (let attempt = 0; attempt <= attempts; attempt++) {
       try {
         const event = await this.prisma.client.$transaction(
-          async (tx: any) => {
-            // Fail fast instead of holding a pooled connection for the whole
-            // transaction budget while queued behind another replica's append.
-            const lockWait = Number(process.env.AUDIT_LOCK_TIMEOUT_MS || 5_000);
-            await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = '${lockWait}ms'`);
-            // Serialize chain appends cluster-wide. Released on commit/rollback.
-            // Prisma cannot deserialize PostgreSQL's void result. Acquire the
-            // same transaction lock while returning a supported integer column.
-            await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock($1)', AUDIT_LOCK_KEY);
-
-            // Did a previous attempt already commit this exact event?
-            const already = await tx.auditEvent.findUnique({ where: { id: eventId } });
-            if (already) return this.fromRow(already);
-
-            const last = await tx.auditEvent.findFirst({ orderBy: { seq: 'desc' } });
-            const seq = (last?.seq ?? 0) + 1;
-            const prevHash = last?.hash ?? AUDIT_GENESIS_HASH;
-            const body = { ...this.bodyOf(input, seq, prevHash), id: eventId };
-            const e: AuditEvent = { ...body, hash: this.hashOf(body) };
-            await tx.auditEvent.create({ data: this.toRow(e) });
-            // High-water mark, in the SAME transaction — so deleting events
-            // later leaves a tip that has gone backwards, which verify() sees.
-            if (tx.auditAnchor) {
-              await tx.auditAnchor.upsert({
-                where: { id: 'chain' },
-                update: { seq: e.seq, hash: e.hash },
-                create: { id: 'chain', seq: e.seq, hash: e.hash },
-              });
-            }
-            return e;
-          },
+          (tx: any) => this.recordInTransaction(tx, input, eventId),
           {
             timeout: Number(process.env.AUDIT_TX_TIMEOUT_MS || 15_000),
             maxWait: Number(process.env.AUDIT_TX_MAX_WAIT_MS || 10_000),
@@ -283,6 +253,39 @@ export class AuditService implements OnModuleInit {
       }
     }
     throw lastErr;
+  }
+
+  /** Append under an existing transaction so the business write and audit commit together. */
+  async recordInTransaction(tx: any, input: AuditInput, eventId = randomUUID()): Promise<AuditEvent> {
+    // Fail fast instead of holding a pooled connection for the whole
+    // transaction budget while queued behind another replica's append.
+    const lockWait = Number(process.env.AUDIT_LOCK_TIMEOUT_MS || 5_000);
+    await tx.$executeRawUnsafe(`SET LOCAL lock_timeout = '${lockWait}ms'`);
+    // Serialize chain appends cluster-wide. Released on commit/rollback.
+    // Prisma cannot deserialize PostgreSQL's void result. Acquire the
+    // same transaction lock while returning a supported integer column.
+    await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock($1)', AUDIT_LOCK_KEY);
+
+    // Did a previous attempt already commit this exact event?
+    const already = await tx.auditEvent.findUnique({ where: { id: eventId } });
+    if (already) return this.fromRow(already);
+
+    const last = await tx.auditEvent.findFirst({ orderBy: { seq: 'desc' } });
+    const seq = (last?.seq ?? 0) + 1;
+    const prevHash = last?.hash ?? AUDIT_GENESIS_HASH;
+    const body = { ...this.bodyOf(input, seq, prevHash), id: eventId };
+    const e: AuditEvent = { ...body, hash: this.hashOf(body) };
+    await tx.auditEvent.create({ data: this.toRow(e) });
+    // High-water mark, in the SAME transaction — so deleting events
+    // later leaves a tip that has gone backwards, which verify() sees.
+    if (tx.auditAnchor) {
+      await tx.auditAnchor.upsert({
+        where: { id: 'chain' },
+        update: { seq: e.seq, hash: e.hash },
+        create: { id: 'chain', seq: e.seq, hash: e.hash },
+      });
+    }
+    return e;
   }
 
   /** No-database path: the RAM chain is the only chain. */

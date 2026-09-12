@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ROLE_LABELS, normalizeRole } from '@concord/shared';
+import { ROLE_LABELS, normalizeRole, requestReturnPath } from '@concord/shared';
 import type { NavCounts, Permission, Role } from '@concord/shared';
-import { getMe, getNavCounts, getPermissions, logout as apiLogout } from '@/app/lib/api';
+import { getMe, getNavCounts, getInboxCount, getPermissions, logout as apiLogout } from '@/app/lib/api';
 import CommandPalette, { type PaletteCommand } from '@/components/CommandPalette';
 import XcelerateSplash from '@/components/XcelerateSplash';
 import SystemStatus from '@/components/SystemStatus';
@@ -58,21 +58,24 @@ type NavEntry = {
  * Permission filtering is presentation only; the API remains the boundary.
  */
 const NAV: NavEntry[] = [
-  { href: '/', label: 'Command Center', match: '/', icon: IconGrid, group: 'work', description: 'Portfolio overview, risk and work queues' },
-  { href: '/intake', label: 'Document Intake', match: '/intake', icon: IconInbox, count: 'intake', group: 'work', description: 'Capture a new legal request' },
-  { href: '/pipeline', label: 'Lifecycle Pipeline', match: '/pipeline', icon: IconFlow, count: 'pipeline', group: 'work', description: 'Move work through the contract lifecycle' },
-  { href: '/review', label: 'AI Review', match: '/review', icon: IconSparkle, count: 'review', group: 'work', description: 'Review grounded AI findings and deviations' },
-  { href: '/authoring', label: 'Authoring', match: '/authoring', icon: IconDoc, group: 'work', description: 'Draft from approved language and templates' },
+  { href: '/requests', label: 'Agreement Requests', match: '/requests', icon: IconInbox, needs: 'request:read', group: 'work', description: 'Raise an agreement and work with your chosen lawyer' },
+  { href: '/inbox', label: 'My Inbox', match: '/inbox', icon: IconBell, group: 'work', description: 'Your assignments and request updates' },
+  { href: '/team', label: 'Team & Access', match: '/team', icon: IconShield, needs: 'admin', group: 'governance', description: 'Manage department clients and legal team members' },
+  { href: '/', label: 'Command Center', match: '/', icon: IconGrid, needs: 'contract:read', group: 'work', description: 'Portfolio overview, risk and work queues' },
+  { href: '/intake', label: 'Document Intake', match: '/intake', icon: IconInbox, count: 'intake', needs: 'contract:read', group: 'work', description: 'Capture a new legal request' },
+  { href: '/pipeline', label: 'Lifecycle Pipeline', match: '/pipeline', icon: IconFlow, count: 'pipeline', needs: 'contract:read', group: 'work', description: 'Move work through the contract lifecycle' },
+  { href: '/review', label: 'AI Review', match: '/review', icon: IconSparkle, count: 'review', needs: 'contract:read', group: 'work', description: 'Review grounded AI findings and deviations' },
+  { href: '/authoring', label: 'Authoring', match: '/authoring', icon: IconDoc, needs: 'contract:read', group: 'work', description: 'Draft from approved language and templates' },
 
-  { href: '/templates', label: 'Templates', match: '/templates', icon: IconDoc, group: 'library', description: 'Browse approved legal templates' },
-  { href: '/repository', label: 'Repository & Search', match: '/repository', icon: IconBox, group: 'library', description: 'Search the portfolio or ask Concord AI' },
+  { href: '/templates', label: 'Templates', match: '/templates', icon: IconDoc, needs: 'contract:read', group: 'library', description: 'Browse approved legal templates' },
+  { href: '/repository', label: 'Repository & Search', match: '/repository', icon: IconBox, needs: 'contract:read', group: 'library', description: 'Search the portfolio or ask Concord AI' },
   { href: '/ingest', label: 'Bulk Ingestion', match: '/ingest', icon: IconInbox, needs: 'ingest:write', group: 'library', description: 'Upload, OCR, extract and validate agreements' },
 
-  { href: '/obligations', label: 'Obligations & Renewals', match: '/obligations', icon: IconCalendar, count: 'obligations', group: 'execute', description: 'Track commitments, renewals and deadlines' },
+  { href: '/obligations', label: 'Obligations & Renewals', match: '/obligations', icon: IconCalendar, count: 'obligations', needs: 'contract:read', group: 'execute', description: 'Track commitments, renewals and deadlines' },
   { href: '/esign', label: 'E-signature & e-Stamp', match: '/esign', icon: IconSign, count: 'esign', needs: 'esign:send', group: 'execute', description: 'Prepare signature and e-stamp workflows' },
 
   { href: '/notifications', label: 'Outlook Notifications', match: '/notifications', icon: IconMail, needs: 'audit:read', group: 'governance', description: 'Review legal workflow notifications' },
-  { href: '/reports', label: 'Portfolio Reports', match: '/reports', icon: IconChart, group: 'governance', description: 'Export agreement insights for review and leadership' },
+  { href: '/reports', label: 'Portfolio Reports', match: '/reports', icon: IconChart, needs: 'contract:read', group: 'governance', description: 'Export agreement insights for review and leadership' },
   { href: '/audit', label: 'Audit Trail', match: '/audit', icon: IconShield, needs: 'audit:read', group: 'governance', description: 'Inspect lifecycle events and decision evidence' },
 ];
 
@@ -117,6 +120,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const [who, setWho] = useState<{ name: string; role: Role; roleLabel: string } | null>(null);
   const [perms, setPerms] = useState<Permission[] | null>(null);
   const [counts, setCounts] = useState<Partial<NavCounts>>({});
+  const [unread, setUnread] = useState(0);
   const [appearance, setAppearance] = useState<Appearance>('system');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -161,18 +165,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .then((u) => {
         if (!live) return;
         const role = normalizeRole(u.role);
+        if (role === 'requester' && !requestReturnPath(path)) router.replace('/requests');
+        if (role !== 'requester') getNavCounts().then(c => live && setCounts(c)).catch(() => live && setCounts({}));
+        else setCounts({});
         setWho({ name: u.name?.trim() || u.email || 'Signed in', role, roleLabel: ROLE_LABELS[role] });
       })
       .catch(() => live && setWho(null));
     getPermissions()
       .then((p) => live && setPerms(p.permissions))
       .catch(() => live && setPerms(null));
-    getNavCounts()
-      .then((c) => live && setCounts(c))
-      .catch(() => live && setCounts({}));
     return () => {
       live = false;
     };
+  }, [bare, path, router]);
+
+  useEffect(() => {
+    if (bare) return;
+    let live = true;
+    const refresh = () => { if (!document.hidden) getInboxCount().then(r => live && setUnread(r.unreadCount)).catch(() => undefined); };
+    refresh();
+    const timer = setInterval(refresh, 30_000);
+    window.addEventListener('concord:inbox', refresh);
+    document.addEventListener('visibilitychange', refresh);
+    return () => { live = false; clearInterval(timer); window.removeEventListener('concord:inbox', refresh); document.removeEventListener('visibilitychange', refresh); };
   }, [bare, path]);
 
   useEffect(() => {
@@ -280,8 +295,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   );
 
   const paletteCommands = useMemo<PaletteCommand[]>(
-    () => visible.map((n) => ({ href: n.href, label: n.label, description: n.description, group: 'Navigate' })),
-    [visible],
+    () => [...visible.map((n) => ({ href: n.href, label: n.label, description: n.description, group: 'Navigate' })), ...(perms?.includes('request:write') ? [{ href: '/requests/new', label: 'Request an agreement', description: 'Fill a term sheet and choose your lawyer', group: 'Start work' }] : [])],
+    [visible, perms],
   );
 
   const logout = useCallback(() => {
@@ -321,16 +336,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     ['governance', 'Governance'],
   ];
 
+  const clientPortal = who?.role === 'requester';
+  const primaryMobile = clientPortal ? ['/requests', '/inbox'] : PRIMARY_MOBILE;
   const quickItems = [
-    { href: '/intake', label: 'Contract request', detail: 'Capture a new legal request', icon: IconInbox, show: true },
-    { href: '/authoring', label: 'Draft from template', detail: 'Start with approved language', icon: IconDoc, show: true },
-    { href: '/review', label: 'Review queue', detail: 'Open AI-assisted review', icon: IconSparkle, show: true },
-    { href: '/repository', label: 'Ask Concord AI', detail: 'Query the contract portfolio', icon: IconBox, show: true },
+    { href: '/requests/new', label: 'Agreement request', detail: 'Share your terms and choose a lawyer', icon: IconInbox, show: perms?.includes('request:write') ?? false },
+    { href: '/intake', label: 'Document intake', detail: 'Capture a legal document', icon: IconInbox, show: perms?.includes('contract:read') ?? false },
+    { href: '/authoring', label: 'Draft from template', detail: 'Start with approved language', icon: IconDoc, show: perms?.includes('contract:read') ?? false },
+    { href: '/review', label: 'Review queue', detail: 'Open AI-assisted review', icon: IconSparkle, show: perms?.includes('contract:read') ?? false },
+    { href: '/repository', label: 'Ask Concord AI', detail: 'Query the contract portfolio', icon: IconBox, show: perms?.includes('contract:read') ?? false },
     { href: '/ingest', label: 'Upload agreements', detail: 'OCR, extract and validate', icon: IconUpload, show: perms?.includes('ingest:write') ?? false },
     { href: '/esign', label: 'Signature packet', detail: 'Prepare e-sign and e-stamp', icon: IconSign, show: perms?.includes('esign:send') ?? false },
   ].filter((item) => item.show);
 
-  const moreActive = !PRIMARY_MOBILE.some((href) => (href === '/' ? path === '/' : path.startsWith(href)));
+  const moreActive = !primaryMobile.some((href) => (href === '/' ? path === '/' : path.startsWith(href)));
 
   return (
     <div className={`app${sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
@@ -339,11 +357,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <aside className={`sidebar${menuOpen ? ' is-open' : ''}`} aria-label="Primary navigation">
         <div className="sidebar-brand-row">
           <div className="brand">
-            <Link className="brand-full brand-home" href="/" aria-label="Concord home">
+            <Link className="brand-full brand-home" href={clientPortal ? "/requests" : "/"} aria-label="Concord home">
               <img className="brand-logo" src="/brand/lakme-salon.png" alt="Lakmē Salon" draggable={false} />
               <ConcordWordmark variant="display" /><div className="brand-caption">Legal operations workspace</div>
             </Link>
-            <Link className="rail-mark" href="/" aria-label="Concord home">C</Link>
+            <Link className="rail-mark" href={clientPortal ? "/requests" : "/"} aria-label="Concord home">C</Link>
           </div>
           <button
             className="sidebar-collapse"
@@ -417,7 +435,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span className="kbd">⌘K</span>
           </button>
 
-          <SystemStatus />
+          {!clientPortal && <SystemStatus />}
 
           <details ref={quickRef} key={`quick-${path}`} className="quick-menu">
             <summary className="quick-trigger" aria-label="Create or start work">
@@ -445,12 +463,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             </div>
           </details>
 
-          {visible.some((n) => n.href === '/notifications') && (
-            <Link className="icon-btn has-tooltip" href="/notifications" aria-label="Notifications" data-tooltip="Notifications">
-              <IconBell />
-              {counts.notifications ? <span className="dot" /> : null}
-            </Link>
-          )}
+          <Link className="icon-btn has-tooltip" href="/inbox" aria-label={`My inbox${unread ? `, ${unread} unread` : ''}`} data-tooltip="My inbox">
+            <IconBell />{unread > 0 && <span className="dot" />}
+          </Link>
 
           <button className="icon-btn theme-toggle has-tooltip" onClick={toggleTheme} aria-label="Toggle colour theme" data-tooltip={theme === 'dark' ? 'Use light theme' : 'Use dark theme'}>
             {theme === 'dark' ? <IconSun /> : <IconMoon />}
@@ -481,7 +496,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="stage" id="main-content" tabIndex={-1}>
-          <div key={path} className="route-view">{children}</div>
+          <div key={path} className="route-view">{!who || !perms || (clientPortal && !requestReturnPath(path)) ? <div className="req-notice" role="status">Loading your workspace…</div> : children}</div>
         </main>
 
         <footer className="foot">
@@ -490,14 +505,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </footer>
       </div>
 
-      <nav className="mobile-nav" aria-label="Primary mobile navigation">
-        {visible.filter((n) => PRIMARY_MOBILE.includes(n.href)).map((n) => {
+      <nav className={`mobile-nav${clientPortal ? ' req-mobile-nav' : ''}`} aria-label="Primary mobile navigation">
+        {visible.filter((n) => primaryMobile.includes(n.href)).map((n) => {
           const active = n.match === '/' ? path === '/' : path.startsWith(n.match);
           const Icon = n.icon;
           return (
             <Link key={n.href} href={n.href} className={active ? 'is-active' : ''} aria-current={active ? 'page' : undefined}>
               <span className="mobile-nav-icon"><Icon /></span>
-              <span>{n.href === '/' ? 'Home' : n.label.replace('Lifecycle ', '').replace(' & Search', '')}</span>
+              <span>{n.href === '/' ? 'Home' : n.href === '/requests' ? 'Requests' : n.label.replace('Lifecycle ', '').replace(' & Search', '')}</span>
             </Link>
           );
         })}
@@ -551,7 +566,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </section>
 
-      {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} commands={paletteCommands} />}
+      {paletteOpen && <CommandPalette onClose={() => setPaletteOpen(false)} commands={paletteCommands} canSearch={perms?.includes('contract:read') ?? false} />}
       <XcelerateSplash />
     </div>
   );

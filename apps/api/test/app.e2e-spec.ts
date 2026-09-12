@@ -60,6 +60,21 @@ describe('Concord API (integration)', () => {
     expect(result.body.subarray(0, 2).toString()).toBe('PK');
   });
 
+  it.each(['/api/contracts', '/api/intake', '/api/authoring/templates', '/api/authoring/clauses', '/api/obligations', '/api/repository/search?q=agreement', '/api/dashboard', '/api/search?q=agreement', '/api/reports/portfolio', '/api/auth/users'])('blocks department clients from the legal workspace: %s', async path => {
+    await http().get(path).set('Authorization', `Bearer ${token('requester')}`).expect(403);
+  });
+
+  it('allows a department client to use their portal, session and personal inbox', async () => {
+    for (const path of ['/api/requests', '/api/requests/options', '/api/inbox', '/api/inbox/unread-count', '/api/auth/me', '/api/auth/permissions']) {
+      await http().get(path).set('Authorization', `Bearer ${token('requester')}`).expect(200);
+    }
+    await http().post('/api/requests').set('Authorization', `Bearer ${token('requester')}`).send({ requesterId: 'spoofed' }).expect(400);
+    await http().patch('/api/requests/any').set('Authorization', `Bearer ${token('requester')}`).send({ status: 'closed', version: 0 }).expect(403);
+    await http().get('/api/requests').set('Authorization', `Bearer ${token('viewer')}`).expect(403);
+    await http().get('/api/inbox').expect(401);
+    await http().post('/api/auth/users').set('Authorization', `Bearer ${token('counsel')}`).send({ name: 'Client', email: 'client@example.test', role: 'requester' }).expect(403);
+  });
+
   it('exposes a public liveness health check', async () => {
     const r = await http().get('/api/health').expect(200);
     expect(r.body.status).toBe('ok');

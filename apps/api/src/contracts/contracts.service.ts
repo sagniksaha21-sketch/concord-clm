@@ -16,7 +16,7 @@ export class ContractsService implements OnModuleInit {
   }
 
   private toDomain(x: any): Contract {
-    return { id:x.id,title:x.title,counterparty:x.counterparty,type:x.type,valueDisplay:x.valueDisplay,stage:x.stage,risk:x.risk,version:x.version,source:x.source } as Contract;
+    return { id:x.id,title:x.title,counterparty:x.counterparty,type:x.type,valueDisplay:x.valueDisplay,stage:x.stage,risk:x.risk,version:x.version,source:x.source, ...(x.intakeRequest ? { requestId: x.intakeRequest.id } : {}) } as Contract;
   }
 
   list(): Contract[] { return [...this.contracts]; }
@@ -37,7 +37,7 @@ export class ContractsService implements OnModuleInit {
   /** Authoritative lookup for review/approval/signature decisions. */
   async getByIdFresh(id: string): Promise<Contract> {
     if (!this.prisma.enabled) return this.getById(id);
-    const row = await this.prisma.client.contract.findUnique({ where: { id } });
+    const row = await this.prisma.client.contract.findUnique({ where: { id }, include: { intakeRequest: { select: { id: true } } } });
     if (!row) throw new NotFoundException(`Contract ${id} not found`);
     return this.toDomain(row);
   }

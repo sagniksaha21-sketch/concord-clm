@@ -1,8 +1,10 @@
 import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { PERMISSIONS, ROLES, ROLE_LABELS, normalizeRole } from '@concord/shared';
+import { PERMISSIONS, ROLES, ROLE_LABELS, normalizeRole, requestReturnPath } from '@concord/shared';
 import { AuthService } from './auth.service';
 import { EntraService } from './entra.service';
+import { CreateUserDto } from './create-user.dto';
+import { isGraphConfigured } from '../notifications/graph.client';
 import { LoginDto } from './login.dto';
 import { SetRoleDto } from './set-role.dto';
 import { Public, Roles } from './rbac';
@@ -20,6 +22,7 @@ function sessionCookie(token: string): string {
 }
 
 @Controller('auth')
+@Roles()
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
@@ -67,6 +70,14 @@ export class AuthController {
     return this.auth.listUsers();
   }
 
+  @Roles('admin')
+  @Post('users')
+  createUser(@Body() dto: CreateUserDto, @Req() req: any) { return this.auth.createUser(dto, req.user); }
+
+  @Roles('admin')
+  @Get('access-status')
+  accessStatus() { return { microsoftSignInConfigured: this.entra.enabled, outlookConfigured: isGraphConfigured() }; }
+
   /** The canonical roles an administrator can assign, with their permissions. */
   @Roles('admin')
   @Get('roles')
@@ -93,7 +104,7 @@ export class AuthController {
 
   @Public()
   @Get('sso/login')
-  async ssoLogin(@Res() res: any) {
+  async ssoLogin(@Res() res: any, @Query('returnTo') returnTo?: string) {
     if (!this.entra.enabled) {
       res.status(501).send('Entra SSO not configured (set ENTRA_* env vars).');
       return;
@@ -101,9 +112,9 @@ export class AuthController {
     const state = randomUUID();
     res.setHeader(
       'Set-Cookie',
-      `sso_state=${state}; HttpOnly; Max-Age=600; Path=/; SameSite=Lax${
+      [`sso_state=${state}; HttpOnly; Max-Age=600; Path=/; SameSite=Lax${
         process.env.NODE_ENV === 'production' ? '; Secure' : ''
-      }`,
+      }`, `sso_return=${encodeURIComponent(requestReturnPath(returnTo) ?? '')}; HttpOnly; Max-Age=600; Path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`],
     );
     res.redirect(await this.entra.getAuthUrl(state));
   }
@@ -137,7 +148,7 @@ export class AuthController {
     const user = await this.auth.upsertUser(claims.email, claims.name, claims.role, 'sso');
     const token = this.auth.issueToken(user);
     const webOrigin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
-    res.setHeader('Set-Cookie', [sessionCookie(token), `sso_state=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`]);
-    res.redirect(`${webOrigin}/intake`);
+    res.setHeader('Set-Cookie', [sessionCookie(token), `sso_state=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`, `sso_return=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`]);
+    res.redirect(`${webOrigin.replace(/\/$/, '')}${requestReturnPath(readCookie(req, 'sso_return')) ?? (normalizeRole(user.role) === 'requester' ? '/requests' : '/intake')}`);
   }
 }

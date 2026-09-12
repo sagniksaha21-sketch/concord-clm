@@ -79,7 +79,9 @@ export class NotificationsService {
       // An approval or reminder nobody received. Invisible to the requester,
       // so it has to be visible to operations.
       notificationFailures.add(1, { channel: 'outlook-email' });
-      return { ...base, status: 'failed', dryRun: false, detail: String(err) };
+      const statusCode = Number((err as any)?.statusCode ?? (err as any)?.status);
+      return { ...base, status: 'failed', dryRun: false, detail: String(err),
+        retrySafe: statusCode >= 400 && statusCode < 500 && statusCode !== 408 };
     }
   }
 }

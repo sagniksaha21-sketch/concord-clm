@@ -23,6 +23,7 @@ export interface Contract {
   risk: RiskLevel;
   version: string;
   source: string; // e.g. "received from counterparty"
+  requestId?: string;
 }
 
 /** A clause the AI located in the document, with the span to highlight. */
@@ -92,6 +93,8 @@ export interface NotificationResult {
   dryRun: boolean;
   sentAt: string;
   detail?: string;
+  /** Explicit provider rejection; a retry cannot duplicate an accepted email. */
+  retrySafe?: boolean;
 }
 
 export interface ApprovalResult {

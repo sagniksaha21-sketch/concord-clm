@@ -472,3 +472,28 @@ export async function verifyAudit(token?: string): Promise<AuditVerifyResult> {
   if (!res.ok) throw new Error(`Verification unavailable (${res.status})`);
   return res.json();
 }
+
+// Department portal: use the same authenticated, same-origin transport as CLM.
+async function portalJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await apiFetch(`/api${path}`, { cache: 'no-store', ...init });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const message = Array.isArray(body.message) ? body.message.join(' · ') : body.message;
+    throw new Error(message || `The request could not be completed (${res.status}).`);
+  }
+  return body as T;
+}
+const jsonBody = (method: string, body: unknown): RequestInit => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+export const getRequestOptions = () => portalJson<import('@concord/shared').ClientRequestOptions>('/requests/options');
+export const getClientRequests = (view = '') => portalJson<import('@concord/shared').ClientRequestList>(`/requests${view ? `?view=${encodeURIComponent(view)}` : ''}`);
+export const getClientRequest = (id: string, token?: string) => portalJson<import('@concord/shared').ClientRequest>(`/requests/${encodeURIComponent(id)}`, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+export const createClientRequest = (body: import('@concord/shared').CreateClientRequest) => portalJson<import('@concord/shared').ClientRequest>('/requests', jsonBody('POST', body));
+export const updateClientRequest = (id: string, body: { status: import('@concord/shared').ClientRequest['status']; legalNote?: string; version: number }) => portalJson<import('@concord/shared').ClientRequest>(`/requests/${encodeURIComponent(id)}`, jsonBody('PATCH', body));
+export const getInbox = () => portalJson<import('@concord/shared').InboxResult>('/inbox');
+export const getInboxCount = () => portalJson<{ unreadCount: number }>('/inbox/unread-count');
+export const readInbox = (id?: string) => portalJson<{ ok: boolean }>(id ? `/inbox/${encodeURIComponent(id)}/read` : '/inbox/read-all', { method: id ? 'PATCH' : 'POST' });
+export interface TeamUser { id: string; name: string; email: string; canonicalRole: Role; roleLabel: string; roleSource: string }
+export const getTeamUsers = () => portalJson<TeamUser[]>('/auth/users');
+export const getAccessStatus = () => portalJson<{ microsoftSignInConfigured: boolean; outlookConfigured: boolean }>('/auth/access-status');
+export const addTeamUser = (body: { name: string; email: string; role: Role }) => portalJson<TeamUser>('/auth/users', jsonBody('POST', body));
+export const setTeamRole = (email: string, role: Role) => portalJson<TeamUser>(`/auth/users/${encodeURIComponent(email)}/role`, jsonBody('PATCH', { role }));

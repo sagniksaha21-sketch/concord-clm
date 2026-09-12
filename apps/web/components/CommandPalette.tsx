@@ -91,9 +91,11 @@ function Glyph({ href }: { href: string }) {
 export default function CommandPalette({
   onClose,
   commands,
+  canSearch = true,
 }: {
   onClose: () => void;
   commands: PaletteCommand[];
+  canSearch?: boolean;
 }) {
   const router = useRouter();
   const [q, setQ] = useState('');
@@ -127,7 +129,7 @@ export default function CommandPalette({
 
   useEffect(() => {
     const term = q.trim();
-    if (term.length < 2) {
+    if (!canSearch || term.length < 2) {
       setHits([]);
       setErr('');
       setBusy(false);
@@ -153,7 +155,7 @@ export default function CommandPalette({
       cancelled = true;
       clearTimeout(t);
     };
-  }, [q]);
+  }, [q, canSearch]);
 
   const rows = useMemo<PaletteRow[]>(() => {
     const term = q.trim().toLowerCase();
@@ -343,7 +345,7 @@ export default function CommandPalette({
         {!searching && (
           <div className="palette-hintbar">
             <span><IconCommand /> Command centre</span>
-            <span>Type a contract, counterparty or destination</span>
+            <span>{canSearch ? 'Type a contract, counterparty or destination' : 'Type a destination or action'}</span>
           </div>
         )}
 
@@ -353,7 +355,7 @@ export default function CommandPalette({
             <div className="empty palette-empty">
               <span className="e-ico">⌕</span>
               No matches for “{q.trim()}”.
-              <small>Try a contract title, counterparty, obligation or workspace name.</small>
+              <small>{canSearch ? 'Try a contract title, counterparty, obligation or workspace name.' : 'Try agreement requests, inbox or a new request.'}</small>
             </div>
           )}
 

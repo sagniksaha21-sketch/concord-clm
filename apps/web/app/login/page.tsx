@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE, login } from '@/app/lib/api';
 import { ConcordWordmark } from '@/components/ConcordBrand';
+import { normalizeRole, requestReturnPath } from '@concord/shared';
 
 export default function LoginPage() {
   const showDemo = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGIN === 'true';
@@ -12,6 +13,8 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const router = useRouter();
+  const [returnTo, setReturnTo] = useState<string>();
+  useEffect(() => { setReturnTo(requestReturnPath(new URLSearchParams(window.location.search).get('returnTo'))); }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -20,7 +23,7 @@ export default function LoginPage() {
     try {
       const r = await login(email, password);
       try { localStorage.setItem('concord_user', JSON.stringify(r.user)); } catch { /* ignore */ }
-      router.push('/');
+      router.push(returnTo ?? (normalizeRole(r.user.role) === 'requester' ? '/requests' : '/'));
       router.refresh();
     } catch {
       setErr('We could not sign you in with those credentials.');
@@ -58,7 +61,7 @@ export default function LoginPage() {
             </form>}
 
             {showDemo && <div className="login-divider"><span>or</span></div>}
-            <a className="sso-button" href={`${API_BASE}/api/auth/sso/login`}>
+            <a className="sso-button" href={`${API_BASE}/api/auth/sso/login${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`}>
               <svg viewBox="0 0 23 23" width="18" height="18" aria-hidden="true">
                 <rect x="1" y="1" width="10" height="10" fill="#F25022" />
                 <rect x="12" y="1" width="10" height="10" fill="#7FBA00" />

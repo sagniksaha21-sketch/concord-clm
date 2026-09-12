@@ -9,6 +9,10 @@ interface Triage {
   risk: RiskLevel;
 }
 
+// Keep newly added term sheets out of legacy intake responses. The client
+// request endpoints apply their own ownership checks before returning them.
+const INTAKE_SELECT = { id: true, title: true, counterparty: true, businessUnit: true, requestor: true, description: true, contractType: true, suggestedTemplateId: true, triageRisk: true, status: true, createdAt: true };
+
 /**
  * Contract intake with AI triage. Persists to Postgres when Prisma is enabled,
  * otherwise keeps requests in memory (seeded from @concord/shared).
@@ -21,13 +25,13 @@ export class IntakeService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(): Promise<IntakeRequest[]> {
-    if (this.prisma.enabled) return this.prisma.client.intakeRequest.findMany({ orderBy: { createdAt: 'desc' } });
+    if (this.prisma.enabled) return this.prisma.client.intakeRequest.findMany({ select: INTAKE_SELECT, orderBy: { createdAt: 'desc' } });
     return this.requests;
   }
 
   async getById(id: string): Promise<IntakeRequest> {
     const r = this.prisma.enabled
-      ? await this.prisma.client.intakeRequest.findUnique({ where: { id } })
+      ? await this.prisma.client.intakeRequest.findUnique({ where: { id }, select: INTAKE_SELECT })
       : this.requests.find((x) => x.id === id);
     if (!r) throw new NotFoundException(`Intake ${id} not found`);
     return r;
@@ -36,7 +40,7 @@ export class IntakeService {
   async create(dto: CreateIntakeDto): Promise<IntakeRequest> {
     const triage = this.triage(dto);
     const req: IntakeRequest = {
-      id: await this.nextId(),
+      id: await this.allocateId(),
       title: dto.title,
       counterparty: dto.counterparty,
       businessUnit: dto.businessUnit,
@@ -50,7 +54,7 @@ export class IntakeService {
     };
     if (this.prisma.enabled) {
       const { createdAt, ...data } = req;
-      return this.prisma.client.intakeRequest.create({ data });
+      return this.prisma.client.intakeRequest.create({ data, select: INTAKE_SELECT });
     }
     this.requests = [req, ...this.requests];
     return req;
@@ -65,10 +69,10 @@ export class IntakeService {
    * was filed. `nextval` on a Postgres sequence is atomic across replicas, and
    * the sequence is created by a versioned migration, not at runtime.
    */
-  private async nextId(): Promise<string> {
+  async allocateId(transaction?: any): Promise<string> {
     const year = new Date().getFullYear();
     if (this.prisma.enabled) {
-      const rows: Array<{ n: bigint | number }> = await this.prisma.client.$queryRawUnsafe(
+      const rows: Array<{ n: bigint | number }> = await (transaction ?? this.prisma.client).$queryRawUnsafe(
         "SELECT nextval('intake_seq') AS n",
       );
       const n = Number(rows?.[0]?.n ?? 0);
@@ -79,7 +83,7 @@ export class IntakeService {
     return `INT-${year}-${String(this.seq).padStart(3, '0')}`;
   }
 
-  private triage(dto: CreateIntakeDto): Triage {
+  triage(dto: CreateIntakeDto): Triage {
     const t = `${dto.title} ${dto.description}`.toLowerCase();
     if (/\bnda\b|non-disclosure|confidential/.test(t))
       return { contractType: 'Compliance', templateId: 'TPL-NDA', risk: 'low' };

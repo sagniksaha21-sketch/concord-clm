@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { getContract, getReview } from '@/app/lib/api';
+import { getContract, getReview, getClientRequest } from '@/app/lib/api';
 import RiskGauge from '@/components/RiskGauge';
 import ReviewSections from '@/components/ReviewSections';
 import DeviationCard from '@/components/DeviationCard';
@@ -18,6 +18,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
     getContract(params.id, token),
     getReview(params.id, token),
   ]);
+  const clientRequest = contract.requestId ? await getClientRequest(contract.requestId, token).catch(() => null) : null;
   const exampleReview = review.model === 'built-in';
   const metadataReview = review.model === 'synthesized';
   const reviewBasis = exampleReview ? 'Example findings' : metadataReview ? 'Metadata overview' : 'Document findings';
@@ -30,6 +31,7 @@ export default async function ReviewPage({ params }: { params: { id: string } })
         <div className="review-hero-main">
           <div className="eyebrow">AI-assisted contract review</div>
           <h2>{contract.title}</h2>
+          {clientRequest && <Link className="btn" href={`/requests/${contract.requestId}`}>View client term sheet →</Link>}
           <p>{contract.counterparty} · {contract.type} · {contract.valueDisplay}</p>
           <div className="review-meta-row">
             <span className={`badge ${review.riskLevel === 'medium' ? 'med' : review.riskLevel}`}><i className="bd" />{review.riskLevel} risk · {review.riskScore}/100</span>

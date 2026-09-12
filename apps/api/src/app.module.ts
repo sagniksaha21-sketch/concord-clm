@@ -22,6 +22,7 @@ import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { ESignModule } from './esign/esign.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { ReportsModule } from './reports/reports.module';
+import { ClientRequestsModule } from './client-requests/client-requests.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { ReportsModule } from './reports/reports.module';
     ESignModule,
     WorkspaceModule,
     ReportsModule,
+    ClientRequestsModule,
   ],
 })
 export class AppModule {}

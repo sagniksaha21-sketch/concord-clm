@@ -1,12 +1,15 @@
 /**
- * Role-based access control for Concord. Five canonical roles, mapped from the
+ * Role-based access control for Concord. Six canonical roles, mapped from the
  * user's stored/Entra role text by `normalizeRole`, each granting a set of
  * permissions checked server-side (NestJS RolesGuard) and surfaced in the UI.
  */
 
-export type Role = 'admin' | 'lead' | 'counsel' | 'approver' | 'viewer';
+export type Role = 'admin' | 'lead' | 'counsel' | 'approver' | 'viewer' | 'requester';
 
 export type Permission =
+  | 'request:read'
+  | 'request:write'
+  | 'request:manage'
   | 'contract:read'
   | 'contract:write'
   | 'template:write'
@@ -25,22 +28,26 @@ export const ROLE_LABELS: Record<Role, string> = {
   counsel: 'Counsel',
   approver: 'Approver',
   viewer: 'Viewer',
+  requester: 'Department client',
 };
 
 const READ: Permission[] = ['contract:read'];
 
 export const PERMISSIONS: Record<Role, Permission[]> = {
   admin: [
+    'request:read', 'request:write', 'request:manage',
     'contract:read', 'contract:write', 'template:write', 'intake:write',
     'ingest:write', 'approval:route', 'approve', 'esign:send', 'esign:admin', 'audit:read', 'admin',
   ],
   lead: [
+    'request:read', 'request:write', 'request:manage',
     'contract:read', 'contract:write', 'template:write', 'intake:write',
     'ingest:write', 'approval:route', 'approve', 'esign:send', 'esign:admin', 'audit:read',
   ],
-  counsel: ['contract:read', 'contract:write', 'intake:write', 'ingest:write', 'approval:route', 'esign:send'],
+  counsel: ['contract:read', 'contract:write', 'intake:write', 'ingest:write', 'approval:route', 'esign:send', 'request:read', 'request:write', 'request:manage'],
   approver: ['contract:read', 'approve'],
   viewer: READ,
+  requester: ['request:read', 'request:write'],
 };
 
 /** Maps free-text / Entra role or group names to a canonical role (least-privilege default). */
@@ -50,6 +57,9 @@ export const PERMISSIONS: Record<Role, Permission[]> = {
  * group called "Read-only Admin" or "Contract Administrator" become full `admin`.
  */
 const EXACT_ROLE_MAP: Record<string, Role> = {
+  requester: 'requester',
+  'department client': 'requester',
+  'concord.requester': 'requester',
   admin: 'admin',
   administrator: 'admin',
   'concord.admin': 'admin',
@@ -100,7 +110,7 @@ function normalizeRoleFuzzy(raw?: string): Role {
   return 'viewer'; // unknown → least privilege
 }
 
-export const ROLES: Role[] = ['admin', 'lead', 'counsel', 'approver', 'viewer'];
+export const ROLES: Role[] = ['admin', 'lead', 'counsel', 'approver', 'viewer', 'requester'];
 
 export function isRole(value: unknown): value is Role {
   return typeof value === 'string' && (ROLES as string[]).includes(value);
@@ -116,7 +126,7 @@ export interface ResolvedRole {
  * Resolves ONE canonical role from all of an identity provider's role/group
  * claims (finding C-D7).
  *
- * The five roles are not a ladder — `counsel` can draft but not approve,
+ * The six roles are not a ladder — `counsel` can draft but not approve,
  * `approver` can approve but not draft — so "take the highest" would silently
  * drop one of a user's two capabilities.
  *
@@ -154,7 +164,7 @@ export function resolveRoleDetailed(claims: Array<string | undefined | null>): R
   const needed = [...union];
 
   // A role that covers the union AND grants nothing beyond it is an exact fit.
-  for (const candidate of ['viewer', 'approver', 'counsel', 'lead'] as Role[]) {
+  for (const candidate of ['requester', 'viewer', 'approver', 'counsel', 'lead'] as Role[]) {
     const grants = PERMISSIONS[candidate];
     if (needed.every((p) => grants.includes(p)) && grants.length === needed.length) {
       return { role: candidate };
