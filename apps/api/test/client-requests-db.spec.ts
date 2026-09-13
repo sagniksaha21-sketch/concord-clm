@@ -43,7 +43,7 @@ describeDb('Department portal on PostgreSQL', () => {
     expect(result.assignedLegal.id).toBe('counsel'); expect(result.requester.id).toBe('requester'); expect(result.terms.paymentTerms).toContain('30 days');
     expect(result.emailStatus).toBe('awaiting-configuration'); expect(result.canOpenAgreement).toBe(false); expect(result.canManage).toBe(false);
     const contract = await new ContractsService(prisma).getByIdFresh(result.contractId); expect(contract.requestId).toBe(result.id); expect(contract.stage).toBe('intake');
-    expect((await inbox.list(actors.counsel)).unreadCount).toBe(1); expect((await inbox.list(actors.requester)).unreadCount).toBe(0);
+    expect((await inbox.list(actors.counsel)).unreadCount).toBe(1); expect((await inbox.list(actors.counsel)).items[0].href).toBe(`/contracts/${result.contractId}`); expect((await inbox.list(actors.requester)).unreadCount).toBe(0);
     expect(await db.auditEvent.count({ where: { entityId: result.id, action: 'request.submitted' } })).toBe(1);
     const reload = new ClientRequestsService(prisma, new IntakeService(prisma), new AuditService(prisma)); expect((await reload.get(result.id, actors.requester)).terms.scope).toBe(dto().terms.scope);
   });
@@ -158,6 +158,7 @@ describeDb('Department portal on PostgreSQL', () => {
     const asked = await service.message(request.id, question, actors.counsel);
     expect(asked.status).toBe('waiting-on-client');
     expect((await inbox.list(actors.requester)).items[0].body).toContain('liability');
+    expect((await inbox.list(actors.requester)).items[0].href).toBe(`/requests/${request.id}`);
     await expect(service.message(request.id, { id: randomUUID(), body: 'Agreed', kind: 'reply', version: 1 }, actors['other-client'])).rejects.toThrow('not found');
     const reply = { id: randomUUID(), body: 'The business confirms the negotiated cap.', kind: 'reply' as const, version: 1 };
     const replied = await service.message(request.id, reply, actors.requester);

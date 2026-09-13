@@ -158,12 +158,12 @@ export default function ReportsPage() {
             <section className="card">
               <div className="card-head"><h3>Priority agreements</h3><span className="ch-act">Risk first</span></div>
               {topAgreements.length ? <div className="report-mini-list">{topAgreements.map((row) => <div className="report-mini-row" key={row.id}><span className={`badge ${row.risk === 'medium' ? 'med' : row.risk}`}><i className="bd" />{row.risk}</span><div><b>{row.title}</b><small>{row.counterparty} · {row.stage}</small></div><span className="report-mini-date">{labelDate(row.nextDueDate)}</span></div>)}</div> : <EmptyState title="No agreements in scope" />}
-              <a className="report-link" href="/pipeline">Open lifecycle pipeline <IconArrowRight /></a>
+              <a className="report-link" href="/work">Continue in Work <IconArrowRight /></a>
             </section>
             <section className="card">
               <div className="card-head"><h3>Upcoming commitments</h3><span className="ch-act">Sorted by due date</span></div>
               {upcoming.length ? <div className="report-mini-list">{upcoming.map((row) => <div className="report-mini-row" key={row.id}><span className={`badge ${row.risk === 'medium' ? 'med' : row.risk}`}><i className="bd" />{row.status}</span><div><b>{row.title}</b><small>{row.contractTitle}</small></div><span className="report-mini-date">{labelDate(row.dueDate)}</span></div>)}</div> : <EmptyState title="No upcoming obligations" />}
-              <a className="report-link" href="/obligations">Open obligations <IconArrowRight /></a>
+              <a className="report-link" href="/work?stage=obligations">Review upcoming commitments <IconArrowRight /></a>
             </section>
           </div>
         </>

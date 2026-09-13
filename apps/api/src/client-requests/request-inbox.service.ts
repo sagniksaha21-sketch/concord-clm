@@ -22,10 +22,10 @@ export class RequestInboxService {
     if (!this.prisma.enabled) return { items: [], unreadCount: 0 };
     const [rows, count] = await Promise.all([
       this.prisma.client.requestNotification.findMany({ where: { recipientId: actor.id }, orderBy: { createdAt: 'desc' }, take: 50,
-        select: { id: true, requestId: true, contractId: true, title: true, body: true, createdAt: true, readAt: true, emailStatus: true } }),
+        select: { id: true, requestId: true, contractId: true, request: { select: { contractId: true } }, title: true, body: true, createdAt: true, readAt: true, emailStatus: true } }),
       this.unread(actor),
     ]);
-    return { items: rows.map((r: any) => ({ ...r, href: r.contractId && can(normalizeRole(actor.role), 'contract:read') ? `/contracts/${encodeURIComponent(r.contractId)}` : r.requestId ? `/requests/${encodeURIComponent(r.requestId)}` : '/work', createdAt: new Date(r.createdAt).toISOString(), readAt: r.readAt ? new Date(r.readAt).toISOString() : null })), unreadCount: count.unreadCount };
+    return { items: rows.map((r: any) => { const { request, ...item } = r; const contractId = r.contractId ?? request?.contractId; return { ...item, href: contractId && can(normalizeRole(actor.role), 'contract:read') ? `/contracts/${encodeURIComponent(contractId)}` : r.requestId ? `/requests/${encodeURIComponent(r.requestId)}` : '/work', createdAt: new Date(r.createdAt).toISOString(), readAt: r.readAt ? new Date(r.readAt).toISOString() : null }; }), unreadCount: count.unreadCount };
   }
 
   async markRead(actor: AuthUser, id?: string) {
