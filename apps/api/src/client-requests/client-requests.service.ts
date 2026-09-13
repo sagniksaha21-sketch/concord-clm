@@ -5,10 +5,10 @@ import { PrismaService } from '../persistence/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { IntakeService } from '../intake/intake.service';
 import { isGraphConfigured } from '../notifications/graph.client';
-import { CreateClientRequestDto, UpdateClientRequestDto } from './client-request.dto';
+import { CreateClientRequestDto, UpdateClientRequestDto, RequestMessageDto, RequestActionDto } from './client-request.dto';
 
 const PERSON = { id: true, name: true, email: true, role: true };
-const INCLUDE = { requester: { select: PERSON }, assignedLegal: { select: PERSON }, contract: { select: { id: true, stage: true } }, notifications: { where: { kind: 'assignment' }, select: { emailStatus: true }, take: 1 } };
+const INCLUDE = { attachments: { select: { id: true, filename: true, size: true, category: true } }, messages: { orderBy: { createdAt: 'asc' }, take: 200, include: { author: { select: { name: true } } } }, requester: { select: PERSON }, assignedLegal: { select: PERSON }, contract: { select: { id: true, stage: true } }, notifications: { where: { kind: 'assignment' }, select: { emailStatus: true }, take: 1 } };
 const isLead = (user: AuthUser) => ['admin', 'lead'].includes(normalizeRole(user.role));
 
 export function validateTermDates(dto: CreateClientRequestDto): void {
@@ -75,6 +75,7 @@ export class ClientRequestsService {
       requestedByDate: row.requestedByDate, urgency: row.urgency, terms: row.terms,
       status: row.clientStatus, legalNote: row.legalNote ?? undefined, contractId: row.contractId, contractStage: row.contract.stage,
       version: row.version, createdAt: new Date(row.createdAt).toISOString(), updatedAt: new Date(row.updatedAt).toISOString(),
+      attachments: row.attachments ?? [], messages: (row.messages ?? []).map((m: any) => ({ id: m.id, kind: m.kind, body: m.body, authorName: m.author.name, createdAt: new Date(m.createdAt).toISOString() })), assignmentPreference: row.assignmentPreference ?? undefined,
       emailStatus: row.notifications[0]?.emailStatus ?? 'not-requested', canManage: this.canManage(row, actor), canOpenAgreement: can(normalizeRole(actor.role), 'contract:read'),
     };
   }
@@ -107,7 +108,14 @@ export class ClientRequestsService {
     let id: string;
     try {
       id = await db.$transaction(async (tx: any) => {
-        const lawyer = await tx.user.findUnique({ where: { id: dto.assignedLegalUserId }, select: PERSON });
+        let lawyer;
+        if (dto.assignedLegalUserId === 'auto') {
+          // Serialise automatic assignment across replicas, then choose the
+          // eligible resource with the fewest open requests. No invented expertise.
+          await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(73002613)');
+          const candidates = await tx.user.findMany({ select: { ...PERSON, _count: { select: { assignedRequests: { where: { clientStatus: { not: 'closed' } } } } } } });
+          lawyer = candidates.filter((u: any) => can(normalizeRole(u.role), 'request:manage')).sort((a: any, b: any) => a._count.assignedRequests - b._count.assignedRequests || a.id.localeCompare(b.id))[0];
+        } else lawyer = await tx.user.findUnique({ where: { id: dto.assignedLegalUserId }, select: PERSON });
         if (!lawyer || !can(normalizeRole(lawyer.role), 'request:manage')) throw new BadRequestException('Choose a current member of the legal team.');
         const requester = await tx.user.findUnique({ where: { id: actor.id }, select: PERSON });
         if (!requester) throw new ForbiddenException('Your account is no longer available.');
@@ -120,9 +128,13 @@ export class ClientRequestsService {
         await tx.intakeRequest.create({ data: { id: requestId, title: dto.title, counterparty: dto.counterparty, businessUnit: dto.businessUnit,
           requestor: requester.email, requesterId: requester.id, assignedLegalUserId: lawyer.id, contractType: dto.contractType,
           description: dto.terms.scope, suggestedTemplateId: triage.templateId, triageRisk: triage.risk, status: 'converted',
-          contractId, terms: dto.terms, requestedByDate: dto.requestedByDate, urgency: dto.urgency, submissionKey, payloadHash } });
+          contractId, assignmentPreference: dto.assignedLegalUserId === 'auto' ? 'No preference — assigned by current workload' : 'Preferred counsel selected by requestor', terms: dto.terms, requestedByDate: dto.requestedByDate, urgency: dto.urgency, submissionKey, payloadHash } });
+        if (dto.attachmentIds?.length) {
+          const claimed = await tx.requestAttachment.updateMany({ where: { id: { in: dto.attachmentIds }, uploaderId: actor.id, requestId: null }, data: { requestId } });
+          if (claimed.count !== dto.attachmentIds.length) throw new BadRequestException('An attachment is no longer available. Review your documents before submitting.');
+        }
         await tx.requestNotification.create({ data: { id: randomUUID(), requestId, recipientId: lawyer.id, kind: 'assignment',
-          title: `New agreement request: ${dto.title}`, body: `${requester.name} from ${dto.businessUnit} selected you. Requested by ${dto.requestedByDate}.`,
+          title: `New agreement request: ${dto.title}`, body: `${requester.name} · ${dto.businessUnit} · ${dto.counterparty} · ${dto.contractType} · ${dto.urgency}. Request ${requestId}; needed ${dto.requestedByDate}. ${dto.terms.amount ? dto.terms.currency + " " + dto.terms.amount + ". " : ""}${dto.terms.scope.slice(0, 800)}`,
           emailStatus: isGraphConfigured() ? 'queued' : 'awaiting-configuration' } });
         await this.audit.recordInTransaction(tx, { actor, action: 'request.submitted', entity: 'intake', entityId: requestId,
           summary: `Department agreement request assigned to ${lawyer.name}`, metadata: { contractId, assignedLegalUserId: lawyer.id, requesterId: requester.id, businessUnit: dto.businessUnit } });
@@ -158,4 +170,57 @@ export class ClientRequestsService {
     }, { timeout: 15_000, maxWait: 10_000 });
     return this.get(id, actor);
   }
+  async message(id: string, dto: RequestMessageDto, actor: AuthUser): Promise<ClientRequest> {
+    const db = this.database();
+    const before = await this.get(id, actor);
+    if (before.status === 'closed') throw new ConflictException('This request is closed.');
+    if (dto.kind !== 'reply' && !before.canManage) throw new ForbiddenException('Only the assigned legal team can ask a question or post a legal update.');
+    if (dto.kind === 'reply' && before.requester.id !== actor.id) throw new ForbiddenException('Only the requestor can provide business input.');
+    const previous = await db.requestMessage.findUnique({ where: { id: dto.id } });
+    if (previous) {
+      if (previous.requestId !== id || previous.authorId !== actor.id || previous.body !== dto.body.trim() || previous.kind !== dto.kind) throw new ConflictException('This message has already been submitted.');
+      return before;
+    }
+    await db.$transaction(async (tx: any) => {
+      const status = dto.kind === 'question' ? 'waiting-on-client' : dto.kind === 'reply' ? 'in-progress' : before.status;
+      const changed = await tx.intakeRequest.updateMany({ where: { id, version: dto.version, clientStatus: { not: 'closed' } }, data: { clientStatus: status, version: { increment: 1 }, ...(dto.kind === 'question' ? { legalNote: dto.body.trim() } : {}) } });
+      if (changed.count !== 1) throw new ConflictException('New activity arrived. Refresh before sending your message.');
+      await tx.requestMessage.create({ data: { id: dto.id, requestId: id, authorId: actor.id, kind: dto.kind, body: dto.body.trim() } });
+      const recipientId = dto.kind === 'reply' ? before.assignedLegal.id : before.requester.id;
+      await tx.requestNotification.create({ data: { id: randomUUID(), requestId: id, recipientId, kind: `message-${dto.id}`, title: `${dto.kind === 'question' ? 'Action required' : dto.kind === 'reply' ? 'Business input received' : 'Legal update'}: ${before.title}`, body: `${actor.name}: ${dto.body.trim()}`, emailStatus: isGraphConfigured() ? 'queued' : 'awaiting-configuration' } });
+      await this.audit.recordInTransaction(tx, { actor, action: `request.${dto.kind}`, entity: 'intake', entityId: id, summary: `Request conversation: ${dto.kind}`, metadata: { contractId: before.contractId, messageId: dto.id, recipientId } });
+    }, { timeout: 15_000, maxWait: 10_000 });
+    return this.get(id, actor);
+  }
+
+  async action(id: string, dto: RequestActionDto, actor: AuthUser): Promise<ClientRequest> {
+    const db = this.database();
+    const before = await this.get(id, actor);
+    if (!before.canManage) throw new ForbiddenException('Only the assigned lawyer or a legal lead can manage this request.');
+    if (before.status === 'closed') throw new ConflictException('This request is closed.');
+    if (dto.action === 'close' && !dto.note?.trim()) throw new BadRequestException('Explain why this request is being closed.');
+    await db.$transaction(async (tx: any) => {
+      // Lock the same contract row as drafting, approval and version mutations.
+      await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE', before.contractId);
+      const contract = await tx.contract.findUnique({ where: { id: before.contractId } });
+      if (dto.action !== 'reassign' && contract?.stage !== 'intake') throw new ConflictException('Accept or close applies only to a new request.');
+      let lawyer;
+      if (dto.action === 'reassign') {
+        lawyer = dto.assignedLegalUserId ? await tx.user.findUnique({ where: { id: dto.assignedLegalUserId }, select: PERSON }) : null;
+        if (!lawyer || !can(normalizeRole(lawyer.role), 'request:manage')) throw new BadRequestException('Choose an available legal team member.');
+      }
+      const changed = await tx.intakeRequest.updateMany({ where: { id, version: dto.version }, data: { version: { increment: 1 }, clientStatus: dto.action === 'close' ? 'closed' : dto.action === 'accept' ? 'in-progress' : before.status,
+        ...(lawyer ? { assignedLegalUserId: lawyer.id } : {}), ...(dto.note ? { legalNote: dto.note.trim() } : {}) } });
+      if (changed.count !== 1) throw new ConflictException('This request changed. Refresh before continuing.');
+      if (dto.action === 'accept') await tx.contract.update({ where: { id: before.contractId }, data: { stage: 'drafting', lifecycleRevision: { increment: 1 } } });
+      const recipientId = lawyer?.id ?? before.requester.id;
+      await tx.requestNotification.create({ data: { id: randomUUID(), requestId: id, recipientId, kind: `${dto.action}-${dto.version + 1}`, title: `Request ${dto.action === 'accept' ? 'accepted' : dto.action === 'close' ? 'closed' : 'assigned'}: ${before.title}`, body: `${actor.name}. ${dto.note?.trim() || (dto.action === 'accept' ? 'Legal is preparing your agreement.' : 'Open the request for the term sheet and next action.')}`, emailStatus: isGraphConfigured() ? 'queued' : 'awaiting-configuration' } });
+      await this.audit.recordInTransaction(tx, { actor, action: `request.${dto.action}`, entity: 'intake', entityId: id, summary: `Request ${dto.action}`, metadata: { contractId: before.contractId, assignedLegalUserId: lawyer?.id, note: dto.note } });
+    }, { timeout: 15_000, maxWait: 10_000 });
+    // Reassigning counsel may remove their access. Return a scoped final view
+    // from the saved record only for this already-authorised mutation response.
+    const row = await db.intakeRequest.findUnique({ where: { id }, include: INCLUDE });
+    return this.domain(row, actor);
+  }
+
 }

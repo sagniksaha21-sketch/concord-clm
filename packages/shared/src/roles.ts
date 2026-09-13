@@ -28,7 +28,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   counsel: 'Counsel',
   approver: 'Approver',
   viewer: 'Viewer',
-  requester: 'Department client',
+  requester: 'Requestor',
 };
 
 const READ: Permission[] = ['contract:read'];
@@ -58,6 +58,8 @@ export const PERMISSIONS: Record<Role, Permission[]> = {
  */
 const EXACT_ROLE_MAP: Record<string, Role> = {
   requester: 'requester',
+  requestor: 'requester',
+  'concord.requestor': 'requester',
   'department client': 'requester',
   'concord.requester': 'requester',
   admin: 'admin',

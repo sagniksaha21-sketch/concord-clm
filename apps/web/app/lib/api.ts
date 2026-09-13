@@ -235,9 +235,10 @@ export async function ingestDocuments(
   return res.json();
 }
 
-export async function uploadFiles(files: File[]): Promise<IngestResult[]> {
+export async function uploadFiles(files: File[], contractId?: string): Promise<IngestResult[]> {
   const fd = new FormData();
   files.forEach((f) => fd.append('files', f));
+  if (contractId) fd.append('contractId', contractId);
   const res = await apiFetch(`${API_BASE}/api/ingest/upload`, { method: 'POST', body: fd });
   if (!res.ok) throw new Error(`Upload failed (${res.status})`);
   return res.json();
@@ -497,3 +498,23 @@ export const getTeamUsers = () => portalJson<TeamUser[]>('/auth/users');
 export const getAccessStatus = () => portalJson<{ microsoftSignInConfigured: boolean; outlookConfigured: boolean }>('/auth/access-status');
 export const addTeamUser = (body: { name: string; email: string; role: Role }) => portalJson<TeamUser>('/auth/users', jsonBody('POST', body));
 export const setTeamRole = (email: string, role: Role) => portalJson<TeamUser>(`/auth/users/${encodeURIComponent(email)}/role`, jsonBody('PATCH', { role }));
+
+export const postRequestMessage = (id: string, body: { id: string; body: string; kind: 'question' | 'reply' | 'update'; version: number }) => portalJson<import('@concord/shared').ClientRequest>(`/requests/${encodeURIComponent(id)}/messages`, jsonBody('POST', body));
+export const actOnRequest = (id: string, body: { action: 'accept' | 'reassign' | 'close'; version: number; note?: string; assignedLegalUserId?: string }) => portalJson<import('@concord/shared').ClientRequest>(`/requests/${encodeURIComponent(id)}/actions`, jsonBody('POST', body));
+export async function uploadRequestAttachment(file: File, category: string) {
+  const body = new FormData(); body.append('file', file); body.append('category', category);
+  return portalJson<import('@concord/shared').RequestAttachment>('/request-attachments', { method: 'POST', body });
+}
+
+export const getWork = (view = 'all') => portalJson<{ items: import('@concord/shared').WorkItem[]; total: number; limited: boolean }>(`/agreements?view=${view}`);
+export const getAgreementWorkspace = (id: string) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}`);
+export const createAgreementWorkspace = (body: { title: string; counterparty: string; type: string }) => portalJson<{ id: string }>('/agreements', jsonBody('POST', body));
+export const startAgreementDraft = (id: string, body: { templateId: string; revision: number }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/draft/template`, jsonBody('POST', body));
+export const saveAgreementDraft = (id: string, body: { templateId?: string; sections: import('@concord/shared').DraftSection[]; revision: number }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/draft`, jsonBody('POST', body));
+export const changeAgreementStage = (id: string, body: { stage: 'review' | 'drafting'; revision: number }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/stage`, jsonBody('POST', body));
+export const reviseAgreement = (id: string, body: { reason: string; revision: number }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/revise`, jsonBody('POST', body));
+export const saveAgreementObligation = (id: string, body: { id: string; revision: number; title: string; type: string; dueDate: string; ownerEmail: string; evidence: string; completed: boolean }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/obligations`, jsonBody('POST', body));
+export interface ApprovalWorkspaceData { steps: { id: string; approverEmail: string; approverName: string; reason: string; decision: string; comment?: string; decidedAt?: string }[]; available: { id: string; name: string; email: string }[]; recommendation: string; decision?: string; documentId?: string; documentSha256?: string; contractVersion?: string; canDecide: boolean; outlookConfigured: boolean; }
+export const getAgreementApprovals = (id: string) => portalJson<ApprovalWorkspaceData>(`/contracts/${encodeURIComponent(id)}/approval/workspace`);
+export const routeAgreementApprovals = (id: string, body: { approvers: string[]; note?: string }) => portalJson<ApprovalWorkspaceData>(`/contracts/${encodeURIComponent(id)}/approval/workspace`, jsonBody('POST', body));
+export const decideAgreementApproval = (id: string, body: { decision: 'approved' | 'rejected' | 'changes-requested'; comment?: string }) => portalJson<ApprovalWorkspaceData>(`/contracts/${encodeURIComponent(id)}/approval/decision`, jsonBody('POST', body));

@@ -33,13 +33,14 @@ import { NAV, NAV_GROUPS, PRIMARY_NAV, navIsActive } from '@/components/workspac
 type Appearance = 'system' | 'light' | 'dark';
 
 const BARE = ['/login'];
-const PRIMARY_MOBILE = ['/', '/requests', '/pipeline', '/inbox'];
+const PRIMARY_MOBILE = ['/', '/work', '/repository', '/reports'];
 
 function titleFor(path: string): { eyebrow: string; title: string } {
-  if (path.startsWith('/contracts/')) return { eyebrow: 'Legal workspace', title: 'Agreement overview' };
-  if (path === '/workspace') return { eyebrow: 'Workspace', title: 'Tools & settings' };
+  if (path.startsWith('/contracts/')) return { eyebrow: 'Legal workspace', title: 'Agreement workspace' };
+  if (path === '/inbox') return { eyebrow: 'Your workspace', title: 'Notifications' };
+  if (path === '/workspace') return { eyebrow: 'Workspace', title: 'More' };
   const entry = [...NAV].filter((n) => n.match !== '/').find((n) => path.startsWith(n.match));
-  if (entry) return { eyebrow: ({ work: 'Legal workspace', library: 'Knowledge', execute: 'Execution', governance: 'Governance' })[entry.group], title: entry.label };
+  if (entry) return { eyebrow: ({ work: 'Legal workspace', governance: 'Governance' })[entry.group], title: entry.label };
   return { eyebrow: 'Workspace', title: 'Command Center' };
 }
 
@@ -242,12 +243,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [bare, path]);
 
   const visible = useMemo(
-    () => NAV.filter((n) => !n.needs || (perms !== null && perms.includes(n.needs))),
-    [perms],
+    () => NAV.filter((n) => (!n.portalOnly || who?.role === 'requester') && (!n.needs || (perms !== null && perms.includes(n.needs)))),
+    [perms, who?.role],
   );
 
   const paletteCommands = useMemo<PaletteCommand[]>(
-    () => [...visible.map((n) => ({ href: n.href, label: n.label, description: n.description, group: 'Navigate' })), ...(perms?.includes('request:write') ? [{ href: '/requests/new', label: 'Request an agreement', description: 'Fill a term sheet and choose your lawyer', group: 'Start work' }] : [])],
+    () => [...visible.map((n) => ({ href: n.href, label: n.label, description: n.description, group: 'Navigate' })), ...(perms?.includes('request:write') ? [{ href: '/requests/new', label: 'Contract Request', description: 'Fill a term sheet and choose your lawyer', group: 'Start work' }] : [])],
     [visible, perms],
   );
 
@@ -282,18 +283,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .toUpperCase() || 'CC';
 
   const groups = NAV_GROUPS;
-  const primaryEntries = visible.filter(n => PRIMARY_NAV.includes(n.href));
+  const primaryEntries = visible.filter(n => PRIMARY_NAV.includes(n.href) || n.portalOnly);
   const toolEntries = visible.filter(n => !PRIMARY_NAV.includes(n.href));
   const toolsActive = path === '/workspace' || toolEntries.some(n => navIsActive(n, path));
 
   const clientPortal = who?.role === 'requester';
-  const primaryMobile = clientPortal ? ['/requests', '/inbox'] : PRIMARY_MOBILE;
+  const primaryMobile = clientPortal ? ['/requests'] : PRIMARY_MOBILE;
   const quickItems = [
-    { href: '/requests/new', label: 'Request an agreement', detail: 'Share your terms and choose a lawyer', icon: IconInbox, show: perms?.includes('request:write') ?? false },
-    { href: '/ingest', label: 'Upload documents', detail: 'Add existing agreements for extraction', icon: IconUpload, show: perms?.includes('ingest:write') ?? false },
+    { href: '/requests/new', label: 'Contract Request', detail: 'Share your terms and choose a lawyer', icon: IconInbox, show: perms?.includes('request:write') ?? false },
+    { href: '/work/new', label: 'Draft from Template', detail: 'Create a linked agreement and draft', icon: IconPlus, show: perms?.includes('contract:write') ?? false },
+    { href: '/ingest', label: 'Upload Existing Agreement', detail: 'Add existing agreements for extraction', icon: IconUpload, show: perms?.includes('ingest:write') ?? false },
   ].filter((item) => item.show);
 
-  const moreActive = !primaryMobile.some((href) => (href === '/' ? path === '/' : (path.startsWith(href) || (href === '/pipeline' && path.startsWith('/contracts/')))));
+  const moreActive = !primaryMobile.some((href) => (href === '/' ? path === '/' : (path.startsWith(href) || (href === '/work' && path.startsWith('/contracts/')))));
 
   return (
     <div className={`app${sidebarCollapsed ? ' is-sidebar-collapsed' : ''}`}>
@@ -304,7 +306,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           <div className="brand">
             <Link className="brand-full brand-home" href={clientPortal ? "/requests" : "/"} aria-label="Concord home">
               <img className="brand-logo" src="/brand/lakme-salon.png" alt="Lakmē Salon" draggable={false} />
-              <ConcordWordmark variant="display" /><div className="brand-caption">Legal operations workspace</div>
+              <ConcordWordmark variant="display" /><div className="brand-caption">{clientPortal ? 'Legal Contract Requests' : 'Legal operations workspace'}</div>
             </Link>
             <Link className="rail-mark" href={clientPortal ? "/requests" : "/"} aria-label="Concord home">C</Link>
           </div>
@@ -330,11 +332,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               </Link>;
             })}
           </div>
-          {toolEntries.length > 0 && <div className="nav-group nav-utilities">
-            <Link href="/workspace" className={`nav-item${toolsActive ? ' is-active' : ''}`} aria-current={path === '/workspace' ? 'page' : undefined} data-tooltip="Tools & settings" title={sidebarCollapsed ? 'Tools & settings' : undefined}>
-              <span className="nav-icon"><IconMore /></span><span className="nav-copy">Tools &amp; settings</span>
-            </Link>
-          </div>}
         </nav>
 
         <div className="sidebar-foot">
@@ -388,13 +385,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                   );
                 })}
               </div>
-              <button className="quick-search-row" onClick={(e) => { (e.currentTarget.closest('details') as HTMLDetailsElement | null)?.removeAttribute('open'); setPaletteOpen(true); }}>
-                <IconSearch /><span>Search everything in <ConcordWordmark /></span><span className="kbd">⌘K</span>
-              </button>
             </div>
           </details>}
 
-          <Link className="icon-btn has-tooltip" href="/inbox" aria-label={`My inbox${unread ? `, ${unread} unread` : ''}`} data-tooltip="My inbox">
+          <Link className="icon-btn has-tooltip" href="/inbox" aria-label={`Notifications${unread ? `, ${unread} unread` : ''}`} data-tooltip="Notifications">
             <IconBell />{unread > 0 && <span className="dot" />}
           </Link>
 
@@ -456,19 +450,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <section id="concord-destinations" ref={sheetRef} className={`mobile-sheet${mobileMoreOpen ? ' is-open' : ''}`} role="dialog" aria-modal="true" aria-hidden={!mobileMoreOpen} aria-label="All Concord destinations" onKeyDown={(e) => { if (e.key === 'Escape') closeMobileMore(); else trapDialogTab(e); }}>
         <div className="sheet-grabber" aria-hidden="true" />
         <div className="sheet-head">
-          <div><ConcordWordmark /><h2>Everything in one place</h2></div>
+          <div><ConcordWordmark /><h2>More</h2></div>
           <button className="sheet-close" onClick={closeMobileMore} aria-label="Close menu">×</button>
         </div>
         <button className="sheet-search" onClick={() => { setMobileMoreOpen(false); setPaletteOpen(true); }}><IconSearch /><span>Search or jump to anything…</span><span className="kbd">⌘K</span></button>
-        <div className="sheet-actions">
-          {quickItems.slice(0, 4).map((item) => {
-            const Icon = item.icon;
-            return <Link key={`action-${item.href}`} href={item.href}><span><Icon /></span><b><ConcordText>{item.label}</ConcordText></b></Link>;
-          })}
-        </div>
+        {!clientPortal && <div className="sheet-actions">{quickItems.map(item => { const Icon = item.icon; return <Link key={item.href} href={item.href}><span><Icon /></span><b>{item.label}</b></Link>; })}</div>}
         <div className="sheet-nav-scroll">
           {groups.map(([key, label]) => {
-            const items = visible.filter((n) => n.group === key && !primaryMobile.includes(n.href));
+            const items = visible.filter((n) => n.group === key && !PRIMARY_NAV.includes(n.href) && !n.portalOnly);
             if (!items.length) return null;
             return (
               <div className="sheet-group" key={key}>

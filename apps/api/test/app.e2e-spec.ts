@@ -60,8 +60,11 @@ describe('Concord API (integration)', () => {
     expect(result.body.subarray(0, 2).toString()).toBe('PK');
   });
 
-  it.each(['/api/contracts', '/api/intake', '/api/authoring/templates', '/api/authoring/clauses', '/api/obligations', '/api/repository/search?q=agreement', '/api/dashboard', '/api/search?q=agreement', '/api/reports/portfolio', '/api/auth/users'])('blocks department clients from the legal workspace: %s', async path => {
+  it.each(['/api/contracts', '/api/agreements', '/api/agreements/any', '/api/agreements/any/executed', '/api/contracts/any/approval/workspace', '/api/intake', '/api/authoring/templates', '/api/authoring/clauses', '/api/obligations', '/api/repository/search?q=agreement', '/api/dashboard', '/api/search?q=agreement', '/api/reports/portfolio', '/api/auth/users'])('blocks department clients from the legal workspace: %s', async path => {
     await http().get(path).set('Authorization', `Bearer ${token('requester')}`).expect(403);
+  });
+  it.each(['/api/agreements', '/api/agreements/any/draft', '/api/agreements/any/draft/template', '/api/agreements/any/revise', '/api/agreements/any/stage', '/api/agreements/any/obligations', '/api/contracts/any/approval/workspace', '/api/contracts/any/approval/decision', '/api/requests/any/actions'])('blocks Requestor mutations of legal lifecycle records: %s', async path => {
+    await http().post(path).set('Authorization', `Bearer ${token('Requestor')}`).send({}).expect(403);
   });
 
   it('allows a department client to use their portal, session and personal inbox', async () => {

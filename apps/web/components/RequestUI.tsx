@@ -4,7 +4,7 @@ import type { AgreementTermSheet, ClientRequest, OutlookDeliveryStatus } from '@
 import { IconDoc, IconArrowRight } from './icons';
 
 export { AGREEMENT_TYPES, REQUEST_STATUSES };
-export const requestDate = (value: string) => new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value.length === 10 ? `${value}T12:00:00Z` : value));
+export const requestDate = (value: string) => !value || Number.isNaN(Date.parse(value)) ? 'Not set' : new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(value.length === 10 ? `${value}T12:00:00Z` : value));
 export const errorMessage = (e: unknown) => e instanceof Error ? e.message : 'Something went wrong. Please try again.';
 export function RequestHeader({ kicker = 'Department portal', title, description, action }: { kicker?: string; title: string; description: string; action?: React.ReactNode }) {
   return <header className="req-header"><div><span className="eyebrow">{kicker}</span><h2>{title}</h2><p>{description}</p></div>{action}</header>;
@@ -16,11 +16,12 @@ export function OutlookStatus({ status }: { status: OutlookDeliveryStatus }) {
   return <span className="req-delivery">{OUTLOOK_STATUS_LABELS[status] ?? status}</span>;
 }
 export function RequestCard({ item }: { item: ClientRequest }) {
-  return <Link href={`/requests/${item.id}`} className="req-card"><div className="req-card-top"><span className="req-id">{item.id} · {item.contractType}</span><RequestStatus status={item.status} /></div><h3>{item.title}</h3><p>{item.counterparty} · {item.businessUnit}</p><div className="req-card-bottom"><span><b>{item.assignedLegal.name}</b><small>Your legal contact</small></span><span><b>{requestDate(item.requestedByDate)}</b><small>{item.urgency === 'urgent' ? 'Urgent · requested by' : 'Requested by'}</small></span><IconArrowRight /></div></Link>;
+  return <Link href={item.canOpenAgreement ? `/contracts/${encodeURIComponent(item.contractId)}` : `/requests/${item.id}`} className="req-card"><div className="req-card-top"><span className="req-id">{item.id} · {item.contractType}</span><RequestStatus status={item.status} /></div><h3>{item.title}</h3><p>{item.counterparty} · {item.businessUnit}</p><div className="req-card-bottom"><span><b>{item.assignedLegal.name}</b><small>Your legal contact</small></span><span><b>{requestDate(item.requestedByDate)}</b><small>{item.urgency === 'urgent' ? 'Urgent · requested by' : 'Requested by'}</small></span><IconArrowRight /></div></Link>;
 }
 export function RequestEmpty({ filtered = false }: { filtered?: boolean }) { return <div className="req-empty"><IconDoc /><h3>{filtered ? 'No matching requests' : 'Your next agreement starts here'}</h3><p>{filtered ? 'Try a different search or status.' : 'Share the terms, choose your legal contact and follow the request in one place.'}</p>{!filtered && <Link className="btn btn-gold" href="/requests/new">Request an agreement <IconArrowRight /></Link>}</div>; }
 export function TermSheet({ terms }: { terms: AgreementTermSheet }) {
   const rows: [string, string | undefined][] = [
+    ['Term', terms.term], ['Notice period', terms.noticePeriodDays !== undefined ? `${terms.noticePeriodDays} days` : undefined], ['Confidential information', terms.confidentialInformation], ['Intellectual property', terms.intellectualProperty], ['Exclusivity', terms.exclusivity], ['Indemnity concerns', terms.indemnityConcerns], ['Regulatory considerations', terms.regulatoryConsiderations],
     ['Scope & purpose', terms.scope], ['Deliverables', terms.deliverables], ['Agreement value', terms.amount ? `${terms.currency} ${Number(terms.amount).toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : undefined],
     ['Payment terms', terms.paymentTerms], ['Start date', terms.startDate ? requestDate(terms.startDate) : undefined], ['End date', terms.endDate ? requestDate(terms.endDate) : undefined],
     ['Renewal terms', terms.renewalTerms], ['Termination terms', terms.terminationTerms], ['Governing law / jurisdiction', terms.governingLaw],

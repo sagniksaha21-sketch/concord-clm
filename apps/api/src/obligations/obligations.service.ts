@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import {
   DigestResult,
@@ -103,12 +103,14 @@ export class ObligationsService {
 
   async list(): Promise<Obligation[]> {
     if (this.cache && Date.now() - this.cache.at < this.cacheTtlMs) return this.cache.rows;
-    const [signatures, documents] = await Promise.all([
+    const [signatures, documents, recorded] = await Promise.all([
       this.signatureObligations(),
       this.documentObligations(),
+      this.recordedObligations(),
     ]);
     const samples = this.includeSamples ? OBLIGATIONS : [];
-    const rows = [...samples, ...documents, ...signatures].sort((a, b) =>
+    const recordedContracts = new Set(recorded.map(o => o.contractId));
+    const rows = [...samples, ...documents.filter(o => !recordedContracts.has(o.contractId)), ...signatures, ...recorded].sort((a, b) =>
       a.dueDate.localeCompare(b.dueDate),
     );
     this.cache = { at: Date.now(), rows };
@@ -190,7 +192,7 @@ export class ObligationsService {
         out.push({
           id: `OBL-DOC-${r.id}`,
           title: daysOut < 0 ? 'Expired — confirm renewal or exit' : 'Renewal / expiry decision due',
-          contractId: r.id,
+          contractId: r.contractId || r.id,
           contractTitle: r.filename,
           ownerEmail: owner,
           ownerInitials: this.initials(owner.split('@')[0].replace(/[._]/g, ' ')),
@@ -213,14 +215,14 @@ export class ObligationsService {
    * `OBLIGATIONS_DOC_SCAN_MAX` is a safety valve, not a silent truncation: when
    * it is hit the shortfall is logged rather than quietly dropped.
    */
-  private async scanDocuments(): Promise<Array<{ id: string; filename: string; extraction: any }>> {
+  private async scanDocuments(): Promise<Array<{ id: string; contractId?: string; filename: string; extraction: any }>> {
     const page = Math.max(1, Number(process.env.OBLIGATIONS_DOC_SCAN_LIMIT || 500));
     const hardMax = Number(process.env.OBLIGATIONS_DOC_SCAN_MAX || 100_000);
-    const out: Array<{ id: string; filename: string; extraction: any }> = [];
+    const out: Array<{ id: string; contractId?: string; filename: string; extraction: any }> = [];
     let cursor: string | undefined;
     for (;;) {
       const batch = await this.prisma.client.document.findMany({
-        select: { id: true, filename: true, extraction: true },
+        select: { id: true, contractId: true, filename: true, extraction: true },
         orderBy: { id: 'asc' },
         take: page,
         ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
@@ -239,6 +241,15 @@ export class ObligationsService {
       }
     }
     return out;
+  }
+
+  private async recordedObligations(): Promise<Obligation[]> {
+    if (!this.prisma.enabled || !this.prisma.client?.agreementObligation) return [];
+    const rows = await this.prisma.client.agreementObligation.findMany({ where: { completedAt: null }, include: { contract: { select: { title: true, risk: true } } } });
+    return rows.map((r: any) => {
+      const overdue = Date.parse(r.dueDate) < Date.now();
+      return { id: r.id, contractId: r.contractId, contractTitle: r.contract.title, title: `${r.confirmed ? '' : 'Confirm date: '}${r.title}`, ownerEmail: r.ownerEmail || '', ownerInitials: this.initials(r.ownerEmail?.split('@')[0]), dueDate: r.dueDate, status: overdue ? 'at-risk' : Date.parse(r.dueDate) - Date.now() < 60 * DAY_MS ? 'due-soon' : 'on-track', type: r.type === 'notice' ? 'renewal' : r.type, risk: r.contract.risk, outlookScheduled: r.confirmed && !!r.ownerEmail } as Obligation;
+    });
   }
 
   async upcoming(days = 90): Promise<Obligation[]> {
@@ -270,6 +281,8 @@ export class ObligationsService {
 
   /** Fires an Outlook reminder for a single obligation via Microsoft Graph. */
   async remind(id: string, to?: string[]): Promise<NotificationResult> {
+    const recorded = this.prisma.enabled && this.prisma.client?.agreementObligation ? await this.prisma.client.agreementObligation.findUnique({ where: { id } }) : null;
+    if (recorded && (!recorded.confirmed || recorded.completedAt)) throw new ConflictException('Confirm this obligation against the executed agreement before sending a reminder.');
     const o = await this.getById(id);
     const recipients = (to && to.length ? to : [o.ownerEmail]).filter(Boolean);
     if (!recipients.length) {
@@ -301,7 +314,7 @@ export class ObligationsService {
 
   /** Composes the digest (without sending) — used by the preview endpoint. */
   async buildDigest(days = 90): Promise<DigestResult> {
-    const items = await this.upcoming(days);
+    const items = (await this.upcoming(days)).filter(o => o.outlookScheduled);
     const subject = `📅 Concord digest — ${items.length} obligation${
       items.length === 1 ? '' : 's'
     } due in the next ${days} days`;

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsEmail, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMaxSize, ArrayUnique, IsArray, IsEmail, IsIn, IsInt, IsNotEmpty, IsObject, IsOptional, IsString, IsUUID, Matches, Max, MaxLength, Min, ValidateNested } from 'class-validator';
 import { AGREEMENT_TYPES, REQUEST_STATUSES } from '@concord/shared';
 
 export class TermSheetDto {
@@ -17,6 +17,13 @@ export class TermSheetDto {
   @IsOptional() @IsEmail() @MaxLength(254) counterpartyContactEmail?: string;
   @IsIn(['none', 'personal', 'sensitive', 'unsure']) dataInvolved!: 'none' | 'personal' | 'sensitive' | 'unsure';
   @IsOptional() @IsString() @MaxLength(4000) specialInstructions?: string;
+  @IsOptional() @IsString() @MaxLength(240) term?: string;
+  @IsOptional() @IsInt() @Min(0) @Max(3650) noticePeriodDays?: number;
+  @IsOptional() @IsIn(['yes', 'no', 'unsure']) confidentialInformation?: 'yes' | 'no' | 'unsure';
+  @IsOptional() @IsString() @MaxLength(2000) intellectualProperty?: string;
+  @IsOptional() @IsString() @MaxLength(2000) exclusivity?: string;
+  @IsOptional() @IsString() @MaxLength(2000) indemnityConcerns?: string;
+  @IsOptional() @IsString() @MaxLength(2000) regulatoryConsiderations?: string;
 }
 
 export class CreateClientRequestDto {
@@ -29,6 +36,20 @@ export class CreateClientRequestDto {
   @IsString() @Matches(/^\d{4}-\d{2}-\d{2}$/) requestedByDate!: string;
   @IsIn(['standard', 'urgent']) urgency!: 'standard' | 'urgent';
   @IsObject() @ValidateNested() @Type(() => TermSheetDto) terms!: TermSheetDto;
+  @IsOptional() @IsArray() @ArrayMaxSize(10) @ArrayUnique() @IsUUID('4', { each: true }) attachmentIds?: string[];
+}
+
+export class RequestMessageDto {
+  @IsUUID('4') id!: string;
+  @IsString() @Matches(/\S/) @MaxLength(4000) body!: string;
+  @IsIn(['question', 'reply', 'update']) kind!: 'question' | 'reply' | 'update';
+  @IsInt() @Min(0) version!: number;
+}
+export class RequestActionDto {
+  @IsIn(['accept', 'reassign', 'close']) action!: 'accept' | 'reassign' | 'close';
+  @IsInt() @Min(0) version!: number;
+  @IsOptional() @IsString() @MaxLength(120) assignedLegalUserId?: string;
+  @IsOptional() @IsString() @MaxLength(2000) note?: string;
 }
 
 export class UpdateClientRequestDto {

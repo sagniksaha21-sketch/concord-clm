@@ -28,6 +28,13 @@ export interface AgreementTermSheet {
   counterpartyContactEmail?: string;
   dataInvolved: 'none' | 'personal' | 'sensitive' | 'unsure';
   specialInstructions?: string;
+  term?: string;
+  noticePeriodDays?: number;
+  confidentialInformation?: 'yes' | 'no' | 'unsure';
+  intellectualProperty?: string;
+  exclusivity?: string;
+  indemnityConcerns?: string;
+  regulatoryConsiderations?: string;
 }
 export interface CreateClientRequest {
   submissionKey: string;
@@ -39,6 +46,7 @@ export interface CreateClientRequest {
   requestedByDate: string;
   urgency: 'standard' | 'urgent';
   terms: AgreementTermSheet;
+  attachmentIds?: string[];
 }
 export interface LegalTeamMember { id: string; name: string; email: string; roleLabel: string; }
 export interface ClientRequest {
@@ -62,7 +70,12 @@ export interface ClientRequest {
   emailStatus: OutlookDeliveryStatus;
   canManage: boolean;
   canOpenAgreement: boolean;
+  attachments?: RequestAttachment[];
+  messages?: RequestMessage[];
+  assignmentPreference?: string;
 }
+export interface RequestAttachment { id: string; filename: string; size: number; category: string; }
+export interface RequestMessage { id: string; body: string; kind: string; authorName: string; createdAt: string; }
 export interface ClientRequestOptions {
   legalTeam: LegalTeamMember[];
   requester: Pick<AuthUser, 'id' | 'name' | 'email'>;
@@ -73,7 +86,7 @@ export interface ClientRequestOptions {
 }
 export interface ClientRequestList { items: ClientRequest[]; total: number; }
 export interface InboxNotification {
-  id: string; requestId: string; title: string; body: string; createdAt: string; readAt: string | null;
+  id: string; requestId: string | null; href?: string; title: string; body: string; createdAt: string; readAt: string | null;
   emailStatus: OutlookDeliveryStatus;
 }
 export interface InboxResult { items: InboxNotification[]; unreadCount: number; }

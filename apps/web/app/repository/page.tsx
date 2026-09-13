@@ -1,5 +1,6 @@
 'use client';
 
+import ContractsNavigation from '@/components/ContractsNavigation';
 import Link from 'next/link';
 import { EmptyState, ErrorState, LoadingState } from '@/components/WorkspaceUI';
 import { useEffect, useState } from 'react';
@@ -65,11 +66,12 @@ export default function RepositoryPage() {
 
   return (
     <>
+      <ContractsNavigation />
       <div className="view-head">
         <div className="vh-left">
           <div className="eyebrow">Grounded portfolio intelligence</div>
-          <h2>Ask your contracts</h2>
-          <p>Search the system of record or ask a natural-language question. Answers expose their retrieval provenance and contract citations.</p>
+          <h2>Your agreements, all together.</h2>
+          <p>Find an agreement, open its record or ask a question grounded in your portfolio.</p>
         </div>
         <div className="trust-inline"><IconShield /><span>Permission-aware · cited · auditable</span></div>
       </div>

@@ -94,26 +94,26 @@ export default function CommandCenter() {
 
       <div className="view-head">
         <div className="vh-left">
-          <div className="eyebrow">Portfolio overview</div>
+          <div className="eyebrow">Your legal command centre</div>
           <h2>
             {greeting}
             {displayName ? <>, <span className="greeting-name">{displayName}</span></> : null}.
           </h2>
           <p>
-            {stat('contracts')} contracts in the portfolio ·{' '}
+            {data.pipeline.reduce((n,p) => n + p.count, 0)} agreements in the portfolio ·{' '}
             {stat('obligations')} key dates inside 90 days ·{' '}
-            {stat('risk')} carrying high playbook risk.
+            {data.risk.high} carrying high playbook risk.
           </p>
         </div>
         <div className="view-actions">
-          <Link className="btn" href="/pipeline">View agreements</Link>
-          {canRequest && <Link className="btn btn-gold" href="/requests/new">Request an agreement</Link>}
+          <Link className="btn" href="/work">Open Work</Link>
+          {canRequest && <Link className="btn btn-gold" href="/requests/new">Request a Contract</Link>}
         </div>
       </div>
 
       {/* KPI row */}
-      <div className="bento" style={{ marginBottom: 18 }}>
-        {data.stats.map((s) => {
+      <div className="bento attention-metrics" style={{ marginBottom: 18 }}>
+        {['requests','review','approvals','signature','obligations'].map(key => data.stats.find(s => s.key === key)).filter((s): s is DashboardSummary['stats'][number] => !!s).map((s) => {
           const Icon = STAT_ICON[s.key] ?? IconRupee;
           return (
             <div className="card stat col-3" data-tone={s.key} key={s.key}>
@@ -138,11 +138,11 @@ export default function CommandCenter() {
       </div>
 
       <div className="bento" style={{ marginBottom: 18 }}>
-        {/* In-flight pipeline */}
+        {/* Agreement progress */}
         <div className="card col-5">
           <div className="card-head">
-            <h3><IconFlow />In-flight pipeline</h3>
-            <Link className="ch-act" href="/pipeline">Open board →</Link>
+            <h3><IconFlow />Agreement progress</h3>
+            <Link className="ch-act" href="/work">View Work →</Link>
           </div>
           <div className="funnel">
             {data.pipeline.map((p) => (
@@ -217,11 +217,11 @@ export default function CommandCenter() {
       </div>
 
       <div className="bento dashboard-records">
-        {/* Needs attention */}
+        {/* My Priority Work */}
         <div className="card col-8">
           <div className="card-head">
-            <h3><IconAlert />Needs attention</h3>
-            <Link className="ch-act" href="/pipeline">View all →</Link>
+            <h3><IconAlert />Priority Work</h3>
+            <Link className="ch-act" href="/work">View all →</Link>
           </div>
           <div className="tbl-wrap">
             <table className="tbl tbl-responsive" role="table" aria-label="Contracts needing attention">
@@ -235,7 +235,7 @@ export default function CommandCenter() {
                 {data.attention.map((a) => (
                   <tr role="row" key={a.id}>
                     <td role="cell" data-label="Contract">
-                      <Link href={a.href?.startsWith('/review/') ? agreementHref(a.id) : a.href ?? '/pipeline'} className="t-strong">{a.title}</Link>
+                      <Link href={a.href?.startsWith('/review/') ? agreementHref(a.id) : a.href ?? '/work'} className="t-strong">{a.title}</Link>
                       <div className="t-id">{a.id}</div>
                     </td>
                     <td role="cell" data-label="Counterparty">{a.counterparty}</td>
@@ -261,7 +261,7 @@ export default function CommandCenter() {
         <div className="card col-4">
           <div className="card-head">
             <h3><IconCalendar />Next key dates</h3>
-            <Link className="ch-act" href="/obligations">Calendar →</Link>
+            <Link className="ch-act" href="/work?stage=obligations">Upcoming →</Link>
           </div>
           <div className="rowlist">
             {data.renewals.map((o) => (
