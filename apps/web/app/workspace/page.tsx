@@ -12,9 +12,9 @@ export default async function WorkspaceTools() {
   if (!token) redirect('/login');
   const { permissions, role } = await getPermissions(token);
   if (role === 'requester') redirect('/requests');
-  const tools = NAV.filter(n => !PRIMARY_NAV.includes(n.href) && (!n.needs || permissions.includes(n.needs)));
+  const tools = NAV.filter(n => !n.portalOnly && !PRIMARY_NAV.includes(n.href) && (!n.needs || permissions.includes(n.needs)));
   return <div className="workspace-directory">
-    <div className="view-head"><div className="vh-left"><div className="eyebrow">Your workspace</div><h2>The right tool, when you need it.</h2><p>Draft, explore insights or manage your team. Your everyday work stays in the sidebar.</p></div></div>
+    <div className="view-head"><div className="vh-left"><div className="eyebrow">Your workspace</div><h2>Administration, when you need it.</h2><p>Your agreements live in Work. Find occasional administration tools here.</p></div></div>
     {NAV_GROUPS.map(([group, title]) => {
       const entries = tools.filter(n => n.group === group);
       if (!entries.length) return null;

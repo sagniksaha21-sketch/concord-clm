@@ -1,5 +1,6 @@
 'use client';
 
+import ContractsNavigation from '@/components/ContractsNavigation';
 import { useEffect, useRef, useState } from 'react';
 import type { Clause, Template } from '@concord/shared';
 import { createTemplate, deleteTemplate, getClauses, getTemplates, updateTemplate } from '@/app/lib/api';
@@ -55,7 +56,7 @@ export default function TemplatesPage() {
     } catch (e) { setError(e instanceof Error ? e.message : 'Template deletion failed.'); setDeleting(null); }
     finally { setBusy(false); }
   }
-  return <>
+  return <><ContractsNavigation />
     <div className="view-head"><div className="vh-left"><div className="eyebrow">Approved knowledge</div><h2>Template library</h2><p>Maintain reusable agreements and the clause composition that defines your legal playbook.</p></div></div>
     <div aria-live="polite">{success && <div className="form-message success">{success}</div>}{error && <div className="form-message error">{error}</div>}</div>
     {loadError && <ErrorState title="Template library unavailable" action={<button className="btn" onClick={load}>Try again</button>}>{loadError}</ErrorState>}

@@ -61,7 +61,7 @@ function describeNotification(action: string, entityId?: string): string {
 }
 
 const STAGES: Array<{ stage: string; label: string; tone: PipelineLane['tone'] }> = [
-  { stage: 'intake', label: 'Intake', tone: 'neutral' },
+  { stage: 'intake', label: 'Requests', tone: 'neutral' },
   { stage: 'drafting', label: 'Drafting', tone: 'info' },
   { stage: 'review', label: 'Review', tone: 'med' },
   { stage: 'approval', label: 'Approval', tone: 'med' },
@@ -174,6 +174,13 @@ export class WorkspaceService {
       },
     ];
 
+    const stageSignals: DashboardStat[] = [
+      { key: 'requests', label: 'New requests', value: String(contracts.filter(c => c.stage === 'intake').length) },
+      { key: 'review', label: 'In review', value: String(contracts.filter(c => c.stage === 'review').length) },
+      { key: 'approvals', label: 'Pending approval', value: String(contracts.filter(c => c.stage === 'approval').length) },
+    ];
+    stats.push(...stageSignals);
+
     const attention: AttentionItem[] = contracts
       .filter((c) => c.risk !== 'low' || c.stage === 'approval' || c.stage === 'review')
       .slice(0, 6)
@@ -185,7 +192,7 @@ export class WorkspaceService {
         stage: c.stage,
         risk: c.risk,
         keyDate: this.keyDateFor(c.id, obligations),
-        href: `/review/${c.id}`,
+        href: `/contracts/${encodeURIComponent(c.id)}`,
       }));
 
     return {
@@ -317,7 +324,7 @@ export class WorkspaceService {
             risk: c.risk,
             stage: c.stage,
             versionLabel: c.version ? `v${String(c.version).replace(/^v/, '')}` : undefined,
-            href: `/review/${c.id}`,
+            href: `/contracts/${encodeURIComponent(c.id)}`,
           }),
         ),
     }));
@@ -365,7 +372,7 @@ export class WorkspaceService {
             id: c.id,
             title: c.title,
             subtitle: `${c.counterparty} · ${c.type} · ${c.valueDisplay}`,
-            href: `/review/${c.id}`,
+            href: `/contracts/${encodeURIComponent(c.id)}`,
             badge: c.risk,
             badgeTone: c.risk === 'medium' ? 'med' : (c.risk as 'low' | 'high'),
           });
@@ -431,7 +438,7 @@ export class WorkspaceService {
             id: r.id,
             title: r.contractTitle,
             subtitle: `${r.id} · ${r.signatories.length} signatory(ies) · ${r.status}`,
-            href: '/esign',
+            href: `/contracts/${encodeURIComponent(r.contractId)}`,
             badge: r.status,
             badgeTone: r.status === 'completed' ? 'low' : 'info',
           });
@@ -448,7 +455,7 @@ export class WorkspaceService {
             id: o.id,
             title: o.title,
             subtitle: `${o.contractTitle} · due ${o.dueDate}`,
-            href: '/obligations',
+            href: `/contracts/${encodeURIComponent(o.contractId)}`,
             badge: o.status,
             badgeTone: o.status === 'at-risk' ? 'high' : o.status === 'due-soon' ? 'med' : 'low',
           });

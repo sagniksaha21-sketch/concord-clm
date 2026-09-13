@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { API_BASE, login } from '@/app/lib/api';
 import { ConcordWordmark } from '@/components/ConcordBrand';
-import { normalizeRole, requestReturnPath } from '@concord/shared';
+import { normalizeRole, appReturnPath, signedInHome } from '@concord/shared';
 
 export default function LoginPage() {
   const showDemo = process.env.NEXT_PUBLIC_SHOW_DEMO_LOGIN === 'true';
@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [err, setErr] = useState('');
   const router = useRouter();
   const [returnTo, setReturnTo] = useState<string>();
-  useEffect(() => { setReturnTo(requestReturnPath(new URLSearchParams(window.location.search).get('returnTo'))); }, []);
+  useEffect(() => { setReturnTo(appReturnPath(new URLSearchParams(window.location.search).get('returnTo'))); }, []);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -23,7 +23,7 @@ export default function LoginPage() {
     try {
       const r = await login(email, password);
       try { localStorage.setItem('concord_user', JSON.stringify(r.user)); } catch { /* ignore */ }
-      router.push(returnTo ?? (normalizeRole(r.user.role) === 'requester' ? '/requests' : '/'));
+      router.push(signedInHome(normalizeRole(r.user.role), returnTo));
       router.refresh();
     } catch {
       setErr('We could not sign you in with those credentials.');
@@ -71,7 +71,7 @@ export default function LoginPage() {
               <span>Sign in with Microsoft</span>
               <span aria-hidden="true">→</span>
             </a>
-            <p className="sso-help">Production uses Microsoft Entra ID SSO.</p>
+            <p className="sso-help">Use your corporate Microsoft account.</p>
           </div>
 
           <div className="login-trust">

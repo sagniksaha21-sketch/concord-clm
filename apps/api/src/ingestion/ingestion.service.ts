@@ -70,7 +70,12 @@ export class IngestionService {
   private async persist(entries: Array<{ result: IngestResult; text?: string; contractId?: string; storageKey?: string; sha256?: string }>): Promise<void> {
     if (!this.prisma.enabled) return;
     for (const e of entries) {
-      const row = await this.prisma.client.document.create({
+      const write = async (db: any) => {
+      if (e.contractId) {
+        await db.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE', e.contractId);
+        await this.assertDocumentMutationAllowed(e.contractId, db);
+      }
+      const row = await db.document.create({
         data: {
           contractId: e.contractId || null, filename: e.result.filename, documentType: e.result.documentType,
           pages: e.result.pages, confidence: e.result.confidence, status: e.result.status,
@@ -78,20 +83,24 @@ export class IngestionService {
           model: e.result.model, blobPath: e.storageKey || null, extractedText: e.text || null, sha256: e.sha256 || null,
         },
       });
+      if (e.contractId && e.storageKey && e.result.status !== 'quarantined') await db.contract.update({ where: { id: e.contractId }, data: { lifecycleRevision: { increment: 1 } } });
+      return row;
+      };
+      const row = e.contractId ? await this.prisma.client.$transaction(write) : await write(this.prisma.client);
       e.result.documentId = row.id;
     }
   }
 
 
   /** A routed/approved/signing contract is immutable until an explicit new-version workflow exists. */
-  private async assertDocumentMutationAllowed(contractId?: string): Promise<void> {
+  private async assertDocumentMutationAllowed(contractId?: string, db: any = this.prisma.client): Promise<void> {
     if (!contractId || !this.prisma.enabled) return;
-    const contract = await this.prisma.client.contract.findUnique({ where: { id: contractId }, select: { id: true } });
+    const contract = await db.contract.findUnique({ where: { id: contractId }, select: { id: true } });
     if (!contract) throw new NotFoundException(`Contract ${contractId} not found`);
     const [routing, decision, signature] = await Promise.all([
-      this.prisma.client.approvalRouting.findUnique({ where: { contractId }, select: { contractId: true } }),
-      this.prisma.client.approvalDecision.findUnique({ where: { contractId }, select: { contractId: true } }),
-      this.prisma.client.signatureRequest.findFirst({ where: { contractId }, select: { id: true } }),
+      db.approvalRouting.findUnique({ where: { contractId }, select: { contractId: true } }),
+      db.approvalDecision.findUnique({ where: { contractId }, select: { contractId: true } }),
+      db.signatureRequest.findFirst({ where: { contractId }, select: { id: true } }),
     ]);
     if (routing || decision || signature) {
       throw new ConflictException(

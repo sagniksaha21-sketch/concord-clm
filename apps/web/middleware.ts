@@ -1,4 +1,4 @@
-import { requestReturnPath } from '@concord/shared';
+import { appReturnPath } from '@concord/shared';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
@@ -41,14 +41,14 @@ export function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     url.search = '';
-    const returnTo = requestReturnPath(req.nextUrl.pathname);
+    const returnTo = appReturnPath(req.nextUrl.pathname);
     if (returnTo) url.searchParams.set('returnTo', returnTo);
     return secureResponse(NextResponse.redirect(url), csp, nonce);
   }
 
   if (token && isLogin) {
     const url = req.nextUrl.clone();
-    url.pathname = requestReturnPath(req.nextUrl.searchParams.get('returnTo')) ?? '/';
+    url.pathname = appReturnPath(req.nextUrl.searchParams.get('returnTo')) ?? '/';
     url.search = '';
     return secureResponse(NextResponse.redirect(url), csp, nonce);
   }
