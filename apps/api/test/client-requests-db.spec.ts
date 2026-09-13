@@ -13,6 +13,7 @@ import { ESignService } from '../src/esign/esign.service';
 import { FileSecurityService } from '../src/security/file-security.service';
 import { ObligationsService } from '../src/obligations/obligations.service';
 import { canonicalJson } from '../src/common/canonical-json';
+import { IngestionService } from '../src/ingestion/ingestion.service';
 import * as graph from '../src/notifications/graph.client';
 
 const describeDb = process.env.REQUEST_TEST_DATABASE_URL ? describe : describe.skip;
@@ -233,6 +234,23 @@ describeDb('Department portal on PostgreSQL', () => {
     expect((await db.approvalStep.findFirst({ where: { contractId: id } })).decision).toBe('pending');
     expect(await db.approvalDecision.count()).toBe(0);
   });
+  it('blocks an upload that finishes extraction after approval routing and prevents other counsel uploading', async () => {
+    const { request, workflow, storage } = await readyForReview(); const id = request.contractId;
+    const ingestion = new IngestionService(prisma, { ...storage, s3Location: () => null } as any, new FileSecurityService(), {} as any, audit);
+    const file = { originalname: 'revision.txt', buffer: Buffer.from('Revised agreement language'), size: 26 };
+    await expect(ingestion.ingestUploads([file], id, actors['other-lawyer'])).rejects.toThrow('another lawyer');
+    let started!: () => void, release!: () => void;
+    const extracting = new Promise<void>(resolve => { started = resolve; });
+    const finish = new Promise<void>(resolve => { release = resolve; });
+    jest.spyOn(ingestion as any, 'ocr').mockImplementation(async () => { started(); await finish; return { text: 'Revised agreement language', engine: 'test' }; });
+    jest.spyOn(ingestion as any, 'processOne').mockResolvedValue({ filename: 'revision.txt', documentType: 'NDA', confidence: 0, status: 'needs-review', extraction: {}, validations: [], notes: [], model: 'test' });
+    const upload = ingestion.ingestUploads([file], id, actors.counsel);
+    await extracting;
+    await workflow.routeInApp(id, { approvers: [actors.lead.email] }, actors.counsel);
+    release();
+    await expect(upload).rejects.toThrow('already routed');
+    expect(await db.document.count({ where: { contractId: id } })).toBe(1);
+  });
 
   it('keeps legal-created drafts in the owner’s queue and prevents another counsel changing them', async () => {
     const { agreements } = lifecycleServices();
@@ -271,8 +289,13 @@ describeDb('Department portal on PostgreSQL', () => {
     await workflow.decideInApp(id, { decision: 'approved' }, actors.lead);
     const decision = await db.approvalDecision.findUnique({ where: { contractId: id } });
     const req: any = { id: randomUUID(), contractId: id, contractTitle: 'Test', status: 'completed', provider: 'test-provider', envelopeId: randomUUID(), signatories: [{ name: 'Test signer', email: 'signer@example.test', status: 'signed' }], ...{ documentId: decision.documentId, documentSha256: decision.documentSha256, contractVersion: decision.contractVersion } };
-    await db.archivedDocument.create({ data: { id: `ARC-${req.id}`, requestId: req.id, contractId: id, contractTitle: 'Test', signatories: [], completedAt: new Date(), storageKey: 'test-signed', checksum: createHash('sha256').update('signed').digest('hex'), format: 'application/pdf', size: 6 } });
+    const signedBytes = Buffer.from('%PDF-1.7\nTest-only signed fixture');
+    const signedKey = await storage.put(signedBytes);
+    await db.archivedDocument.create({ data: { id: `ARC-${req.id}`, requestId: req.id, contractId: id, contractTitle: 'Test', signatories: [], completedAt: new Date(), storageKey: signedKey, checksum: 'invalid', format: 'application/pdf', size: signedBytes.length } });
     const esign = new ESignService({} as any, mail as any, prisma, storage as any, audit, {} as any, contracts);
+    await expect(esign.completeAgreement(req)).rejects.toThrow('could not be verified');
+    expect((await db.contract.findUnique({ where: { id } })).stage).toBe('signature');
+    await db.archivedDocument.update({ where: { id: `ARC-${req.id}` }, data: { checksum: createHash('sha256').update(signedBytes).digest('hex') } });
     await Promise.all([esign.completeAgreement(req), esign.completeAgreement(req)]);
     const result = await agreements.snapshot(id, actors.counsel);
     expect(result.contract.stage).toBe('active'); expect(result.archive?.id).toBe(`ARC-${req.id}`);

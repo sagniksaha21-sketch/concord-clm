@@ -112,7 +112,7 @@ export class ClientRequestsService {
         if (dto.assignedLegalUserId === 'auto') {
           // Serialise automatic assignment across replicas, then choose the
           // eligible resource with the fewest open requests. No invented expertise.
-          await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(73002613)');
+          await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(73002613)');
           const candidates = await tx.user.findMany({ select: { ...PERSON, _count: { select: { assignedRequests: { where: { clientStatus: { not: 'closed' } } } } } } });
           lawyer = candidates.filter((u: any) => can(normalizeRole(u.role), 'request:manage')).sort((a: any, b: any) => a._count.assignedRequests - b._count.assignedRequests || a.id.localeCompare(b.id))[0];
         } else lawyer = await tx.user.findUnique({ where: { id: dto.assignedLegalUserId }, select: PERSON });

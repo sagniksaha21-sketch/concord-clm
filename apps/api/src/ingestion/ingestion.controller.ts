@@ -4,6 +4,7 @@ import {
   Get,
   NotFoundException,
   Post,
+  Req,
   UploadedFiles,
   UseInterceptors,
 } from '@nestjs/common';
@@ -20,8 +21,8 @@ export class IngestionController {
   /** Bulk ingest by reference. Body: { documents: [{ filename, text? }] }. */
   @Roles('ingest:write')
   @Post()
-  ingest(@Body() body: IngestBatchDto) {
-    return this.ingestion.ingest(body?.documents ?? []);
+  ingest(@Body() body: IngestBatchDto, @Req() req: any) {
+    return this.ingestion.ingest(body?.documents ?? [], req.user);
   }
 
   /**
@@ -42,8 +43,8 @@ export class IngestionController {
       },
     }),
   )
-  upload(@UploadedFiles() files: UploadedFile[], @Body('contractId') contractId?: string) {
-    return this.ingestion.ingestUploads(files ?? [], contractId);
+  upload(@UploadedFiles() files: UploadedFile[], @Body('contractId') contractId: string | undefined, @Req() req: any) {
+    return this.ingestion.ingestUploads(files ?? [], contractId, req.user);
   }
 
   /** Re-run bundled sample agreements. This endpoint never exists in production. */

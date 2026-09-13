@@ -600,7 +600,10 @@ export class ESignService implements OnModuleInit {
     const db = this.prisma.client;
     const archive = await db.archivedDocument.findUnique({ where: { requestId: req.id } });
     if (!archive || archive.format !== 'application/pdf') return;
+    if (archive.contractId !== req.contractId) throw new ConflictException('Execution archive belongs to a different agreement.');
     if (!req.envelopeId || !req.documentSha256 || !req.signatories.length || req.signatories.some(s => s.status !== 'signed')) throw new ConflictException('Execution evidence is incomplete.');
+    const stored = await this.storage.get(archive.storageKey);
+    if (!stored.buffer || createHash('sha256').update(stored.buffer).digest('hex') !== archive.checksum) throw new ConflictException('The executed document could not be verified in storage.');
     await db.$transaction(async (tx: any) => {
       await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE', req.contractId);
       const contract = await tx.contract.findUnique({ where: { id: req.contractId }, include: { intakeRequest: { include: { assignedLegal: { select: { email: true } } } } } });

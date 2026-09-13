@@ -1,6 +1,8 @@
-import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   ExtractedAgreement,
+  AuthUser,
+  normalizeRole,
   IngestDocumentInput,
   IngestResult,
   IngestStatus,
@@ -67,13 +69,13 @@ export class IngestionService {
   ) {}
 
   /** Persists ingested documents. Production persistence errors are fatal to the request. */
-  private async persist(entries: Array<{ result: IngestResult; text?: string; contractId?: string; storageKey?: string; sha256?: string }>): Promise<void> {
+  private async persist(entries: Array<{ result: IngestResult; text?: string; contractId?: string; storageKey?: string; sha256?: string }>, actor?: AuthUser): Promise<void> {
     if (!this.prisma.enabled) return;
     for (const e of entries) {
       const write = async (db: any) => {
       if (e.contractId) {
         await db.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE', e.contractId);
-        await this.assertDocumentMutationAllowed(e.contractId, db);
+        await this.assertDocumentMutationAllowed(e.contractId, db, actor);
       }
       const row = await db.document.create({
         data: {
@@ -93,10 +95,13 @@ export class IngestionService {
 
 
   /** A routed/approved/signing contract is immutable until an explicit new-version workflow exists. */
-  private async assertDocumentMutationAllowed(contractId?: string, db: any = this.prisma.client): Promise<void> {
+  private async assertDocumentMutationAllowed(contractId?: string, db: any = this.prisma.client, actor?: AuthUser): Promise<void> {
     if (!contractId || !this.prisma.enabled) return;
-    const contract = await db.contract.findUnique({ where: { id: contractId }, select: { id: true } });
+    const contract = await db.contract.findUnique({ where: { id: contractId }, select: { id: true, ownerId: true, executedAt: true, intakeRequest: { select: { assignedLegalUserId: true } } } });
     if (!contract) throw new NotFoundException(`Contract ${contractId} not found`);
+    if (contract.executedAt) throw new ConflictException('The executed agreement is immutable. Start an amendment to change its terms.');
+    const owner = contract.intakeRequest?.assignedLegalUserId ?? contract.ownerId;
+    if (actor && owner && owner !== actor.id && !['admin','lead'].includes(normalizeRole(actor.role))) throw new ForbiddenException('This agreement is assigned to another lawyer.');
     const [routing, decision, signature] = await Promise.all([
       db.approvalRouting.findUnique({ where: { contractId }, select: { contractId: true } }),
       db.approvalDecision.findUnique({ where: { contractId }, select: { contractId: true } }),
@@ -175,19 +180,19 @@ export class IngestionService {
     return { text: '', engine: 'none' };
   }
 
-  async ingest(documents: IngestDocumentInput[]): Promise<IngestResult[]> {
+  async ingest(documents: IngestDocumentInput[], actor?: AuthUser): Promise<IngestResult[]> {
     const docs = documents || [];
     for (const contractId of new Set(docs.map((d) => d.contractId).filter(Boolean) as string[])) {
-      await this.assertDocumentMutationAllowed(contractId);
+      await this.assertDocumentMutationAllowed(contractId, this.prisma.client, actor);
     }
     const results = await Promise.all(docs.map((d) => this.processOne(d)));
-    await this.persist(results.map((result, i) => ({ result, text: docs[i]?.text, contractId: docs[i]?.contractId })));
+    await this.persist(results.map((result, i) => ({ result, text: docs[i]?.text, contractId: docs[i]?.contractId })), actor);
     return results;
   }
 
   /** Real uploaded files: validate, store, OCR each, extract. */
-  async ingestUploads(files: UploadedFile[], contractId?: string): Promise<IngestResult[]> {
-    await this.assertDocumentMutationAllowed(contractId);
+  async ingestUploads(files: UploadedFile[], contractId?: string, actor?: AuthUser): Promise<IngestResult[]> {
+    await this.assertDocumentMutationAllowed(contractId, this.prisma.client, actor);
     const entries = await Promise.all(
       (files || []).map(async (f) => {
         // 0) Content security: magic-byte sniff + size + malware seam. A file that
@@ -235,7 +240,7 @@ export class IngestionService {
         return { result, text, contractId, storageKey: key, sha256: createHash('sha256').update(f.buffer).digest('hex') };
       }),
     );
-    await this.persist(entries);
+    await this.persist(entries, actor);
     return entries.map((e) => e.result);
   }
 
