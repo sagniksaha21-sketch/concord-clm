@@ -67,6 +67,12 @@ describe('Concord API (integration)', () => {
     await http().post(path).set('Authorization', `Bearer ${token('Requestor')}`).send({}).expect(403);
   });
 
+  it.each(['/api/contracts','/api/agreements/any/editor','/api/agreements/any','/api/reports/portfolio','/api/authoring/clauses','/api/dashboard','/api/audit','/api/requests','/api/documents/any/file'])('isolates Approvers from unassigned legal data: %s', async path => {
+    await http().get(path).set('Authorization', `Bearer ${token('approver')}`).expect(403);
+  });
+  it.each(['/api/agreements/any/comments','/api/agreements/any/rewrite','/api/agreements/any/amendments'])('blocks Requestor and Approver editing: %s',async path => {
+    for (const role of ['requester','approver']) await http().post(path).set('Authorization', `Bearer ${token(role)}`).send({}).expect(403);
+  });
   it('allows a department client to use their portal, session and personal inbox', async () => {
     for (const path of ['/api/requests', '/api/requests/options', '/api/inbox', '/api/inbox/unread-count', '/api/auth/me', '/api/auth/permissions']) {
       await http().get(path).set('Authorization', `Bearer ${token('requester')}`).expect(200);

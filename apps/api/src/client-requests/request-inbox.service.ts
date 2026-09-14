@@ -25,7 +25,7 @@ export class RequestInboxService {
         select: { id: true, requestId: true, contractId: true, request: { select: { contractId: true } }, title: true, body: true, createdAt: true, readAt: true, emailStatus: true } }),
       this.unread(actor),
     ]);
-    return { items: rows.map((r: any) => { const { request, ...item } = r; const contractId = r.contractId ?? request?.contractId; return { ...item, href: contractId && can(normalizeRole(actor.role), 'contract:read') ? `/contracts/${encodeURIComponent(contractId)}` : r.requestId ? `/requests/${encodeURIComponent(r.requestId)}` : '/work', createdAt: new Date(r.createdAt).toISOString(), readAt: r.readAt ? new Date(r.readAt).toISOString() : null }; }), unreadCount: count.unreadCount };
+    return { items: rows.map((r: any) => { const { request, ...item } = r; const contractId = r.contractId ?? request?.contractId; return { ...item, href: contractId && normalizeRole(actor.role) === 'approver' ? `/approvals/${encodeURIComponent(contractId)}` : contractId && can(normalizeRole(actor.role), 'contract:read') ? `/contracts/${encodeURIComponent(contractId)}` : r.requestId ? `/requests/${encodeURIComponent(r.requestId)}` : '/work', createdAt: new Date(r.createdAt).toISOString(), readAt: r.readAt ? new Date(r.readAt).toISOString() : null }; }), unreadCount: count.unreadCount };
   }
 
   async markRead(actor: AuthUser, id?: string) {
@@ -78,9 +78,9 @@ export class RequestInboxService {
       const origin = new URL((process.env.WEB_ORIGIN || 'http://localhost:3000').split(',')[0].trim());
       if (!['https:', 'http:'].includes(origin.protocol)) throw new Error('Invalid application origin');
       const agreementId = row.contractId ?? row.request?.contractId;
-      const link = (legalRecipient || approvalRecipient || ownerRecipient || obligationRecipient && can(normalizeRole(row.recipient.role), 'contract:read')) && agreementId ? `${origin.origin}/contracts/${encodeURIComponent(agreementId)}` : `${origin.origin}/requests/${encodeURIComponent(row.requestId)}`;
+      const link = approvalRecipient && normalizeRole(row.recipient.role) === 'approver' && agreementId ? `${origin.origin}/approvals/${encodeURIComponent(agreementId)}` : (legalRecipient || approvalRecipient || ownerRecipient || obligationRecipient && can(normalizeRole(row.recipient.role), 'contract:read')) && agreementId ? `${origin.origin}/contracts/${encodeURIComponent(agreementId)}` : `${origin.origin}/requests/${encodeURIComponent(row.requestId)}`;
       result = await Promise.race([
-        this.mail.sendEmail({ to: [row.recipient.email], subject: row.title, html: `<div style="font-family:Arial,sans-serif;color:#241e12;max-width:620px"><h1 style="color:#a17d1c">Concord</h1><h2>${escapeEmail(row.title)}</h2><p>${escapeEmail(row.body)}</p><p><a href="${escapeEmail(link)}">Open request and term sheet</a></p><p>Sign in with your own Concord account to review this request.</p><hr><small>Lakmē Legal for Lakmē Lever</small></div>` }),
+        this.mail.sendEmail({ to: [row.recipient.email], subject: row.title, html: `<div style="font-family:Arial,sans-serif;color:#241e12;max-width:620px"><h1 style="color:#a17d1c">Concord</h1><h2>${escapeEmail(row.title)}</h2><p>${escapeEmail(row.body)}</p><p><a href="${escapeEmail(link)}">Open in Concord</a></p><p>Sign in with your own Concord account to review this request.</p><hr><small>Lakmē Legal for Lakmē Lever</small></div>` }),
         new Promise<undefined>(resolve => { timer = setTimeout(() => resolve(undefined), 30_000); }),
       ]);
     } catch { /* An uncertain remote result must never be labelled sent. */ }

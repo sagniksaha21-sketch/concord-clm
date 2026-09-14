@@ -8,10 +8,12 @@ import { AuthoringService } from '../authoring/authoring.service';
 import { AuditService } from '../audit/audit.service';
 import { StorageService } from '../storage/storage.service';
 import { FileSecurityService } from '../security/file-security.service';
-import { SaveDraftDto, StartDraftDto, CreateAgreementDto, AgreementTransitionDto, ReviseAgreementDto, AgreementObligationDto } from './agreement.dto';
+import { SaveDraftDto, StartDraftDto, CreateAgreementDto, AgreementTransitionDto, ReviseAgreementDto, AgreementObligationDto, AgreementCommentDto, ResolveCommentDto, RewriteSectionDto, CreateAmendmentDto } from './agreement.dto';
 import { isGraphConfigured } from '../notifications/graph.client';
 import { canonicalJson } from '../common/canonical-json';
 import { draftDocument } from './draft-document';
+import { recordVersion } from './version-record';
+import { readEditableDocument } from './read-document';
 
 const REQUEST_META = { select: { id: true, requestedByDate: true, urgency: true, businessUnit: true, clientStatus: true, assignedLegalUserId: true, assignedLegal: { select: { name: true } }, requester: { select: { name: true } } } };
 
@@ -23,6 +25,7 @@ export class AgreementsService {
     const r = row.intakeRequest;
     return { id: row.id, title: row.title, counterparty: row.counterparty, type: row.type, valueDisplay: row.valueDisplay, stage: row.stage, risk: row.risk, version: row.version, source: row.source,
       requestId: r?.id, ownerId: r?.assignedLegalUserId ?? row.ownerId ?? undefined, ownerName: r?.assignedLegal?.name ?? row.owner?.name, businessOwner: r?.requester?.name, businessUnit: r?.businessUnit, dueDate: r?.requestedByDate ?? undefined,
+      parentAgreementId: row.parentAgreementId ?? undefined, negotiationState: row.negotiationState ?? undefined, waitingOn: r?.clientStatus === 'waiting-on-client' ? r?.requester?.name : row.negotiationState === 'with-counterparty' ? row.counterparty : r?.assignedLegal?.name ?? row.owner?.name,
       priority: r?.urgency ?? 'standard', waitingOnClient: r?.clientStatus === 'waiting-on-client', nextAction: nextAction(row.stage, r?.clientStatus === 'waiting-on-client') };
   }
   async work(actor: AuthUser, view = 'all') {
@@ -35,7 +38,7 @@ export class AgreementsService {
   async snapshot(id: string, actor: AuthUser): Promise<AgreementWorkspace> {
     const role = normalizeRole(actor.role);
     if (!this.prisma.enabled) { const c = await this.contracts.getByIdFresh(id); return { contract: this.item(c), request: null, permissions: PERMISSIONS[role], revision: 0, documents: [], draft: null, approval: null, archive: null, obligations: [], activity: [] }; }
-    const row = await this.db().contract.findUnique({ where: { id }, include: { intakeRequest: REQUEST_META, owner: { select: { name: true } }, approvalHistory: { orderBy: { createdAt: 'desc' } }, draft: true, documents: { orderBy: { createdAt: 'desc' }, select: { id: true, filename: true, status: true, sha256: true, createdAt: true, blobPath: true } }, obligations: { orderBy: { dueDate: 'asc' } } } });
+    const row = await this.db().contract.findUnique({ where: { id }, include: { intakeRequest: REQUEST_META, owner: { select: { name: true } }, parentAgreement: { select: { id: true, title: true } }, amendments: { select: { id: true, title: true, stage: true }, orderBy: { createdAt: 'desc' } }, versions: { orderBy: { number: 'desc' }, include: { document: { select: { sha256: true } } } }, comments: { orderBy: { createdAt: 'asc' } }, approvalHistory: { orderBy: { createdAt: 'desc' } }, draft: true, documents: { orderBy: { createdAt: 'desc' }, select: { id: true, filename: true, status: true, sha256: true, createdAt: true, blobPath: true } }, obligations: { orderBy: { dueDate: 'asc' } } } });
     if (!row) throw new NotFoundException('Agreement not found.');
     let request = null;
     if (row.intakeRequest && can(role, 'request:read')) { try { request = await this.requests.get(row.intakeRequest.id, actor); } catch (e) { if (!(e instanceof NotFoundException)) throw e; } }
@@ -44,7 +47,9 @@ export class AgreementsService {
       row.authoritativeArchiveId ? this.db().archivedDocument.findUnique({ where: { id: row.authoritativeArchiveId } }) : null,
       can(role, 'audit:read') ? this.db().auditEvent.findMany({ where: { OR: [{ entity: 'contract', entityId: id }, ...(request ? [{ entity: 'intake', entityId: request.id }] : [])] }, orderBy: { seq: 'desc' }, take: 80, select: { id: true, at: true, summary: true, action: true } }) : [],
     ]);
-    return { contract: this.item(row), request, permissions: PERMISSIONS[role], revision: row.lifecycleRevision, documents: row.documents.map((d: any) => ({ id: d.id, filename: d.filename, status: d.status, sha256: d.sha256 ?? undefined, createdAt: d.createdAt.toISOString(), hasFile: !!d.blobPath && d.status !== 'quarantined' })),
+    return { contract: this.item(row), request, needsNewVersion: row.needsNewVersion, parentAgreement: row.parentAgreement, amendments: row.amendments,
+      versionHistory: row.versions.map((v: any) => ({ documentId: v.documentId, number: v.number, label: v.label, authorName: v.authorName, organisation: v.organisation ?? undefined, source: v.source, reason: v.reason, stage: v.stage, round: v.round, createdAt: v.createdAt.toISOString(), sha256: v.document.sha256 ?? undefined, sharedAt: v.sharedAt?.toISOString(), agreedAt: v.agreedAt?.toISOString(), approvedAt: v.approvedAt?.toISOString(), executedAt: v.executedAt?.toISOString(), sections: v.sections ?? undefined, changeSummary: v.changeSummary ?? undefined })),
+      comments: row.comments.map((v: any) => ({ id: v.id, documentId: v.documentId, sectionId: v.sectionId ?? undefined, body: v.body, visibility: v.visibility, authorName: v.authorName, createdAt: v.createdAt.toISOString(), resolvedAt: v.resolvedAt?.toISOString(), parentId: v.parentId ?? undefined })), permissions: PERMISSIONS[role], revision: row.lifecycleRevision, documents: row.documents.map((d: any) => ({ id: d.id, filename: d.filename, status: d.status, sha256: d.sha256 ?? undefined, createdAt: d.createdAt.toISOString(), hasFile: !!d.blobPath && d.status !== 'quarantined' })),
       draft: row.draft ? { templateId: row.draft.templateId, sections: row.draft.sections, model: row.draft.model, revision: row.draft.revision, documentId: row.draft.documentId } : null,
       approval: routing ? { approvers: routing.approvers, expiresAt: routing.expiresAt.toISOString(), documentId: routing.documentId, decision: decision?.decision, decidedBy: decision?.decidedBy } : null,
       archive: archive ? { id: archive.id, filename: archive.filename ?? 'Executed agreement', checksum: archive.checksum, completedAt: archive.completedAt.toISOString() } : null,
@@ -56,7 +61,7 @@ export class AgreementsService {
     const contract = await tx.contract.findUnique({ where: { id }, include: { intakeRequest: true } });
     if (!contract) throw new NotFoundException('Agreement not found.');
     if (contract.lifecycleRevision !== revision) throw new ConflictException('This agreement changed. Refresh before saving.');
-    if (['active', 'renewal', 'signature'].includes(contract.stage) || contract.executedAt) throw new ConflictException('This agreement is locked for execution or ongoing management.');
+    if (['active', 'renewal', 'signature', 'agreed'].includes(contract.stage) || contract.executedAt) throw new ConflictException('This agreement is locked for execution or ongoing management.');
     const [route, decision, signature] = await Promise.all([tx.approvalRouting.findUnique({ where: { contractId: id } }), tx.approvalDecision.findUnique({ where: { contractId: id } }), tx.signatureRequest.findFirst({ where: { contractId: id } })]);
     if (route || decision || signature) throw new ConflictException('The approved or routed version is locked. Its document cannot be replaced.');
     return contract;
@@ -85,7 +90,10 @@ export class AgreementsService {
   async saveDraft(id: string, dto: SaveDraftDto, actor: AuthUser, model = 'counsel-edited') {
     if (!dto.sections.length || dto.sections.every(s => !s.body.trim())) throw new BadRequestException('Add draft language before saving.');
     const before = await this.contracts.getByIdFresh(id);
-    const bytes = draftDocument(before.title, dto.sections);
+    const ids = dto.sections.map((s,i) => s.id ?? `section-${i}`);
+    if (new Set(ids).size !== ids.length) throw new BadRequestException('Every clause must have a distinct identifier.');
+    const sections = dto.sections.map((s,i) => ({ ...s, id: ids[i] }));
+    const bytes = draftDocument(before.title, sections);
     const filename = `agreement-${id}-${dto.revision + 1}.docx`;
     const verdict = await this.security.check({ originalname: filename, buffer: bytes });
     if (!verdict.ok || (verdict.scan !== 'clean' && (process.env.UPLOAD_REQUIRE_SCAN === 'true' || verdict.scanEngine === 'error'))) throw new ServiceUnavailableException('The draft could not be cleared for storage by the file scanner.');
@@ -93,19 +101,82 @@ export class AgreementsService {
     await this.db().$transaction(async (tx: any) => {
       const contract = await this.editable(tx, id, dto.revision); this.requireAssigned(contract, actor);
       if (contract.stage === 'intake') throw new ConflictException('Accept the request before drafting.');
+      const latest = await tx.document.findFirst({ where: { contractId: id, status: { not: 'quarantined' }, blobPath: { not: null } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+      if (dto.sourceDocumentId && dto.sourceDocumentId !== latest?.id) throw new ConflictException('A newer document is available. Compare your changes with the current version before saving.');
       const blobPath = await this.storage.put(bytes, filename, 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
-      const doc = await tx.document.create({ data: { contractId: id, filename, documentType: contract.type, confidence: 100, status: 'validated', extraction: {}, validations: [], notes: ['Counsel-controlled draft; commercial instructions require review.'], model, blobPath, sha256, extractedText: dto.sections.map(s => `${s.heading}\n${s.body}`).join('\n\n') } });
-      const data = { templateId: dto.templateId, sections: dto.sections, model, documentId: doc.id, updatedBy: actor.id };
+      const doc = await tx.document.create({ data: { contractId: id, filename, documentType: contract.type, confidence: 100, status: 'validated', extraction: {}, validations: [], notes: ['Counsel-controlled draft; commercial instructions require review.'], model, blobPath, sha256, extractedText: sections.map(s => `${s.heading}\n${s.body}`).join('\n\n') } });
+      const data = { templateId: dto.templateId, sections, model, documentId: doc.id, updatedBy: actor.id };
       await tx.agreementDraft.upsert({ where: { contractId: id }, create: { contractId: id, ...data }, update: { ...data, revision: { increment: 1 } } });
-      await tx.contract.update({ where: { id }, data: { lifecycleRevision: { increment: 1 }, version: `v${dto.revision + 2}`, stage: 'drafting' } });
-      await this.audit.recordInTransaction(tx, { actor, action: 'contract.draft_saved', entity: 'contract', entityId: id, summary: 'Draft version saved with an editable source document', metadata: { documentId: doc.id, sha256, templateId: dto.templateId, model } });
+      const version = await recordVersion(tx, { documentId: doc.id, contract, actor, sections, source: model === 'counsel-edited' ? 'legal-edit' : model === 'template-assembly' ? 'template' : 'ai-assisted', reason: dto.reason?.trim() || 'Draft saved by Legal' });
+      await tx.contract.update({ where: { id }, data: { lifecycleRevision: { increment: 1 }, stage: contract.stage === 'review' ? 'review' : contract.stage === 'negotiation' ? 'negotiation' : 'drafting', ...(contract.stage === 'negotiation' ? { negotiationState: 'legal-review' } : {}) } });
+      await this.audit.recordInTransaction(tx, { actor, action: 'contract.draft_saved', entity: 'contract', entityId: id, summary: 'Draft version saved with an editable source document', metadata: { documentId: doc.id, version: version.label, reason: version.reason, sha256, templateId: dto.templateId, model } });
     }, { timeout: 30_000, maxWait: 10_000 });
     return this.snapshot(id, actor);
+  }
+  async editor(id: string, actor: AuthUser) {
+    const db = this.db();
+    const contract = await db.contract.findUnique({ where: { id }, include: { intakeRequest: true, draft: true } });
+    if (!contract) throw new NotFoundException('Agreement not found.');
+    this.requireAssigned(contract, actor);
+    const doc = await db.document.findFirst({ where: { contractId: id, status: { not: 'quarantined' }, blobPath: { not: null } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] });
+    if (!doc) return { documentId: null, revision: contract.lifecycleRevision, sections: [], original: [], trackedChanges: false, notice: '' };
+    const file = await this.storage.get(doc.blobPath!);
+    if (!doc.sha256 || createHash('sha256').update(file.buffer).digest('hex') !== doc.sha256) throw new ConflictException('The saved document failed its integrity check. Editing is blocked.');
+    const current = contract.draft?.documentId === doc.id ? contract.draft : null;
+    const content = current ? { sections: current.sections, original: current.sections, trackedChanges: false, notice: '' } : readEditableDocument(file.buffer, doc.filename);
+    return { documentId: doc.id, revision: contract.lifecycleRevision, filename: doc.filename, ...content };
+  }
+  async comment(id: string, dto: AgreementCommentDto, actor: AuthUser) {
+    await this.db().$transaction(async (tx: any) => {
+      await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE', id);
+      const c = await tx.contract.findUnique({ where: { id }, include: { intakeRequest: true } });
+      if (!c) throw new NotFoundException('Agreement not found.');
+      this.requireAssigned(c, actor);
+      const doc = await tx.document.findFirst({ where: { id: dto.documentId, contractId: id, status: { not: 'quarantined' } } });
+      if (!doc) throw new NotFoundException('Document not found in this agreement.');
+      const prior = await tx.agreementComment.findUnique({ where: { id: dto.id } });
+      if (prior) { if (prior.contractId !== id || prior.authorUserId !== actor.id || prior.body !== dto.body.trim() || prior.documentId !== dto.documentId) throw new ConflictException('This comment identifier is already in use.'); return; }
+      if (dto.parentId && !await tx.agreementComment.findFirst({ where: { id: dto.parentId, contractId: id, documentId: dto.documentId, visibility: 'internal' } })) throw new NotFoundException('Internal discussion not found.');
+      await tx.agreementComment.create({ data: { id: dto.id, contractId: id, documentId: doc.id, sectionId: dto.sectionId, body: dto.body.trim(), parentId: dto.parentId, authorUserId: actor.id, authorName: actor.name, visibility: 'internal' } });
+      await this.audit.recordInTransaction(tx, { actor, action: 'contract.comment_added', entity: 'contract', entityId: id, summary: 'Internal document comment added', metadata: { commentId: dto.id, documentId: doc.id, visibility: 'internal' } });
+    });
+    return this.snapshot(id, actor);
+  }
+  async resolveComment(id: string, commentId: string, dto: ResolveCommentDto, actor: AuthUser) {
+    await this.db().$transaction(async (tx: any) => {
+      await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE', id);
+      const c = await tx.contract.findUnique({ where: { id }, include: { intakeRequest: true } });
+      if (!c) throw new NotFoundException('Agreement not found.'); this.requireAssigned(c, actor);
+      const comment = await tx.agreementComment.findFirst({ where: { id: commentId, contractId: id } });
+      if (!comment) throw new NotFoundException('Comment not found.');
+      await tx.agreementComment.update({ where: { id: commentId }, data: { resolvedAt: dto.resolved ? new Date() : null, resolvedBy: dto.resolved ? actor.id : null } });
+      await this.audit.recordInTransaction(tx, { actor, action: 'contract.comment_resolved', entity: 'contract', entityId: id, summary: dto.resolved ? 'Document comment resolved' : 'Document comment reopened', metadata: { commentId } });
+    });
+    return this.snapshot(id, actor);
+  }
+  async rewrite(id: string, dto: RewriteSectionDto, actor: AuthUser) {
+    await this.db().$transaction(async (tx: any) => { const c = await this.editable(tx, id, dto.revision); this.requireAssigned(c, actor); });
+    return this.authoring.rewriteSection(dto);
+  }
+  async amend(id: string, dto: CreateAmendmentDto, actor: AuthUser) {
+    await this.db().$transaction(async (tx: any) => {
+      await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE', id);
+      const parent = await tx.contract.findUnique({ where: { id }, include: { intakeRequest: true } });
+      if (!parent) throw new NotFoundException('Agreement not found.'); this.requireAssigned(parent, actor);
+      if (!parent.executedAt || !parent.authoritativeArchiveId) throw new ConflictException('Create an amendment from an executed agreement.');
+      const existing = await tx.contract.findUnique({ where: { id: dto.id } });
+      if (existing) { if (existing.parentAgreementId !== id || existing.ownerId !== actor.id) throw new ConflictException('This amendment identifier is already in use.'); return; }
+      await tx.contract.create({ data: { id: dto.id, title: dto.title.trim(), counterparty: parent.counterparty, type: 'Amendment', valueDisplay: 'Not specified', stage: 'drafting', risk: parent.risk, version: 'v1', source: 'Amendment', ownerId: actor.id, parentAgreementId: id } });
+      await this.audit.recordInTransaction(tx, { actor, action: 'contract.amendment_created', entity: 'contract', entityId: dto.id, summary: `Amendment opened for ${parent.title}`, metadata: { parentAgreementId: id, reason: dto.reason.trim(), parentArchiveId: parent.authoritativeArchiveId } });
+      await this.audit.recordInTransaction(tx, { actor, action: 'contract.amendment_linked', entity: 'contract', entityId: id, summary: 'A linked amendment lifecycle was opened', metadata: { amendmentId: dto.id } });
+    });
+    return { id: dto.id };
   }
   async transition(id: string, dto: AgreementTransitionDto, actor: AuthUser) {
     await this.db().$transaction(async (tx: any) => {
       const contract = await this.editable(tx, id, dto.revision); this.requireAssigned(contract, actor);
       if (!['drafting', 'review'].includes(contract.stage)) throw new ConflictException('Only drafting and review can be changed here.');
+      if (dto.stage === 'review' && contract.needsNewVersion) throw new ConflictException('Save the changed document as a new version before returning to review.');
       if (dto.stage === 'review' && !await tx.document.findFirst({ where: { contractId: id, status: { not: 'quarantined' }, blobPath: { not: null } } })) throw new BadRequestException('Save or upload an agreement before review.');
       await tx.contract.update({ where: { id }, data: { stage: dto.stage, lifecycleRevision: { increment: 1 } } });
       await this.audit.recordInTransaction(tx, { actor, action: 'contract.stage_changed', entity: 'contract', entityId: id, summary: `Agreement moved to ${dto.stage}`, metadata: { from: contract.stage, to: dto.stage } });
@@ -144,17 +215,17 @@ export class AgreementsService {
         tx.approvalRouting.findUnique({ where: { contractId: id } }), tx.approvalDecision.findUnique({ where: { contractId: id } }),
         tx.approvalStep.findMany({ where: { contractId: id }, orderBy: { approverEmail: 'asc' } }), tx.signatureRequest.findFirst({ where: { contractId: id } }),
       ]);
-      if (!routing || !decision || !['rejected', 'changes-requested'].includes(decision.decision) || signature || contract.executedAt) throw new ConflictException('Only a rejected version or a version requiring changes can be reopened here.');
-      const evidence = JSON.parse(JSON.stringify({ routing, decision, steps, revisionReason: dto.reason.trim() }));
+      if ((!routing || !decision || !['approved', 'rejected', 'changes-requested'].includes(decision.decision)) && contract.stage !== 'agreed' || signature || contract.executedAt) throw new ConflictException('A signing package or executed agreement cannot be edited. Revisions require an agreed form or a completed approval decision.');
+      const evidence = JSON.parse(JSON.stringify({ routing, decision: decision ?? { decision: 'agreed' }, steps, agreedDocumentId: contract.agreedDocumentId, agreedSha256: contract.agreedSha256, revisionReason: dto.reason.trim() }));
       const evidenceSha256 = createHash('sha256').update(canonicalJson(evidence)).digest('hex');
       const round = await tx.approvalRound.create({ data: { id: randomUUID(), contractId: id, contractVersion: contract.version, evidence, evidenceSha256 } });
       // The full previous round is retained before clearing the compatible
       // current-version indexes. Old callback document/version pins then fail.
       await tx.approvalStep.deleteMany({ where: { contractId: id } });
-      await tx.approvalDecision.delete({ where: { contractId: id } });
-      await tx.approvalRouting.delete({ where: { contractId: id } });
+      await tx.approvalDecision.deleteMany({ where: { contractId: id } });
+      await tx.approvalRouting.deleteMany({ where: { contractId: id } });
       await tx.requestNotification.updateMany({ where: { contractId: id, kind: { startsWith: 'approval-request' }, emailStatus: { in: ['queued', 'awaiting-configuration', 'retry'] } }, data: { emailStatus: 'cancelled' } });
-      await tx.contract.update({ where: { id }, data: { stage: 'drafting', lifecycleRevision: { increment: 1 }, version: `v${dto.revision + 2}` } });
+      await tx.contract.update({ where: { id }, data: { stage: 'drafting', lifecycleRevision: { increment: 1 }, needsNewVersion: true, agreedDocumentId: null, agreedSha256: null, agreedAt: null, agreedBy: null } });
       await this.audit.recordInTransaction(tx, { actor, action: 'contract.revision_started', entity: 'contract', entityId: id, summary: 'A new draft revision was opened; the previous approval round remains preserved', metadata: { approvalRoundId: round.id, evidenceSha256, previousVersion: contract.version, reason: dto.reason.trim() } });
     }, { timeout: 20_000, maxWait: 10_000 });
     return this.snapshot(id, actor);

@@ -13,6 +13,8 @@ import { ESignService } from '../src/esign/esign.service';
 import { FileSecurityService } from '../src/security/file-security.service';
 import { ObligationsService } from '../src/obligations/obligations.service';
 import { canonicalJson } from '../src/common/canonical-json';
+import { ApproverService } from '../src/workflow/approver.service';
+import { draftDocument } from '../src/agreements/draft-document';
 import { IngestionService } from '../src/ingestion/ingestion.service';
 import * as graph from '../src/notifications/graph.client';
 
@@ -20,7 +22,7 @@ const describeDb = process.env.REQUEST_TEST_DATABASE_URL ? describe : describe.s
 describeDb('Department portal on PostgreSQL', () => {
   let db: any; let prisma: any; let audit: AuditService; let service: ClientRequestsService; let inbox: RequestInboxService;
   const mail = { sendEmail: jest.fn() }; let configured: jest.SpyInstance;
-  const actors: Record<string, AuthUser> = Object.fromEntries(['requester', 'other-client', 'counsel', 'other-lawyer', 'lead', 'admin', 'viewer'].map(key => [key, { id: key, name: `UAT ${key}`, email: `${key}@example.test`, role: key === 'other-client' ? 'requester' : key === 'other-lawyer' ? 'counsel' : key }]));
+  const actors: Record<string, AuthUser> = Object.fromEntries(['requester', 'other-client', 'counsel', 'other-lawyer', 'lead', 'admin', 'viewer', 'approver'].map(key => [key, { id: key, name: `UAT ${key}`, email: `${key}@example.test`, role: key === 'other-client' ? 'requester' : key === 'other-lawyer' ? 'counsel' : key }]));
   const dto = (): CreateClientRequestDto => ({ submissionKey: randomUUID(), title: 'UAT <equipment> supply', counterparty: 'UAT Supplier', businessUnit: 'Procurement', contractType: 'Vendor Agreement', assignedLegalUserId: actors.counsel.id, requestedByDate: '2026-10-01', urgency: 'standard', terms: { scope: 'Supply equipment against milestones.', currency: 'INR', amount: '25000', paymentTerms: '30 days after acceptance', dataInvolved: 'none' } });
   beforeAll(async () => {
     const url = new URL(process.env.REQUEST_TEST_DATABASE_URL!);
@@ -207,6 +209,70 @@ describeDb('Department portal on PostgreSQL', () => {
     expect(await db.auditEvent.count({ where: { action: 'contract.draft_saved' } })).toBe(2);
   });
 
+  it('opens the actual saved source and records separate document versions with actor, reason and differences', async () => {
+    const { request, agreements, storage } = await readyForReview(); const id = request.contractId;
+    const editor = await agreements.editor(id, actors.counsel);
+    expect(editor.sections).toEqual((await agreements.snapshot(id,actors.counsel)).draft!.sections);
+    const next = await agreements.saveDraft(id,{ revision: editor.revision, sourceDocumentId: editor.documentId!, reason: 'Negotiated payment terms', sections: [{ id: 'section-0', heading: 'Payment', body: 'Pay within 45 days.' }] },actors.counsel);
+    expect(next.contract.stage).toBe('review'); expect(next.versionHistory).toHaveLength(2);
+    expect(next.versionHistory![0]).toMatchObject({ authorName: actors.counsel.name, reason: 'Negotiated payment terms', source: 'legal-edit' });
+    expect(next.versionHistory![0].changeSummary).toHaveLength(1);
+    await expect(agreements.saveDraft(id,{ revision: next.revision, sourceDocumentId: editor.documentId!, sections: next.draft!.sections },actors.counsel)).rejects.toThrow('newer document');
+    const document = await db.document.findUnique({ where: { id: next.draft!.documentId } });
+    storage.get.mockResolvedValueOnce({ buffer: Buffer.from('corrupted'), filename: 'draft.docx', contentType: 'text/plain' });
+    await expect(agreements.editor(id,actors.counsel)).rejects.toThrow('integrity');
+    expect(document.sha256).toBe(next.versionHistory![0].sha256);
+  });
+  it('imports an uploaded Word source into the same editor without overwriting its bytes', async () => {
+    const { agreements, storage } = lifecycleServices();
+    const { id } = await agreements.create({ title: 'Word exchange', counterparty: 'Test supplier', type: 'MSA' },actors.counsel);
+    const bytes = draftDocument('Word exchange',[{ heading: 'Scope', body: 'Services for the business.' }]);
+    const key = await storage.put(bytes);
+    const doc = await db.document.create({ data: { contractId: id, filename: 'counterparty.docx', status: 'validated', extraction: {}, validations: [], notes: [], confidence: 100, documentType: 'MSA', model: 'test', blobPath: key, sha256: createHash('sha256').update(bytes).digest('hex') } });
+    const editor = await agreements.editor(id,actors.counsel);
+    expect(editor.documentId).toBe(doc.id); expect(editor.sections.map((s: any) => s.body).join(' ')).toContain('Services for the business');
+    const saved = await agreements.saveDraft(id,{ revision: editor.revision, sourceDocumentId: doc.id, sections: editor.sections },actors.counsel);
+    expect(saved.documents).toHaveLength(2); expect((await storage.get(key)).buffer).toEqual(bytes);
+  });
+  it('preserves internal comments, rejects cross-agreement references and records resolution', async () => {
+    const { request,agreements } = await readyForReview(); const id = request.contractId;
+    const editor = await agreements.editor(id,actors.counsel);
+    const body = { id: randomUUID(), documentId: editor.documentId!, body: 'Internal legal strategy', sectionId: 'section-0' };
+    const added = await agreements.comment(id,body,actors.counsel); await agreements.comment(id,body,actors.counsel);
+    expect(added.comments?.[0].visibility).toBe('internal'); expect(await db.agreementComment.count()).toBe(1);
+    await expect(agreements.comment(id,{ ...body, id: randomUUID(), documentId: randomUUID() },actors.counsel)).rejects.toThrow('not found');
+    await expect(agreements.resolveComment(id,body.id,{ resolved: true },actors['other-lawyer'])).rejects.toThrow('another lawyer');
+    const resolved = await agreements.resolveComment(id,body.id,{ resolved: true },actors.counsel); expect(resolved.comments?.[0].resolvedAt).toBeTruthy();
+    expect(await db.auditEvent.count({ where: { action: 'contract.comment_added' } })).toBe(1);
+  });
+  it('restricts focused approval cards and document bytes to the assigned approver', async () => {
+    const { request,workflow,storage } = await readyForReview(); const id = request.contractId;
+    await workflow.routeInApp(id,{ approvers: [actors.approver.email], note: 'Consider financial exposure' },actors.counsel);
+    const approval = new ApproverService(prisma,workflow,storage as any,audit);
+    expect((await approval.queue(actors.approver))[0].id).toBe(id);
+    expect(await approval.queue(actors.viewer)).toHaveLength(0);
+    await expect(approval.card(id,actors.viewer)).rejects.toThrow('not assigned');
+    await expect(approval.file(id,actors['other-lawyer'])).rejects.toThrow('not assigned');
+    const card = await approval.card(id,actors.approver); expect(card.approval.canDecide).toBe(true);
+    expect(card).not.toHaveProperty('comments'); expect(card).not.toHaveProperty('request');
+    expect((await approval.file(id,actors.approver)).buffer).toBeInstanceOf(Buffer);
+    expect((await inbox.list(actors.approver)).items[0].href).toBe(`/approvals/${id}`);
+    await workflow.decideInApp(id,{ decision: 'approved' },actors.approver);
+    expect((await db.agreementVersion.findFirst({ where: { contractId: id } })).approvedAt).toBeTruthy();
+  });
+  it('creates an idempotent linked amendment while retaining the executed parent intact', async () => {
+    const { agreements } = lifecycleServices();
+    const { id } = await agreements.create({ title: 'Parent', counterparty: 'Supplier', type: 'MSA' },actors.counsel);
+    const amendment = { id: randomUUID(), title: 'Payment amendment', reason: 'Extend payment terms' };
+    await expect(agreements.amend(id,amendment,actors.counsel)).rejects.toThrow('executed agreement');
+    await db.contract.update({ where: { id }, data: { stage: 'active', executedAt: new Date(), authoritativeArchiveId: 'test-preserved-archive' } });
+    const parent = await db.contract.findUnique({ where: { id } });
+    await Promise.all([agreements.amend(id,amendment,actors.counsel),agreements.amend(id,amendment,actors.counsel)]);
+    expect(await db.contract.count()).toBe(2); expect(await db.contract.findUnique({ where: { id } })).toEqual(parent);
+    const child = await agreements.snapshot(amendment.id,actors.counsel); expect(child.parentAgreement?.id).toBe(id); expect(child.contract.stage).toBe('drafting');
+    expect((await agreements.snapshot(id,actors.counsel)).amendments).toHaveLength(1);
+    await expect(agreements.saveDraft(id,{ revision: 0, sections: [{ heading: 'Illegal edit',body: 'Overwrite' }] },actors.counsel)).rejects.toThrow('locked');
+  });
   it('requires every approver, prevents self-routing, and locks the exact document before signing', async () => {
     const { request, agreements, workflow } = await readyForReview(); const id = request.contractId;
     await expect(workflow.routeInApp(id, { approvers: [actors.counsel.email] }, actors.counsel)).rejects.toThrow('cannot approve');
@@ -281,7 +347,11 @@ describeDb('Department portal on PostgreSQL', () => {
     await workflow.decideInApp(id, { decision: 'approved' }, actors.lead);
     expect(await db.approvalRound.count({ where: { contractId: id } })).toBe(1);
     const approved = await agreements.snapshot(id, actors.counsel);
-    await expect(agreements.revise(id, { revision: approved.revision, reason: 'Cannot change approved evidence' }, actors.counsel)).rejects.toThrow('Only a rejected');
+    const reopened = await agreements.revise(id, { revision: approved.revision, reason: 'A material correction requires fresh approval' }, actors.counsel);
+    expect(reopened.needsNewVersion).toBe(true); expect(reopened.contract.version).toBe(approved.contract.version);
+    expect(reopened.approvalHistory).toHaveLength(2);
+    await expect(agreements.transition(id, { revision: reopened.revision, stage: 'review' }, actors.counsel)).rejects.toThrow('Save the changed document');
+    await expect(workflow.decideInApp(id, { decision: 'approved' }, actors.lead)).rejects.toThrow('not currently assigned');
   });
 
   it('automatically preserves the authoritative executed record and deduplicates dates and notices', async () => {

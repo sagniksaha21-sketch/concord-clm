@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ROLE_LABELS, normalizeRole, requestReturnPath } from '@concord/shared';
+import { ROLE_LABELS, normalizeRole, requestReturnPath, approvalReturnPath } from '@concord/shared';
 import type { Permission, Role } from '@concord/shared';
 import { getMe, getInboxCount, getPermissions, logout as apiLogout } from '@/app/lib/api';
 import CommandPalette, { type PaletteCommand } from '@/components/CommandPalette';
@@ -120,6 +120,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .then((u) => {
         if (!live) return;
         const role = normalizeRole(u.role);
+        if (role === 'approver' && !approvalReturnPath(path)) router.replace('/approvals');
         if (role === 'requester' && !requestReturnPath(path)) router.replace('/requests');
         setWho({ name: u.name?.trim() || u.email || 'Signed in', role, roleLabel: ROLE_LABELS[role] });
       })
@@ -243,7 +244,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }, [bare, path]);
 
   const visible = useMemo(
-    () => NAV.filter((n) => (!n.portalOnly || who?.role === 'requester') && (!n.needs || (perms !== null && perms.includes(n.needs)))),
+    () => NAV.filter((n) => (!n.portalOnly || who?.role === 'requester') && (!n.approverOnly || who?.role === 'approver') && (!n.needs || (perms !== null && perms.includes(n.needs)))),
     [perms, who?.role],
   );
 
@@ -283,12 +284,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       .toUpperCase() || 'CC';
 
   const groups = NAV_GROUPS;
-  const primaryEntries = visible.filter(n => PRIMARY_NAV.includes(n.href) || n.portalOnly);
+  const primaryEntries = visible.filter(n => PRIMARY_NAV.includes(n.href) || n.portalOnly || n.approverOnly);
   const toolEntries = visible.filter(n => !PRIMARY_NAV.includes(n.href));
   const toolsActive = path === '/workspace' || toolEntries.some(n => navIsActive(n, path));
 
   const clientPortal = who?.role === 'requester';
-  const primaryMobile = clientPortal ? ['/requests'] : PRIMARY_MOBILE;
+  const approverPortal = who?.role === 'approver';
+  const homeHref = clientPortal ? '/requests' : approverPortal ? '/approvals' : '/';
+  const primaryMobile = clientPortal ? ['/requests'] : approverPortal ? ['/approvals'] : PRIMARY_MOBILE;
   const quickItems = [
     { href: '/requests/new', label: 'Contract Request', detail: 'Share your terms and choose a lawyer', icon: IconInbox, show: perms?.includes('request:write') ?? false },
     { href: '/work/new', label: 'Draft from Template', detail: 'Create a linked agreement and draft', icon: IconPlus, show: perms?.includes('contract:write') ?? false },
@@ -304,11 +307,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       <aside className={`sidebar${menuOpen ? ' is-open' : ''}`} aria-label="Primary navigation">
         <div className="sidebar-brand-row">
           <div className="brand">
-            <Link className="brand-full brand-home" href={clientPortal ? "/requests" : "/"} aria-label="Concord home">
+            <Link className="brand-full brand-home" href={homeHref} aria-label="Concord home">
               <img className="brand-logo" src="/brand/lakme-salon.png" alt="Lakmē Salon" draggable={false} />
               <ConcordWordmark variant="display" /><div className="brand-caption">{clientPortal ? 'Legal Contract Requests' : 'Legal operations workspace'}</div>
             </Link>
-            <Link className="rail-mark" href={clientPortal ? "/requests" : "/"} aria-label="Concord home">C</Link>
+            <Link className="rail-mark" href={homeHref} aria-label="Concord home">C</Link>
           </div>
           <button
             className="sidebar-collapse"
@@ -421,7 +424,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </header>
 
         <main className="stage" id="main-content" tabIndex={-1}>
-          <div key={path} className="route-view">{!who || !perms || (clientPortal && !requestReturnPath(path)) ? <div className="req-notice" role="status">Loading your workspace…</div> : children}</div>
+          <div key={path} className="route-view">{!who || !perms || (clientPortal && !requestReturnPath(path)) || (approverPortal && !approvalReturnPath(path)) ? <div className="req-notice" role="status">Loading your workspace…</div> : children}</div>
         </main>
 
         <footer className="foot">
@@ -457,7 +460,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         {!clientPortal && <div className="sheet-actions">{quickItems.map(item => { const Icon = item.icon; return <Link key={item.href} href={item.href}><span><Icon /></span><b>{item.label}</b></Link>; })}</div>}
         <div className="sheet-nav-scroll">
           {groups.map(([key, label]) => {
-            const items = visible.filter((n) => n.group === key && !PRIMARY_NAV.includes(n.href) && !n.portalOnly);
+            const items = visible.filter((n) => n.group === key && !PRIMARY_NAV.includes(n.href) && !n.portalOnly && !n.approverOnly);
             if (!items.length) return null;
             return (
               <div className="sheet-group" key={key}>

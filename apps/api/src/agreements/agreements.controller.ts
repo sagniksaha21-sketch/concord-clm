@@ -5,7 +5,7 @@ import { NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { Roles } from '../auth/rbac';
 import { AgreementsService } from './agreements.service';
-import { AgreementTransitionDto, CreateAgreementDto, SaveDraftDto, StartDraftDto, ReviseAgreementDto, AgreementObligationDto } from './agreement.dto';
+import { AgreementTransitionDto, CreateAgreementDto, SaveDraftDto, StartDraftDto, ReviseAgreementDto, AgreementObligationDto, AgreementCommentDto, ResolveCommentDto, RewriteSectionDto, CreateAmendmentDto } from './agreement.dto';
 
 @Controller('agreements') @Roles('contract:read')
 export class AgreementsController {
@@ -18,6 +18,11 @@ export class AgreementsController {
   @Post(':id/stage') @Roles('contract:write') stage(@Param('id') id: string, @Req() req: any, @Body() dto: AgreementTransitionDto) { return this.agreements.transition(id, dto, req.user); }
   @Post(':id/revise') @Roles('contract:write') revise(@Param('id') id: string, @Req() req: any, @Body() dto: ReviseAgreementDto) { return this.agreements.revise(id, dto, req.user); }
   @Post(':id/obligations') @Roles('contract:write') obligation(@Param('id') id: string, @Req() req: any, @Body() dto: AgreementObligationDto) { return this.agreements.obligation(id, dto, req.user); }
+  @Get(':id/editor') @Roles('contract:write') @Header('Cache-Control', 'private, no-store') editor(@Param('id') id: string, @Req() req: any) { return this.agreements.editor(id, req.user); }
+  @Post(':id/comments') @Roles('contract:write') comment(@Param('id') id: string, @Req() req: any, @Body() dto: AgreementCommentDto) { return this.agreements.comment(id, dto, req.user); }
+  @Post(':id/comments/:commentId/resolve') @Roles('contract:write') resolveComment(@Param('id') id: string, @Param('commentId') commentId: string, @Req() req: any, @Body() dto: ResolveCommentDto) { return this.agreements.resolveComment(id, commentId, dto, req.user); }
+  @Post(':id/rewrite') @Roles('contract:write') rewrite(@Param('id') id: string, @Req() req: any, @Body() dto: RewriteSectionDto) { return this.agreements.rewrite(id, dto, req.user); }
+  @Post(':id/amendments') @Roles('contract:write') amend(@Param('id') id: string, @Req() req: any, @Body() dto: CreateAmendmentDto) { return this.agreements.amend(id, dto, req.user); }
   @Get(':id/executed')
   async executed(@Param('id') id: string, @Res({ passthrough: true }) res: any) {
     const c = this.prisma.enabled ? await this.prisma.client.contract.findUnique({ where: { id } }) : null;

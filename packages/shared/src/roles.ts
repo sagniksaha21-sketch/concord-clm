@@ -45,7 +45,7 @@ export const PERMISSIONS: Record<Role, Permission[]> = {
     'ingest:write', 'approval:route', 'approve', 'esign:send', 'esign:admin', 'audit:read',
   ],
   counsel: ['contract:read', 'contract:write', 'intake:write', 'ingest:write', 'approval:route', 'esign:send', 'request:read', 'request:write', 'request:manage'],
-  approver: ['contract:read', 'approve'],
+  approver: ['approve'],
   viewer: READ,
   requester: ['request:read', 'request:write'],
 };

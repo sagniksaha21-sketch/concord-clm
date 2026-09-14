@@ -110,6 +110,17 @@ model Contract {
   approvalHistory ApprovalRound[]
   ownerId String?
   owner User? @relation("AgreementOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  versions AgreementVersion[]
+  comments AgreementComment[]
+  parentAgreementId String?
+  parentAgreement Contract? @relation("AmendmentParent", fields: [parentAgreementId], references: [id], onDelete: Restrict)
+  amendments Contract[] @relation("AmendmentParent")
+  needsNewVersion Boolean @default(false)
+  negotiationState String?
+  agreedDocumentId String?
+  agreedSha256 String?
+  agreedAt DateTime?
+  agreedBy String?
   @@index([counterparty])
   @@index([stage])
   @@index([risk])
@@ -229,7 +240,51 @@ model Document {
   extractedText String?
   sha256       String?
   createdAt    DateTime @default(now())
+  versionRecord AgreementVersion?
   @@index([contractId])
+}
+
+model AgreementVersion {
+  documentId String @id
+  document Document @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  number Int
+  label String
+  authorName String
+  authorUserId String?
+  authorGuestId String?
+  organisation String?
+  source String
+  reason String
+  stage String
+  round Int @default(0)
+  sections Json?
+  changeSummary Json?
+  sharedAt DateTime?
+  agreedAt DateTime?
+  approvedAt DateTime?
+  executedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([contractId, number])
+}
+
+model AgreementComment {
+  id String @id
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  documentId String
+  sectionId String?
+  authorUserId String?
+  authorGuestId String?
+  authorName String
+  visibility String @default("internal")
+  body String
+  parentId String?
+  resolvedAt DateTime?
+  resolvedBy String?
+  createdAt DateTime @default(now())
+  @@index([contractId, documentId, visibility])
 }
 
 model SignatureRequest {

@@ -6,4 +6,5 @@ export * from './mock-data';
 export * from './reporting';
 export * from './client-requests';
 export * from './lifecycle';
+export * from './editing';
 export * from './return-path';
