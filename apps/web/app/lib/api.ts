@@ -510,7 +510,7 @@ export const getWork = (view = 'all') => portalJson<{ items: import('@concord/sh
 export const getAgreementWorkspace = (id: string) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}`);
 export const createAgreementWorkspace = (body: { title: string; counterparty: string; type: string }) => portalJson<{ id: string }>('/agreements', jsonBody('POST', body));
 export const startAgreementDraft = (id: string, body: { templateId: string; revision: number }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/draft/template`, jsonBody('POST', body));
-export const saveAgreementDraft = (id: string, body: { templateId?: string; sections: import('@concord/shared').DraftSection[]; revision: number }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/draft`, jsonBody('POST', body));
+export const saveAgreementDraft = (id: string, body: { templateId?: string; sections: import('@concord/shared').DraftSection[]; revision: number; reason?: string; sourceDocumentId?: string }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/draft`, jsonBody('POST', body));
 export const changeAgreementStage = (id: string, body: { stage: 'review' | 'drafting'; revision: number }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/stage`, jsonBody('POST', body));
 export const reviseAgreement = (id: string, body: { reason: string; revision: number }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/revise`, jsonBody('POST', body));
 export const saveAgreementObligation = (id: string, body: { id: string; revision: number; title: string; type: string; dueDate: string; ownerEmail: string; evidence: string; completed: boolean }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/obligations`, jsonBody('POST', body));
@@ -518,3 +518,18 @@ export interface ApprovalWorkspaceData { steps: { id: string; approverEmail: str
 export const getAgreementApprovals = (id: string) => portalJson<ApprovalWorkspaceData>(`/contracts/${encodeURIComponent(id)}/approval/workspace`);
 export const routeAgreementApprovals = (id: string, body: { approvers: string[]; note?: string }) => portalJson<ApprovalWorkspaceData>(`/contracts/${encodeURIComponent(id)}/approval/workspace`, jsonBody('POST', body));
 export const decideAgreementApproval = (id: string, body: { decision: 'approved' | 'rejected' | 'changes-requested'; comment?: string }) => portalJson<ApprovalWorkspaceData>(`/contracts/${encodeURIComponent(id)}/approval/decision`, jsonBody('POST', body));
+
+export interface AgreementEditorSource { documentId: string | null; revision: number; filename?: string; sections: import('@concord/shared').DraftSection[]; original: import('@concord/shared').DraftSection[]; trackedChanges: boolean; notice: string; }
+export const getAgreementEditor = (id: string) => portalJson<AgreementEditorSource>(`/agreements/${encodeURIComponent(id)}/editor`);
+export const addAgreementComment = (id: string, body: { id: string; documentId: string; sectionId?: string; body: string; parentId?: string }) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/comments`, jsonBody('POST', body));
+export const resolveAgreementComment = (id: string, commentId: string, resolved: boolean) => portalJson<import('@concord/shared').AgreementWorkspace>(`/agreements/${encodeURIComponent(id)}/comments/${encodeURIComponent(commentId)}/resolve`, jsonBody('POST', { resolved }));
+export const rewriteAgreementSection = (id: string, body: { revision: number; heading: string; body: string; instruction: string }) => portalJson<{ body: string; model: string }>(`/agreements/${encodeURIComponent(id)}/rewrite`, jsonBody('POST', body));
+export const createAgreementAmendment = (id: string, body: { id: string; title: string; reason: string }) => portalJson<{ id: string }>(`/agreements/${encodeURIComponent(id)}/amendments`, jsonBody('POST', body));
+
+export interface ApproverCard { contract: { id: string; title: string; counterparty: string; type: string; valueDisplay: string; risk: string; version: string }; assignedReason: string; approval: ApprovalWorkspaceData; expired: boolean; }
+export const getMyApprovals = () => portalJson<{ id: string; title: string; counterparty: string; risk: string; valueDisplay: string; decision: string; reason: string; requestedAt: string }[]>('/approvals');
+export const getApproverCard = (id: string) => portalJson<ApproverCard>(`/approvals/${encodeURIComponent(id)}`);
+
+export const getNegotiation = (id: string) => portalJson<import('@concord/shared').NegotiationWorkspace>(`/agreements/${encodeURIComponent(id)}/negotiation`);
+export const inviteCounterparty = (id: string, body: { id: string; revision: number; documentId: string; name: string; email: string; organisation: string; expiresAt: string; responseDueAt?: string; allowDownload: boolean; allowRedline: boolean; allowUpload: boolean }) => portalJson<import('@concord/shared').NegotiationWorkspace>(`/agreements/${encodeURIComponent(id)}/negotiation/invitations`,jsonBody('POST',body));
+export const actOnNegotiation = (id: string, action: string, body: unknown = {}) => portalJson<import('@concord/shared').NegotiationWorkspace>(`/agreements/${encodeURIComponent(id)}/negotiation/${action}`,jsonBody('POST',body));

@@ -13,14 +13,20 @@ import { ESignService } from '../src/esign/esign.service';
 import { FileSecurityService } from '../src/security/file-security.service';
 import { ObligationsService } from '../src/obligations/obligations.service';
 import { canonicalJson } from '../src/common/canonical-json';
+import { ApproverService } from '../src/workflow/approver.service';
+import { draftDocument } from '../src/agreements/draft-document';
 import { IngestionService } from '../src/ingestion/ingestion.service';
 import * as graph from '../src/notifications/graph.client';
+import { GuestAuthService, guestHash } from '../src/negotiation/guest-auth.service';
+import { NegotiationService } from '../src/negotiation/negotiation.service';
+import { GuestDeliveryService } from '../src/negotiation/guest-delivery.service';
+import type { InviteGuestDto } from '../src/negotiation/negotiation.dto';
 
 const describeDb = process.env.REQUEST_TEST_DATABASE_URL ? describe : describe.skip;
 describeDb('Department portal on PostgreSQL', () => {
   let db: any; let prisma: any; let audit: AuditService; let service: ClientRequestsService; let inbox: RequestInboxService;
   const mail = { sendEmail: jest.fn() }; let configured: jest.SpyInstance;
-  const actors: Record<string, AuthUser> = Object.fromEntries(['requester', 'other-client', 'counsel', 'other-lawyer', 'lead', 'admin', 'viewer'].map(key => [key, { id: key, name: `UAT ${key}`, email: `${key}@example.test`, role: key === 'other-client' ? 'requester' : key === 'other-lawyer' ? 'counsel' : key }]));
+  const actors: Record<string, AuthUser> = Object.fromEntries(['requester', 'other-client', 'counsel', 'other-lawyer', 'lead', 'admin', 'viewer', 'approver'].map(key => [key, { id: key, name: `UAT ${key}`, email: `${key}@example.test`, role: key === 'other-client' ? 'requester' : key === 'other-lawyer' ? 'counsel' : key }]));
   const dto = (): CreateClientRequestDto => ({ submissionKey: randomUUID(), title: 'UAT <equipment> supply', counterparty: 'UAT Supplier', businessUnit: 'Procurement', contractType: 'Vendor Agreement', assignedLegalUserId: actors.counsel.id, requestedByDate: '2026-10-01', urgency: 'standard', terms: { scope: 'Supply equipment against milestones.', currency: 'INR', amount: '25000', paymentTerms: '30 days after acceptance', dataInvolved: 'none' } });
   beforeAll(async () => {
     const url = new URL(process.env.REQUEST_TEST_DATABASE_URL!);
@@ -32,7 +38,7 @@ describeDb('Department portal on PostgreSQL', () => {
   });
   beforeEach(async () => {
     // The hostname + database-name guard above is mandatory for this cleanup.
-    await db.$executeRawUnsafe('TRUNCATE TABLE "RequestNotification", "IntakeRequest", "ApprovalRouting", "ApprovalDecision", "SignatureRequest", "ArchivedDocument", "Contract", "User", "AuditEvent", "AuditAnchor" CASCADE');
+    await db.$executeRawUnsafe('TRUNCATE TABLE "GuestAuthLimit", "RequestNotification", "IntakeRequest", "ApprovalRouting", "ApprovalDecision", "SignatureRequest", "ArchivedDocument", "Contract", "User", "AuditEvent", "AuditAnchor" CASCADE');
     await db.user.createMany({ data: Object.values(actors).map(a => ({ ...a, password: '', roleSource: 'manual' })) });
     configured.mockReturnValue(false); mail.sendEmail.mockReset();
   });
@@ -178,7 +184,7 @@ describeDb('Department portal on PostgreSQL', () => {
     const authoring = { generateDraft: jest.fn(async () => ({ sections: [{ heading: 'Parties', body: 'Lakmē Lever and the test counterparty.' }], model: 'template-assembly' })) };
     const contracts = new ContractsService(prisma);
     const agreements = new AgreementsService(prisma, service, contracts, authoring as any, audit, storage as any, new FileSecurityService());
-    const review = { getReview: jest.fn(async (id: string) => { const doc = await db.document.findFirst({ where: { contractId: id }, orderBy: { createdAt: 'desc' } }); const c = await db.contract.findUnique({ where: { id } }); return { documentId: doc?.id, documentSha256: doc?.sha256, contractVersion: c.version }; }) };
+    const review = { getReview: jest.fn(async (id: string) => { const doc = await db.document.findFirst({ where: { contractId: id }, orderBy: { createdAt: 'desc' } }); const c = await db.contract.findUnique({ where: { id } }); return { documentId: doc?.id, documentSha256: doc?.sha256, contractVersion: c.version, riskLevel: 'low', riskScore: 10, clausesParsed: 1, summary: 'Test-only review response', model: 'test-fixture', deviations: [], clauses: [], extractedTerms: [] }; }) };
     const workflow = new WorkflowService(contracts, review as any, mail as any, audit, new AuthService(prisma, audit), prisma);
     return { agreements, workflow, storage, contracts, review };
   }
@@ -207,6 +213,70 @@ describeDb('Department portal on PostgreSQL', () => {
     expect(await db.auditEvent.count({ where: { action: 'contract.draft_saved' } })).toBe(2);
   });
 
+  it('opens the actual saved source and records separate document versions with actor, reason and differences', async () => {
+    const { request, agreements, storage } = await readyForReview(); const id = request.contractId;
+    const editor = await agreements.editor(id, actors.counsel);
+    expect(editor.sections).toEqual((await agreements.snapshot(id,actors.counsel)).draft!.sections);
+    const next = await agreements.saveDraft(id,{ revision: editor.revision, sourceDocumentId: editor.documentId!, reason: 'Negotiated payment terms', sections: [{ id: 'section-0', heading: 'Payment', body: 'Pay within 45 days.' }] },actors.counsel);
+    expect(next.contract.stage).toBe('review'); expect(next.versionHistory).toHaveLength(2);
+    expect(next.versionHistory![0]).toMatchObject({ authorName: actors.counsel.name, reason: 'Negotiated payment terms', source: 'legal-edit' });
+    expect(next.versionHistory![0].changeSummary).toHaveLength(1);
+    await expect(agreements.saveDraft(id,{ revision: next.revision, sourceDocumentId: editor.documentId!, sections: next.draft!.sections },actors.counsel)).rejects.toThrow('newer document');
+    const document = await db.document.findUnique({ where: { id: next.draft!.documentId } });
+    storage.get.mockResolvedValueOnce({ buffer: Buffer.from('corrupted'), filename: 'draft.docx', contentType: 'text/plain' });
+    await expect(agreements.editor(id,actors.counsel)).rejects.toThrow('integrity');
+    expect(document.sha256).toBe(next.versionHistory![0].sha256);
+  });
+  it('imports an uploaded Word source into the same editor without overwriting its bytes', async () => {
+    const { agreements, storage } = lifecycleServices();
+    const { id } = await agreements.create({ title: 'Word exchange', counterparty: 'Test supplier', type: 'MSA' },actors.counsel);
+    const bytes = draftDocument('Word exchange',[{ heading: 'Scope', body: 'Services for the business.' }]);
+    const key = await storage.put(bytes);
+    const doc = await db.document.create({ data: { contractId: id, filename: 'counterparty.docx', status: 'validated', extraction: {}, validations: [], notes: [], confidence: 100, documentType: 'MSA', model: 'test', blobPath: key, sha256: createHash('sha256').update(bytes).digest('hex') } });
+    const editor = await agreements.editor(id,actors.counsel);
+    expect(editor.documentId).toBe(doc.id); expect(editor.sections.map((s: any) => s.body).join(' ')).toContain('Services for the business');
+    const saved = await agreements.saveDraft(id,{ revision: editor.revision, sourceDocumentId: doc.id, sections: editor.sections },actors.counsel);
+    expect(saved.documents).toHaveLength(2); expect((await storage.get(key)).buffer).toEqual(bytes);
+  });
+  it('preserves internal comments, rejects cross-agreement references and records resolution', async () => {
+    const { request,agreements } = await readyForReview(); const id = request.contractId;
+    const editor = await agreements.editor(id,actors.counsel);
+    const body = { id: randomUUID(), documentId: editor.documentId!, body: 'Internal legal strategy', sectionId: 'section-0' };
+    const added = await agreements.comment(id,body,actors.counsel); await agreements.comment(id,body,actors.counsel);
+    expect(added.comments?.[0].visibility).toBe('internal'); expect(await db.agreementComment.count()).toBe(1);
+    await expect(agreements.comment(id,{ ...body, id: randomUUID(), documentId: randomUUID() },actors.counsel)).rejects.toThrow('not found');
+    await expect(agreements.resolveComment(id,body.id,{ resolved: true },actors['other-lawyer'])).rejects.toThrow('another lawyer');
+    const resolved = await agreements.resolveComment(id,body.id,{ resolved: true },actors.counsel); expect(resolved.comments?.[0].resolvedAt).toBeTruthy();
+    expect(await db.auditEvent.count({ where: { action: 'contract.comment_added' } })).toBe(1);
+  });
+  it('restricts focused approval cards and document bytes to the assigned approver', async () => {
+    const { request,workflow,storage } = await readyForReview(); const id = request.contractId;
+    await workflow.routeInApp(id,{ approvers: [actors.approver.email], note: 'Consider financial exposure' },actors.counsel);
+    const approval = new ApproverService(prisma,workflow,storage as any,audit);
+    expect((await approval.queue(actors.approver))[0].id).toBe(id);
+    expect(await approval.queue(actors.viewer)).toHaveLength(0);
+    await expect(approval.card(id,actors.viewer)).rejects.toThrow('not assigned');
+    await expect(approval.file(id,actors['other-lawyer'])).rejects.toThrow('not assigned');
+    const card = await approval.card(id,actors.approver); expect(card.approval.canDecide).toBe(true);
+    expect(card).not.toHaveProperty('comments'); expect(card).not.toHaveProperty('request');
+    expect((await approval.file(id,actors.approver)).buffer).toBeInstanceOf(Buffer);
+    expect((await inbox.list(actors.approver)).items[0].href).toBe(`/approvals/${id}`);
+    await workflow.decideInApp(id,{ decision: 'approved' },actors.approver);
+    expect((await db.agreementVersion.findFirst({ where: { contractId: id } })).approvedAt).toBeTruthy();
+  });
+  it('creates an idempotent linked amendment while retaining the executed parent intact', async () => {
+    const { agreements } = lifecycleServices();
+    const { id } = await agreements.create({ title: 'Parent', counterparty: 'Supplier', type: 'MSA' },actors.counsel);
+    const amendment = { id: randomUUID(), title: 'Payment amendment', reason: 'Extend payment terms' };
+    await expect(agreements.amend(id,amendment,actors.counsel)).rejects.toThrow('executed agreement');
+    await db.contract.update({ where: { id }, data: { stage: 'active', executedAt: new Date(), authoritativeArchiveId: 'test-preserved-archive' } });
+    const parent = await db.contract.findUnique({ where: { id } });
+    await Promise.all([agreements.amend(id,amendment,actors.counsel),agreements.amend(id,amendment,actors.counsel)]);
+    expect(await db.contract.count()).toBe(2); expect(await db.contract.findUnique({ where: { id } })).toEqual(parent);
+    const child = await agreements.snapshot(amendment.id,actors.counsel); expect(child.parentAgreement?.id).toBe(id); expect(child.contract.stage).toBe('drafting');
+    expect((await agreements.snapshot(id,actors.counsel)).amendments).toHaveLength(1);
+    await expect(agreements.saveDraft(id,{ revision: 0, sections: [{ heading: 'Illegal edit',body: 'Overwrite' }] },actors.counsel)).rejects.toThrow('locked');
+  });
   it('requires every approver, prevents self-routing, and locks the exact document before signing', async () => {
     const { request, agreements, workflow } = await readyForReview(); const id = request.contractId;
     await expect(workflow.routeInApp(id, { approvers: [actors.counsel.email] }, actors.counsel)).rejects.toThrow('cannot approve');
@@ -281,7 +351,11 @@ describeDb('Department portal on PostgreSQL', () => {
     await workflow.decideInApp(id, { decision: 'approved' }, actors.lead);
     expect(await db.approvalRound.count({ where: { contractId: id } })).toBe(1);
     const approved = await agreements.snapshot(id, actors.counsel);
-    await expect(agreements.revise(id, { revision: approved.revision, reason: 'Cannot change approved evidence' }, actors.counsel)).rejects.toThrow('Only a rejected');
+    const reopened = await agreements.revise(id, { revision: approved.revision, reason: 'A material correction requires fresh approval' }, actors.counsel);
+    expect(reopened.needsNewVersion).toBe(true); expect(reopened.contract.version).toBe(approved.contract.version);
+    expect(reopened.approvalHistory).toHaveLength(2);
+    await expect(agreements.transition(id, { revision: reopened.revision, stage: 'review' }, actors.counsel)).rejects.toThrow('Save the changed document');
+    await expect(workflow.decideInApp(id, { decision: 'approved' }, actors.lead)).rejects.toThrow('not currently assigned');
   });
 
   it('automatically preserves the authoritative executed record and deduplicates dates and notices', async () => {
@@ -318,6 +392,247 @@ describeDb('Department portal on PostgreSQL', () => {
     const done = await agreements.obligation(id, { ...values, revision: confirmed.revision, completed: true }, actors.counsel);
     expect(done.obligations.find(o => o.id === provisional.id)?.completedAt).toBeTruthy();
     await expect(obligations.remind(provisional.id)).rejects.toThrow('Confirm this obligation');
+  });
+
+
+  async function negotiationFixture(overrides: Partial<InviteGuestDto> = {}) {
+    const base = await readyForReview(); const id = base.request.contractId;
+    const auth = new GuestAuthService(prisma,mail as any,audit);
+    const negotiation = new NegotiationService(prisma,base.storage as any,audit,new FileSecurityService(),base.review as any,auth);
+    const snapshot = await base.agreements.snapshot(id,actors.counsel);
+    const invite: InviteGuestDto = { id: randomUUID(), revision: snapshot.revision, documentId: snapshot.draft!.documentId!, name: 'External Reviewer', email: 'reviewer@example.test', organisation: 'Test Supplier', expiresAt: new Date(Date.now()+7*86400000).toISOString(), allowDownload: false, allowRedline: true, allowUpload: true, ...overrides };
+    await negotiation.invite(id,invite,actors.counsel);
+    const version = async () => { const s = await base.agreements.snapshot(id,actors.counsel); return { revision: s.revision, documentId: s.draft!.documentId! }; };
+    return { ...base, id, auth, negotiation, invite, version };
+  }
+  async function guestChallenge(f: Awaited<ReturnType<typeof negotiationFixture>>) {
+    configured.mockReturnValue(true); mail.sendEmail.mockResolvedValue({ status: 'sent', dryRun: false });
+    const result = await f.auth.challenge(f.invite.id,f.invite.email,'test-participant-ip');
+    const html = mail.sendEmail.mock.calls.at(-1)![0].html as string;
+    const code = html.match(/<b>([0-9]{6})<\/b>/)![1];
+    return { email: f.invite.email, challengeId: result.challengeId, code };
+  }
+  async function guestLogin(f: Awaited<ReturnType<typeof negotiationFixture>>) {
+    const body = await guestChallenge(f); return (await f.auth.verify(f.invite.id,body,'test-participant-ip')).token;
+  }
+  it('creates one scoped invitation, notification and audit event on simultaneous retry',async () => {
+    const f = await negotiationFixture();
+    await Promise.all([f.negotiation.invite(f.id,f.invite,actors.counsel),f.negotiation.invite(f.id,f.invite,actors.counsel)]);
+    expect(await db.guestInvitation.count()).toBe(1); expect(await db.guestDelivery.count()).toBe(1);
+    expect(await db.auditEvent.count({ where: { action: 'negotiation.invited' } })).toBe(1);
+    expect((await db.guestDelivery.findFirst()).status).toBe('awaiting-configuration');
+    await expect(f.negotiation.invite(f.id,{ ...f.invite, allowDownload: true },actors.counsel)).rejects.toThrow('identifier already used');
+    await expect(f.negotiation.workspace(f.id,actors['other-lawyer'])).rejects.toThrow('another lawyer');
+    expect((await f.agreements.snapshot(f.id,actors.counsel)).contract.stage).toBe('negotiation');
+  });
+  it('fails closed when email is unavailable and discloses nothing for the wrong invited email',async () => {
+    const f = await negotiationFixture();
+    await expect(f.auth.challenge(f.invite.id,f.invite.email,'one')).rejects.toThrow('temporarily unavailable');
+    configured.mockReturnValue(true);
+    const result = await f.auth.challenge(f.invite.id,'stranger@example.test','one');
+    expect(Object.keys(result).sort()).toEqual(['challengeId','message']); expect(mail.sendEmail).not.toHaveBeenCalled();
+    expect((await db.guestInvitation.findUnique({ where: { id: f.invite.id } })).otpHash).toBeNull();
+    await expect(f.auth.verify(f.invite.id,{ email: 'stranger@example.test', challengeId: result.challengeId, code: '000000' },'one')).rejects.toThrow('invalid');
+  });
+  it('requires confirmed real email delivery before a correct OTP can create a session',async () => {
+    const f = await negotiationFixture(); configured.mockReturnValue(true);
+    mail.sendEmail.mockResolvedValue({ status: 'dry-run', dryRun: true });
+    const challenge = await f.auth.challenge(f.invite.id,f.invite.email,'one');
+    const code = mail.sendEmail.mock.calls.at(-1)![0].html.match(/<b>([0-9]{6})<\/b>/)[1];
+    await expect(f.auth.verify(f.invite.id,{ email: f.invite.email, challengeId: challenge.challengeId, code },'one')).rejects.toThrow('invalid');
+    expect(await db.guestSession.count()).toBe(0);
+  });
+  it('consumes each OTP once under concurrent verification and stores only a hashed session',async () => {
+    const f = await negotiationFixture(), body = await guestChallenge(f);
+    const results = await Promise.allSettled([f.auth.verify(f.invite.id,body,'one'),f.auth.verify(f.invite.id,body,'one')]);
+    expect(results.filter(x => x.status === 'fulfilled')).toHaveLength(1);
+    expect(await db.guestSession.count()).toBe(1);
+    const success = results.find(x => x.status === 'fulfilled') as PromiseFulfilledResult<{ token: string; expiresAt: Date }>;
+    expect(success.value.token).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    const saved = await db.guestSession.findFirst(); expect(saved.hash).toBe(guestHash(success.value.token)); expect(saved.hash).not.toBe(success.value.token);
+    const invitation = await db.guestInvitation.findUnique({ where: { id: f.invite.id } }); expect(invitation.otpHash).toBeNull(); expect(invitation.challengeId).toBeNull();
+    await expect(f.auth.verify(f.invite.id,body,'one')).rejects.toThrow('invalid');
+  });
+  it('commits failed OTP attempts, enforces five guesses and expires old codes',async () => {
+    const f = await negotiationFixture(), body = await guestChallenge(f);
+    const wrong = body.code === '000000' ? '000001' : '000000';
+    for (let n=0;n<5;n++) await expect(f.auth.verify(f.invite.id,{ ...body, code: wrong },'one')).rejects.toThrow('invalid');
+    expect((await db.guestInvitation.findUnique({ where: { id: f.invite.id } })).otpAttempts).toBe(5);
+    await expect(f.auth.verify(f.invite.id,body,'one')).rejects.toThrow('invalid');
+    await db.guestInvitation.update({ where: { id: f.invite.id }, data: { otpAttempts: 0, otpExpiresAt: new Date(Date.now()-1000) } });
+    await expect(f.auth.verify(f.invite.id,body,'one')).rejects.toThrow('invalid');
+  });
+  it('enforces a persistent challenge budget and invitation identity binding',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f);
+    const other = await negotiationFixture({ email: 'another@example.test' });
+    await expect(f.negotiation.room(other.invite.id,token)).rejects.toThrow('expired or been revoked');
+    for (let n=0;n<5;n++) await f.auth.challenge(f.invite.id,f.invite.email,'different-ip');
+    await expect(f.auth.challenge(f.invite.id,f.invite.email,'third-ip')).rejects.toThrow('Too many');
+  });
+  it('rechecks revocation and expiry for every guest document and write request',async () => {
+    const f = await negotiationFixture({ allowDownload: true }), token = await guestLogin(f);
+    await f.negotiation.room(f.invite.id,token);
+    await f.negotiation.revoke(f.id,f.invite.id,actors.counsel);
+    await expect(f.negotiation.room(f.invite.id,token)).rejects.toThrow('revoked');
+    await expect(f.negotiation.guestFile(f.invite.id,token)).rejects.toThrow('revoked');
+    await expect(f.negotiation.guestComment(f.invite.id,token,{ id: randomUUID(), documentId: f.invite.documentId, body: 'Denied' })).rejects.toThrow('revoked');
+    expect(await db.guestSession.count()).toBe(0);
+    expect(await db.auditEvent.count({ where: { action: 'negotiation.access_revoked' } })).toBe(1);
+    const other = await negotiationFixture(), second = await guestLogin(other);
+    await db.guestInvitation.update({ where: { id: other.invite.id }, data: { expiresAt: new Date(Date.now()-1000) } });
+    await expect(other.negotiation.room(other.invite.id,second)).rejects.toThrow('expired');
+  });
+  it('keeps internal comments, business context, AI and approval data out of the external response',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f);
+    const privateBody = 'PRIVILEGED NEGOTIATION STRATEGY';
+    await f.agreements.comment(f.id,{ id: randomUUID(), documentId: f.invite.documentId, body: privateBody },actors.counsel);
+    await f.negotiation.legalComment(f.id,{ id: randomUUID(), documentId: f.invite.documentId, body: 'Please confirm the draft.' },actors.counsel);
+    const room = await f.negotiation.room(f.invite.id,token);
+    expect(room.comments.map((x: any) => x.body)).toEqual(['Please confirm the draft.']);
+    for (const key of ['risk','request','approval','audit','playbook','email','otpHash','requestHash','ownerId','contractId']) expect(room).not.toHaveProperty(key);
+    expect(JSON.stringify(room)).not.toContain(privateBody); expect(JSON.stringify(room)).not.toContain('25000');
+    await f.negotiation.room(f.invite.id,token);
+    expect(await db.auditEvent.count({ where: { action: 'negotiation.document_viewed' } })).toBe(1);
+    const delivery = await db.guestDelivery.findFirst({ where: { kind: 'legal-response' } }); expect(delivery.invitationId).toBe(f.invite.id);
+  });
+  it('enforces download permission and detects corrupt shared bytes',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f);
+    await expect(f.negotiation.guestFile(f.invite.id,token)).rejects.toThrow('not permitted');
+    await db.guestInvitation.update({ where: { id: f.invite.id }, data: { allowDownload: true } });
+    const file = await f.negotiation.guestFile(f.invite.id,token); expect(file.buffer).toBeInstanceOf(Buffer);
+    f.storage.get.mockResolvedValueOnce({ buffer: Buffer.from('altered'), filename: 'draft.docx', contentType: 'application/octet-stream' });
+    await expect(f.negotiation.guestFile(f.invite.id,token)).rejects.toThrow('integrity');
+    expect(await db.auditEvent.count({ where: { action: 'negotiation.document_downloaded' } })).toBe(1);
+  });
+  it('preserves separate guest versions and rejects changed retries without replacing the shared source',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f), room = await f.negotiation.room(f.invite.id,token);
+    const doc = await db.document.findUnique({ where: { id: room.documentId } }); const source = await f.storage.get(doc.blobPath);
+    const body = { id: randomUUID(), documentId: room.documentId, sections: room.sections.map((s: any) => ({ ...s, body: s.body+' Liability limited to twice the annual fees.' })) };
+    await Promise.all([f.negotiation.respond(f.invite.id,token,body),f.negotiation.respond(f.invite.id,token,body)]);
+    const versions = await db.agreementVersion.findMany({ where: { contractId: f.id }, orderBy: { number: 'asc' } });
+    expect(versions).toHaveLength(2); expect(versions[1]).toMatchObject({ authorName: f.invite.name, source: 'counterparty-redline', round: 1 });
+    expect(versions[1].documentId).not.toBe(room.documentId); expect((await f.storage.get(doc.blobPath)).buffer).toEqual(source.buffer);
+    expect(await db.negotiationResponse.count()).toBe(1);
+    await expect(f.negotiation.respond(f.invite.id,token,{ ...body, sections: [{ heading: 'Changed retry',body: 'Different terms' }] })).rejects.toThrow('different response');
+    const response = await f.negotiation.room(f.invite.id,token); expect(response.canRedline).toBe(false); expect(response.sections).toEqual(room.sections);
+    const editor = await f.agreements.editor(f.id,actors.counsel); expect(editor.documentId).toBe(versions[1].documentId); expect(editor.sections[0].body).toContain('twice');
+    expect((await f.agreements.snapshot(f.id,actors.counsel)).contract.nextAction).toBe('Review counterparty changes');
+  });
+  it('rejects outdated submissions when another participant has already advanced the saved document',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f), room = await f.negotiation.room(f.invite.id,token);
+    await f.agreements.saveDraft(f.id,{ ...(await f.version()), sourceDocumentId: room.documentId, sections: [{ heading: 'Updated',body: 'Legal has revised the document.' }] },actors.counsel);
+    await expect(f.negotiation.respond(f.invite.id,token,{ id: randomUUID(), documentId: room.documentId, sections: room.sections as any })).rejects.toThrow('newer document');
+    expect(await db.negotiationResponse.count()).toBe(0);
+  });
+  it('retains Word redline bytes and captures comparison and provenance as a new version',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f);
+    const bytes = draftDocument('Counterparty proposal',[{ heading: 'Liability',body: 'Liability is capped at two times annual fees.' }]);
+    await f.negotiation.respond(f.invite.id,token,{ id: randomUUID(), documentId: f.invite.documentId, sections: [] },{ originalname: 'supplier-redline.docx', buffer: bytes });
+    const response = await db.negotiationResponse.findFirst(); const doc = await db.document.findUnique({ where: { id: response.documentId } });
+    expect((await f.storage.get(doc.blobPath)).buffer).toEqual(bytes); expect(response.source).toBe('word'); expect(response.changes.length).toBeGreaterThan(0);
+    expect((await db.agreementVersion.findUnique({ where: { documentId: doc.id } })).organisation).toBe(f.invite.organisation);
+    expect(await db.document.count({ where: { contractId: f.id } })).toBe(2);
+  });
+  it('rejects unsupported redlines and disabled response methods without creating versions',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f);
+    await expect(f.negotiation.respond(f.invite.id,token,{ id: randomUUID(), documentId: f.invite.documentId, sections: [] },{ originalname: 'broken.docx', buffer: Buffer.from('malformed') })).rejects.toThrow();
+    await db.guestInvitation.update({ where: { id: f.invite.id }, data: { allowUpload: false, allowRedline: false } });
+    await expect(f.negotiation.respond(f.invite.id,token,{ id: randomUUID(), documentId: f.invite.documentId, sections: [{ heading: 'Denied',body: 'Terms' }] })).rejects.toThrow('does not allow');
+    expect(await db.document.count({ where: { contractId: f.id } })).toBe(1);
+  });
+  it('freezes the exact agreed form only after resolved comments and business questions, then locks guest changes',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f);
+    const commentId = randomUUID();
+    await f.agreements.comment(f.id,{ id: commentId, documentId: f.invite.documentId, body: 'Internal issue' },actors.counsel);
+    await f.negotiation.accept(f.invite.id,token,f.invite.documentId);
+    await expect(f.negotiation.agreed(f.id,await f.version(),actors.counsel)).rejects.toThrow('outstanding');
+    await f.agreements.resolveComment(f.id,commentId,{ resolved: true },actors.counsel);
+    await db.intakeRequest.update({ where: { id: f.request.id }, data: { clientStatus: 'waiting-on-client' } });
+    await expect(f.negotiation.agreed(f.id,await f.version(),actors.counsel)).rejects.toThrow('outstanding');
+    await db.intakeRequest.update({ where: { id: f.request.id }, data: { clientStatus: 'accepted' } });
+    await f.negotiation.agreed(f.id,await f.version(),actors.counsel);
+    const agreed = await db.contract.findUnique({ where: { id: f.id } }); expect(agreed.stage).toBe('agreed'); expect(agreed.agreedDocumentId).toBe(f.invite.documentId); expect(agreed.agreedSha256).toMatch(/^[a-f0-9]{64}$/);
+    expect((await f.negotiation.room(f.invite.id,token)).canRedline).toBe(false);
+    await expect(f.negotiation.guestComment(f.invite.id,token,{ id: randomUUID(), documentId: f.invite.documentId, body: 'Too late' })).rejects.toThrow('closed');
+    await expect(f.agreements.saveDraft(f.id,{ revision: agreed.lifecycleRevision, sourceDocumentId: f.invite.documentId, sections: [{ heading: 'Change',body: 'Forbidden change' }] },actors.counsel)).rejects.toThrow('locked');
+    await f.workflow.routeInApp(f.id,{ approvers: [actors.approver.email], note: 'Exact agreed form' },actors.counsel);
+    const routing = await db.approvalRouting.findUnique({ where: { contractId: f.id } }); expect(routing.documentId).toBe(agreed.agreedDocumentId); expect(routing.documentSha256).toBe(agreed.agreedSha256);
+  });
+  it('requires current Legal review and all participants to accept the same exact version',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f);
+    await expect(f.negotiation.agreed(f.id,await f.version(),actors.counsel)).rejects.toThrow('Every active');
+    await f.negotiation.accept(f.invite.id,token,f.invite.documentId);
+    f.review.getReview.mockResolvedValueOnce({ documentId: 'different', documentSha256: 'different', contractVersion: 'different' });
+    await expect(f.negotiation.agreed(f.id,await f.version(),actors.counsel)).rejects.toThrow('exact document');
+    await expect(f.agreements.transition(f.id,{ revision: (await f.version()).revision, stage: 'review' },actors.counsel)).rejects.toThrow('Only drafting and review');
+  });
+  it('keeps one agreement through guest response, Legal edit, next round and agreed form',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f), room = await f.negotiation.room(f.invite.id,token);
+    const responseId = randomUUID();
+    await f.negotiation.respond(f.invite.id,token,{ id: responseId, documentId: room.documentId, sections: [{ id: 'section-0',heading: 'Liability',body: 'Liability is two times annual fees.' }] });
+    await expect(f.negotiation.share(f.id,await f.version(),actors.counsel)).rejects.toThrow('reviewing the received');
+    await expect(f.negotiation.reviewed(f.id,responseId,await f.version(),actors.counsel)).rejects.toThrow('resolved Legal version');
+    const editor = await f.agreements.editor(f.id,actors.counsel);
+    await f.agreements.saveDraft(f.id,{ revision: editor.revision, sourceDocumentId: editor.documentId!, sections: [{ id: 'section-0',heading: 'Liability',body: 'Liability is one and a half times annual fees.' }], reason: 'Legal counterproposal' },actors.counsel);
+    await f.negotiation.reviewed(f.id,responseId,await f.version(),actors.counsel);
+    await f.negotiation.share(f.id,await f.version(),actors.counsel);
+    const next = await f.negotiation.room(f.invite.id,token); expect(next.round).toBe(2); expect(next.documentId).not.toBe(room.documentId); expect(next.canRedline).toBe(true); expect(next.sections[0].body).toContain('one and a half');
+    await expect(f.negotiation.guestComment(f.invite.id,token,{ id: randomUUID(), documentId: room.documentId, body: 'Old document' })).rejects.toThrow('closed');
+    await f.negotiation.accept(f.invite.id,token,next.documentId);
+    await f.negotiation.agreed(f.id,await f.version(),actors.counsel);
+    expect(await db.contract.count()).toBe(1); expect(await db.document.count()).toBe(3); expect(await db.negotiationRound.count()).toBe(2); expect(await db.agreementVersion.count()).toBe(3);
+  });
+  it('sends each external invitation once under concurrent workers and audits delivery',async () => {
+    const f = await negotiationFixture(); configured.mockReturnValue(true); mail.sendEmail.mockResolvedValue({ status: 'sent', dryRun: false });
+    const worker = new GuestDeliveryService(prisma,mail as any,audit), delivery = await db.guestDelivery.findFirst();
+    await Promise.all([worker.deliver(delivery.id),worker.deliver(delivery.id)]);
+    expect(mail.sendEmail).toHaveBeenCalledTimes(1); expect(mail.sendEmail.mock.calls[0][0].to).toEqual([f.invite.email]);
+    expect(mail.sendEmail.mock.calls[0][0].html).toContain(`/negotiate/${f.invite.id}`);
+    expect((await db.guestDelivery.findUnique({ where: { id: delivery.id } })).status).toBe('sent');
+    expect(await db.auditEvent.count({ where: { action: 'negotiation.email_delivery' } })).toBe(1);
+  });
+  it('never automatically retries uncertain email acceptance or sends revoked invitations',async () => {
+    const f = await negotiationFixture(); configured.mockReturnValue(true); mail.sendEmail.mockRejectedValue(new Error('Provider timeout after acceptance unknown'));
+    const worker = new GuestDeliveryService(prisma,mail as any,audit), delivery = await db.guestDelivery.findFirst();
+    await worker.deliver(delivery.id); await worker.deliver(delivery.id);
+    expect(mail.sendEmail).toHaveBeenCalledTimes(1); expect((await db.guestDelivery.findUnique({ where: { id: delivery.id } })).status).toBe('uncertain');
+    const other = await negotiationFixture(); await other.negotiation.revoke(other.id,other.invite.id,actors.counsel);
+    const cancelled = await db.guestDelivery.findFirst({ where: { invitationId: other.invite.id } });
+    await worker.deliver(cancelled.id); expect(mail.sendEmail).toHaveBeenCalledTimes(1); expect(cancelled.status).toBe('cancelled');
+  });
+
+  it('prevents legacy metadata and email approval routes from bypassing negotiation controls',async () => {
+    const f = await negotiationFixture();
+    await expect(f.contracts.update(f.id,{ stage: 'review' },actors.counsel)).rejects.toThrow('current lifecycle');
+    await expect(f.contracts.update(f.id,{ title: 'Silent replacement' },actors.counsel)).rejects.toThrow('current lifecycle');
+    await expect(f.contracts.update(f.id,{ title: 'Other lawyer' },actors['other-lawyer'])).rejects.toThrow('another lawyer');
+    await expect(f.workflow.requestApproval(f.id,{ approvers: [actors.approver.email] },actors.counsel.email)).rejects.toThrow('Agreement Workspace');
+    expect(await db.approvalRouting.count()).toBe(0);
+    const fresh = await readyForReview();
+    await expect(fresh.contracts.update(fresh.request.contractId,{ stage: 'active' },actors.counsel)).rejects.toThrow('Metadata edits cannot');
+    await expect(fresh.contracts.update(fresh.request.contractId,{ version: 'v999' },actors.counsel)).rejects.toThrow('Metadata edits cannot');
+  });
+
+  it('rechecks lifecycle state under the legacy approval write lock after a concurrent change',async () => {
+    const f = await readyForReview(); const id = f.request.contractId;
+    const review = await f.review.getReview(id);
+    f.review.getReview.mockImplementationOnce(async () => { await db.contract.update({ where: { id }, data: { stage: 'negotiation' } }); return review; });
+    await expect(f.workflow.requestApproval(id,{ approvers: [actors.approver.email] },actors.counsel.email)).rejects.toThrow('current lifecycle stage');
+    expect(await db.approvalRouting.count()).toBe(0); expect(mail.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('shows who actually owns the next action across negotiation, approval and signing',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f);
+    expect((await f.agreements.work(actors.counsel)).items[0]).toMatchObject({ waitingFor: 'counterparty', waitingOn: f.request.counterparty });
+    await f.negotiation.accept(f.invite.id,token,f.invite.documentId);
+    expect((await f.agreements.snapshot(f.id,actors.counsel)).contract).toMatchObject({ waitingFor: 'legal', nextAction: 'Confirm the agreed form' });
+    await f.negotiation.agreed(f.id,await f.version(),actors.counsel);
+    await f.workflow.routeInApp(f.id,{ approvers: [actors.approver.email] },actors.counsel);
+    expect((await f.agreements.snapshot(f.id,actors.counsel)).contract).toMatchObject({ waitingFor: 'approver', waitingOn: actors.approver.name });
+    await f.workflow.decideInApp(f.id,{ decision: 'approved' },actors.approver);
+    expect((await f.agreements.snapshot(f.id,actors.counsel)).contract).toMatchObject({ waitingFor: 'legal', nextAction: 'Prepare the approved document for signature' });
+    await db.signatureRequest.create({ data: { id: randomUUID(), contractId: f.id, contractTitle: f.request.title, status: 'sent', provider: 'test-fixture', signatories: [], audit: [] } });
+    expect((await f.agreements.work(actors.counsel)).items[0]).toMatchObject({ waitingFor: 'signatory', waitingOn: 'Signatories' });
   });
 
 });

@@ -28,7 +28,7 @@ export class RolesGuard implements CanActivate {
     const user = req.user;
     // Legacy authenticated routes belong to the legal workspace. Department
     // accounts must use explicitly declared routes, including their own inbox.
-    if (!required && user && normalizeRole(user.role) === 'requester') {
+    if (!required && user && ['requester','approver'].includes(normalizeRole(user.role))) {
       throw new ForbiddenException('This area is available to the legal workspace only.');
     }
     if (!required || required.length === 0) return true;

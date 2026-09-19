@@ -7,6 +7,8 @@ import './globals.css';
 import './requests/requests.css';
 import './premium-glass-2026.css';
 import './workflow.css';
+import './editor.css';
+import './negotiation.css';
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';

@@ -5,7 +5,7 @@ export type NavGroup = 'work' | 'governance';
 export type NavEntry = {
   href: string; label: string; match: string;
   icon: (p: { className?: string }) => JSX.Element;
-  needs?: Permission; group: NavGroup; description: string; portalOnly?: boolean;
+  needs?: Permission; group: NavGroup; description: string; portalOnly?: boolean; approverOnly?: boolean;
 };
 
 // Lifecycle capabilities are contextual actions, not global destinations.
@@ -13,6 +13,7 @@ export type NavEntry = {
 export const PRIMARY_NAV = ['/', '/work', '/repository', '/reports', '/workspace'];
 export const NAV_GROUPS: Array<[NavGroup, string]> = [['work', 'Workspace'], ['governance', 'Administration']];
 export const NAV: NavEntry[] = [
+  { href: '/approvals', label: 'My Approvals', match: '/approvals', icon: IconShield, needs: 'approve', group: 'work', description: 'Review your assigned approval cards', approverOnly: true },
   { href: '/', label: 'Home', match: '/', icon: IconGrid, needs: 'contract:read', group: 'work', description: 'What needs your attention today' },
   { href: '/work', label: 'Work', match: '/work', icon: IconFlow, needs: 'contract:read', group: 'work', description: 'Take an agreement from request to completion' },
   { href: '/repository', label: 'Contracts', match: '/repository', icon: IconBox, needs: 'contract:read', group: 'work', description: 'Agreements, search and approved templates' },

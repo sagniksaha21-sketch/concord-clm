@@ -8,6 +8,8 @@ export type LifecycleStage =
   | 'intake'
   | 'drafting'
   | 'review'
+  | 'negotiation'
+  | 'agreed'
   | 'approval'
   | 'signature'
   | 'active'
@@ -277,6 +279,8 @@ export interface Template {
 }
 
 export interface DraftSection {
+  id?: string;
+  kind?: 'clause' | 'paragraph';
   heading: string;
   body: string;
 }

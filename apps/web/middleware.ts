@@ -35,9 +35,10 @@ export function middleware(req: NextRequest) {
   const nonce = btoa(crypto.randomUUID());
   const csp = securityPolicy(nonce, req.nextUrl.protocol === 'https:');
   const token = req.cookies.get('concord_token')?.value;
+  const isGuestRoom = /^\/negotiate\/[a-fA-F0-9-]{36}$/.test(req.nextUrl.pathname);
   const isLogin = req.nextUrl.pathname.startsWith('/login');
 
-  if (!token && !isLogin) {
+  if (!token && !isLogin && !isGuestRoom) {
     const url = req.nextUrl.clone();
     url.pathname = '/login';
     url.search = '';

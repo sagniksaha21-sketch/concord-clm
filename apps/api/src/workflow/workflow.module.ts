@@ -5,10 +5,12 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AuthModule } from '../auth/auth.module';
 import { WorkflowController } from './workflow.controller';
 import { WorkflowService } from './workflow.service';
+import { ApproverController } from './approver.controller';
+import { ApproverService } from './approver.service';
 
 @Module({
   imports: [ContractsModule, AiReviewModule, NotificationsModule, AuthModule],
-  controllers: [WorkflowController],
-  providers: [WorkflowService],
+  controllers: [WorkflowController, ApproverController],
+  providers: [WorkflowService, ApproverService],
 })
 export class WorkflowModule {}

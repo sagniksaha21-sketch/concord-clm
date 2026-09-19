@@ -19,7 +19,10 @@ const contract = {
 function makeService(overrides: Partial<Record<string, any>> = {}) {
   const routing = new Map<string, any>();
   const decisions = new Map<string, any>();
-  const persisted = { enabled: true, client: {
+  const persisted: any = { enabled: true, client: {
+    contract: { findUnique: async () => ({ id: 'CTR-1', stage: 'review', version: 'v1' }) },
+    signatureRequest: { findFirst: async () => null },
+    $queryRawUnsafe: async () => [],
     document: { findFirst: async () => ({ id: 'DOC-1', sha256: 'approved-document-hash' }) },
     approvalRouting: {
       findUnique: async ({ where }: any) => routing.get(where.contractId) ?? null,
@@ -37,6 +40,7 @@ function makeService(overrides: Partial<Record<string, any>> = {}) {
       },
     },
   } };
+  persisted.client.$transaction = (fn: any) => fn(persisted.client);
   const audited: any[] = [];
   const audit = {
     record: async (e: any) => {
