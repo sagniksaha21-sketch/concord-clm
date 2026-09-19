@@ -1,7 +1,9 @@
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 
-class SectionDto {
+export class SectionDto {
+  @IsOptional() @IsString() @Matches(/^[a-zA-Z0-9_-]+$/) @MaxLength(100) id?: string;
+  @IsOptional() @IsIn(['clause', 'paragraph']) kind?: 'clause' | 'paragraph';
   @IsString() @Matches(/\S/) @MaxLength(500) heading!: string;
   @IsString() @MaxLength(50000) body!: string;
 }
@@ -9,6 +11,8 @@ export class SaveDraftDto {
   @IsInt() @Min(0) revision!: number;
   @IsOptional() @IsString() @MaxLength(120) templateId?: string;
   @IsArray() @ArrayMaxSize(100) @ValidateNested({ each: true }) @Type(() => SectionDto) sections!: SectionDto[];
+  @IsOptional() @IsString() @Matches(/\S/) @MaxLength(2000) reason?: string;
+  @IsOptional() @IsUUID() sourceDocumentId?: string;
 }
 export class StartDraftDto {
   @IsInt() @Min(0) revision!: number;
@@ -25,6 +29,27 @@ export class CreateAgreementDto {
 }
 export class ReviseAgreementDto {
   @IsInt() @Min(0) revision!: number;
+  @IsString() @Matches(/\S/) @MaxLength(2000) reason!: string;
+}
+export class AgreementCommentDto {
+  @IsUUID() id!: string;
+  @IsUUID() documentId!: string;
+  @IsOptional() @IsString() @MaxLength(100) sectionId?: string;
+  @IsString() @Matches(/\S/) @MaxLength(6000) body!: string;
+  @IsOptional() @IsUUID() parentId?: string;
+}
+export class ResolveCommentDto {
+  @IsBoolean() resolved!: boolean;
+}
+export class RewriteSectionDto {
+  @IsInt() @Min(0) revision!: number;
+  @IsString() @Matches(/\S/) @MaxLength(500) heading!: string;
+  @IsString() @Matches(/\S/) @MaxLength(20000) body!: string;
+  @IsString() @Matches(/\S/) @MaxLength(2000) instruction!: string;
+}
+export class CreateAmendmentDto {
+  @IsUUID() id!: string;
+  @IsString() @Matches(/\S/) @MaxLength(160) title!: string;
   @IsString() @Matches(/\S/) @MaxLength(2000) reason!: string;
 }
 export class AgreementObligationDto {

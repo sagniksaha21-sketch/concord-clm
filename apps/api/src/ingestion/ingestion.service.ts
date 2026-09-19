@@ -25,6 +25,7 @@ import { AiGuardrailsService } from '../security/ai-guardrails.service';
 import { AuditService } from '../audit/audit.service';
 import { fetchWithTimeout } from '../common/http';
 import { uploadsQuarantined } from '../telemetry/telemetry';
+import { recordVersion } from '../agreements/version-record';
 import { createHash } from 'crypto';
 import { generateWithGemini } from '../common/gcp-ai';
 import { EXTRACTION_SCHEMA } from '../common/gcp-schemas';
@@ -85,7 +86,11 @@ export class IngestionService {
           model: e.result.model, blobPath: e.storageKey || null, extractedText: e.text || null, sha256: e.sha256 || null,
         },
       });
-      if (e.contractId && e.storageKey && e.result.status !== 'quarantined') await db.contract.update({ where: { id: e.contractId }, data: { lifecycleRevision: { increment: 1 } } });
+      if (e.contractId && e.storageKey && e.result.status !== 'quarantined') {
+        const contract = await db.contract.findUnique({ where: { id: e.contractId } });
+        await recordVersion(db, { contract, documentId: row.id, actor, source: 'upload', reason: 'Agreement document uploaded' });
+        await db.contract.update({ where: { id: e.contractId }, data: { lifecycleRevision: { increment: 1 } } });
+      }
       return row;
       };
       const row = e.contractId ? await this.prisma.client.$transaction(write) : await write(this.prisma.client);
@@ -97,8 +102,9 @@ export class IngestionService {
   /** A routed/approved/signing contract is immutable until an explicit new-version workflow exists. */
   private async assertDocumentMutationAllowed(contractId?: string, db: any = this.prisma.client, actor?: AuthUser): Promise<void> {
     if (!contractId || !this.prisma.enabled) return;
-    const contract = await db.contract.findUnique({ where: { id: contractId }, select: { id: true, ownerId: true, executedAt: true, intakeRequest: { select: { assignedLegalUserId: true } } } });
+    const contract = await db.contract.findUnique({ where: { id: contractId }, select: { id: true, ownerId: true, executedAt: true, stage: true, intakeRequest: { select: { assignedLegalUserId: true } } } });
     if (!contract) throw new NotFoundException(`Contract ${contractId} not found`);
+    if (contract.stage === 'agreed') throw new ConflictException('Start an explicit new revision before replacing the agreed form.');
     if (contract.executedAt) throw new ConflictException('The executed agreement is immutable. Start an amendment to change its terms.');
     const owner = contract.intakeRequest?.assignedLegalUserId ?? contract.ownerId;
     if (actor && owner && owner !== actor.id && !['admin','lead'].includes(normalizeRole(actor.role))) throw new ForbiddenException('This agreement is assigned to another lawyer.');
