@@ -601,4 +601,38 @@ describeDb('Department portal on PostgreSQL', () => {
     await worker.deliver(cancelled.id); expect(mail.sendEmail).toHaveBeenCalledTimes(1); expect(cancelled.status).toBe('cancelled');
   });
 
+  it('prevents legacy metadata and email approval routes from bypassing negotiation controls',async () => {
+    const f = await negotiationFixture();
+    await expect(f.contracts.update(f.id,{ stage: 'review' },actors.counsel)).rejects.toThrow('current lifecycle');
+    await expect(f.contracts.update(f.id,{ title: 'Silent replacement' },actors.counsel)).rejects.toThrow('current lifecycle');
+    await expect(f.contracts.update(f.id,{ title: 'Other lawyer' },actors['other-lawyer'])).rejects.toThrow('another lawyer');
+    await expect(f.workflow.requestApproval(f.id,{ approvers: [actors.approver.email] },actors.counsel.email)).rejects.toThrow('Agreement Workspace');
+    expect(await db.approvalRouting.count()).toBe(0);
+    const fresh = await readyForReview();
+    await expect(fresh.contracts.update(fresh.request.contractId,{ stage: 'active' },actors.counsel)).rejects.toThrow('Metadata edits cannot');
+    await expect(fresh.contracts.update(fresh.request.contractId,{ version: 'v999' },actors.counsel)).rejects.toThrow('Metadata edits cannot');
+  });
+
+  it('rechecks lifecycle state under the legacy approval write lock after a concurrent change',async () => {
+    const f = await readyForReview(); const id = f.request.contractId;
+    const review = await f.review.getReview(id);
+    f.review.getReview.mockImplementationOnce(async () => { await db.contract.update({ where: { id }, data: { stage: 'negotiation' } }); return review; });
+    await expect(f.workflow.requestApproval(id,{ approvers: [actors.approver.email] },actors.counsel.email)).rejects.toThrow('current lifecycle stage');
+    expect(await db.approvalRouting.count()).toBe(0); expect(mail.sendEmail).not.toHaveBeenCalled();
+  });
+
+  it('shows who actually owns the next action across negotiation, approval and signing',async () => {
+    const f = await negotiationFixture(), token = await guestLogin(f);
+    expect((await f.agreements.work(actors.counsel)).items[0]).toMatchObject({ waitingFor: 'counterparty', waitingOn: f.request.counterparty });
+    await f.negotiation.accept(f.invite.id,token,f.invite.documentId);
+    expect((await f.agreements.snapshot(f.id,actors.counsel)).contract).toMatchObject({ waitingFor: 'legal', nextAction: 'Confirm the agreed form' });
+    await f.negotiation.agreed(f.id,await f.version(),actors.counsel);
+    await f.workflow.routeInApp(f.id,{ approvers: [actors.approver.email] },actors.counsel);
+    expect((await f.agreements.snapshot(f.id,actors.counsel)).contract).toMatchObject({ waitingFor: 'approver', waitingOn: actors.approver.name });
+    await f.workflow.decideInApp(f.id,{ decision: 'approved' },actors.approver);
+    expect((await f.agreements.snapshot(f.id,actors.counsel)).contract).toMatchObject({ waitingFor: 'legal', nextAction: 'Prepare the approved document for signature' });
+    await db.signatureRequest.create({ data: { id: randomUUID(), contractId: f.id, contractTitle: f.request.title, status: 'sent', provider: 'test-fixture', signatories: [], audit: [] } });
+    expect((await f.agreements.work(actors.counsel)).items[0]).toMatchObject({ waitingFor: 'signatory', waitingOn: 'Signatories' });
+  });
+
 });

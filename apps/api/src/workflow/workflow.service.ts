@@ -93,13 +93,27 @@ export class WorkflowService {
     const expiresAt = new Date(routedAt.getTime() + this.routingTtlMs);
     const lower = approvers.map((a) => a.toLowerCase());
     if (this.useDb) {
-      await this.prisma.client.approvalRouting.upsert({
-        where: { contractId },
-        update: { approvers: lower, stage: 'approval', routedBy: routedBy ?? null, routedAt, expiresAt, documentId: pin?.documentId ?? null, documentSha256: pin?.documentSha256 ?? null, contractVersion: pin?.contractVersion ?? null },
-        create: { contractId, approvers: lower, stage: 'approval', routedBy: routedBy ?? null, routedAt, expiresAt, documentId: pin?.documentId ?? null, documentSha256: pin?.documentSha256 ?? null, contractVersion: pin?.contractVersion ?? null },
+      await this.prisma.client.$transaction(async (tx: any) => {
+        await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE',contractId);
+        const current = await tx.contract.findUnique({ where: { id: contractId }, include: { intakeRequest: true } });
+        if (!current || current.stage !== 'review' || current.agreedDocumentId || current.executedAt || current.needsNewVersion) throw new ConflictException('Request approval from the Agreement Workspace for the current lifecycle stage.');
+        const ownerId = current.intakeRequest?.assignedLegalUserId ?? current.ownerId;
+        if (ownerId) {
+          const user = routedBy ? await tx.user.findUnique({ where: { email: routedBy.toLowerCase() } }) : null;
+          if (!user || user.id !== ownerId && !['admin','lead'].includes(normalizeRole(user.role))) throw new ForbiddenException('This agreement is assigned to another lawyer.');
+        }
+        const document = await tx.document.findFirst({ where: { contractId, status: { not: 'quarantined' }, blobPath: { not: null } }, orderBy: [{ createdAt: 'desc' },{ id: 'desc' }] });
+        if (!document || document.id !== pin?.documentId || document.sha256 !== pin?.documentSha256 || current.version !== pin?.contractVersion) throw new ConflictException('The agreement changed during approval preparation. Review the current version.');
+        if (await tx.approvalDecision.findUnique({ where: { contractId } }) || await tx.signatureRequest.findFirst({ where: { contractId } })) throw new ConflictException('This agreement already has a recorded decision or signing package.');
+        await tx.approvalRouting.upsert({
+          where: { contractId },
+          update: { approvers: lower, stage: 'approval', routedBy: routedBy ?? null, routedAt, expiresAt, documentId: pin?.documentId ?? null, documentSha256: pin?.documentSha256 ?? null, contractVersion: pin?.contractVersion ?? null },
+          create: { contractId, approvers: lower, stage: 'approval', routedBy: routedBy ?? null, routedAt, expiresAt, documentId: pin?.documentId ?? null, documentSha256: pin?.documentSha256 ?? null, contractVersion: pin?.contractVersion ?? null },
+        });
       });
       return;
     }
+
     this.routedApproversMem.set(contractId, {
       approvers: lower,
       stage: 'approval',
@@ -230,6 +244,7 @@ export class WorkflowService {
     requestedBy?: string,
   ): Promise<ApprovalResult> {
     const contract = await this.contracts.getByIdFresh(contractId);
+    if (['negotiation','agreed'].includes(contract.stage)) throw new ConflictException('Request approval from this Agreement Workspace so the agreed document and negotiation evidence stay linked.');
 
     // Validate recipients BEFORE sending contract/review content. An arbitrary
     // external email address must not receive a confidential approval packet and

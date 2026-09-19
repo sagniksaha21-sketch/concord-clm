@@ -21,11 +21,13 @@ This branch extends the continuous-agreement release without replacing existing 
 - Browser suggestions and supported Word redlines create separate, attributed versions, comparisons, notifications and audit evidence. Earlier shared and uploaded files remain intact. Concurrent and stale submissions fail without replacing newer versions; matching retries are idempotent.
 - Legal resolves changes in the same editor, saves a Legal version and explicitly shares the next round. Agreed form requires the exact final review, acceptance by all active participants and resolution of comments and business questions. It freezes the document hash, closes external editing and carries that document into approval.
 - External invitation, new-version and Legal-reply emails use a leased outbox. Uncertain provider acceptance is surfaced instead of blindly retried. No verification code activates for a dry-run or unconfirmed email. Legal-reply email is grouped once per shared round; the full discussion updates within the room.
+- Work identifies whether the next action belongs to Legal, the business owner, a counterparty, an approver or signatories. Counterparty acceptance returns the next action to Legal; the requestor tracker includes negotiation.
+- Legacy metadata updates cannot change workflow stages or document versions, and approved/negotiating records cannot be changed through that route. Legacy email routing rechecks lifecycle and document identity under a database lock.
 - Guest session expiry and stale shared versions retain unsaved suggestions in the tab and provide reauthentication and explicit comparison before continuing.
 
 ## Validation and remaining gates
 
-Local typecheck and production build pass. The document import/comparison tests and direct API role-isolation checks pass. The editing, amendment and approval PostgreSQL tests passed in CI run 34804275630. The subsequent guest-negotiation database tests are release gates for this newer revision.
+Local typecheck and production build pass. The document import/comparison tests and direct API role-isolation checks pass. The editing, amendment and approval PostgreSQL tests passed in CI run 34804275630. CI run 35449173575 passed all 362 tests, including 46 PostgreSQL cases, plus typecheck, production build, both Docker images and static UX/configuration checks. Subsequent lifecycle-ownership and legacy-route hardening is being checked in a follow-up CI run.
 
 The existing Railway API still needs a verified document backup and persistent storage before redeployment. A successful compile is not evidence of a deployed visual pass. Exact laptop/phone viewport validation, production SSO, real Outlook delivery and real signature-provider completion remain release acceptance gates.
 

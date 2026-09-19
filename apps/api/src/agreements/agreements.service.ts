@@ -17,37 +17,53 @@ import { readEditableDocument } from './read-document';
 
 const REQUEST_META = { select: { id: true, requestedByDate: true, urgency: true, businessUnit: true, clientStatus: true, assignedLegalUserId: true, assignedLegal: { select: { name: true } }, requester: { select: { name: true } } } };
 
+const attentionRelations = () => ({
+  approvalSteps: { where: { decision: 'pending' }, select: { approverName: true }, orderBy: { approverName: 'asc' as const } },
+  guestInvitations: { where: { revokedAt: null, expiresAt: { gt: new Date() } }, select: { responseDueAt: true }, take: 25 },
+});
+
 @Injectable()
 export class AgreementsService {
   constructor(private readonly prisma: PrismaService, private readonly requests: ClientRequestsService, private readonly contracts: ContractsService, private readonly authoring: AuthoringService, private readonly audit: AuditService, private readonly storage: StorageService, private readonly security: FileSecurityService) {}
   private db() { if (!this.prisma.enabled) throw new ServiceUnavailableException('This action requires saved agreement records.'); return this.prisma.client; }
   private item(row: any): WorkItem {
     const r = row.intakeRequest;
+    const legalOwner = r?.assignedLegal?.name ?? row.owner?.name ?? 'Legal team';
+    const ongoing = ['active','renewal'].includes(row.stage);
+    const waitingFor: WorkItem['waitingFor'] = ongoing ? 'obligation-owner' : r?.clientStatus === 'waiting-on-client' ? 'business' : row.stage === 'approval' ? 'approver' : row.stage === 'signature' && ['sent','viewed','partially-signed'].includes(row.signingStatus) ? 'signatory' : row.stage === 'negotiation' && row.negotiationState === 'with-counterparty' ? 'counterparty' : 'legal';
+    const waitingOn = waitingFor === 'business' ? r?.requester?.name ?? 'Business owner' : waitingFor === 'counterparty' ? row.counterparty : waitingFor === 'approver' ? row.approvalSteps?.map((s: any) => s.approverName).join(', ') || 'Assigned approvers' : waitingFor === 'signatory' ? 'Signatories' : waitingFor === 'obligation-owner' ? 'Commitment owners' : legalOwner;
+    const action = waitingFor === 'business' ? 'Respond to Legal’s question' : row.negotiationState === 'changes-received' && row.stage === 'negotiation' ? 'Review counterparty changes' : waitingFor === 'counterparty' ? 'Await the counterparty’s response' : row.negotiationState === 'ready-to-share' && row.stage === 'negotiation' ? 'Share the resolved Legal response' : row.negotiationState === 'agreed-pending' && row.stage === 'negotiation' ? 'Confirm the agreed form' : row.stage === 'signature' && waitingFor === 'legal' ? row.signingStatus === 'completed' ? 'Confirm executed-copy filing' : 'Prepare the approved document for signature' : nextAction(row.stage,false);
+    const responseDates = (row.guestInvitations ?? []).map((g: any) => g.responseDueAt?.toISOString().slice(0,10)).filter(Boolean).sort();
     return { id: row.id, title: row.title, counterparty: row.counterparty, type: row.type, valueDisplay: row.valueDisplay, stage: row.stage, risk: row.risk, version: row.version, source: row.source,
-      requestId: r?.id, ownerId: r?.assignedLegalUserId ?? row.ownerId ?? undefined, ownerName: r?.assignedLegal?.name ?? row.owner?.name, businessOwner: r?.requester?.name, businessUnit: r?.businessUnit, dueDate: r?.requestedByDate ?? undefined,
-      parentAgreementId: row.parentAgreementId ?? undefined, negotiationState: row.negotiationState ?? undefined, waitingOn: r?.clientStatus === 'waiting-on-client' ? r?.requester?.name : row.negotiationState === 'with-counterparty' ? row.counterparty : r?.assignedLegal?.name ?? row.owner?.name,
-      priority: r?.urgency ?? 'standard', waitingOnClient: r?.clientStatus === 'waiting-on-client', nextAction: row.negotiationState === 'changes-received' ? 'Review counterparty changes' : row.negotiationState === 'with-counterparty' ? 'Await the counterparty’s response' : row.negotiationState === 'ready-to-share' ? 'Share the resolved Legal response' : nextAction(row.stage, r?.clientStatus === 'waiting-on-client') };
+      requestId: r?.id, ownerId: r?.assignedLegalUserId ?? row.ownerId ?? undefined, ownerName: r?.assignedLegal?.name ?? row.owner?.name, businessOwner: r?.requester?.name, businessUnit: r?.businessUnit, dueDate: waitingFor === 'counterparty' ? responseDates[0] ?? r?.requestedByDate ?? undefined : r?.requestedByDate ?? undefined,
+      parentAgreementId: row.parentAgreementId ?? undefined, negotiationState: row.negotiationState ?? undefined, waitingOn, waitingFor,
+      priority: r?.urgency ?? 'standard', waitingOnClient: waitingFor === 'business', nextAction: action };
+
   }
   async work(actor: AuthUser, view = 'all') {
     if (!['all', 'mine'].includes(view)) throw new BadRequestException('Choose all work or work assigned to you.');
     if (!this.prisma.enabled) { const items = (await this.contracts.listFresh()).map(c => this.item(c)); return { items: view === 'mine' ? [] : items, total: view === 'mine' ? 0 : items.length, limited: false }; }
     const where = { ...(view === 'mine' ? { OR: [{ intakeRequest: { assignedLegalUserId: actor.id } }, { intakeRequest: null, ownerId: actor.id }] } : {}), NOT: { intakeRequest: { clientStatus: 'closed' }, stage: 'intake' } };
-    const [rows, total] = await Promise.all([this.db().contract.findMany({ where, include: { intakeRequest: REQUEST_META, owner: { select: { name: true } } }, take: 1000, orderBy: { updatedAt: 'desc' } }), this.db().contract.count({ where })]);
-    return { items: rows.map((r: any) => this.item(r)), total, limited: total > rows.length };
+    const [rows, total] = await Promise.all([this.db().contract.findMany({ where, include: { ...attentionRelations(), intakeRequest: REQUEST_META, owner: { select: { name: true } } }, take: 1000, orderBy: { updatedAt: 'desc' } }), this.db().contract.count({ where })]);
+    const signingIds = rows.filter((r: any) => r.stage === 'signature').map((r: any) => r.id);
+    const signatures = signingIds.length ? await this.db().signatureRequest.findMany({ where: { contractId: { in: signingIds } }, select: { contractId: true, status: true }, orderBy: { createdAt: 'desc' } }) : [];
+    const signingStatus = new Map<string,string>(); for (const s of signatures) if (!signingStatus.has(s.contractId)) signingStatus.set(s.contractId,s.status);
+    return { items: rows.map((r: any) => this.item({ ...r, signingStatus: signingStatus.get(r.id) })), total, limited: total > rows.length };
   }
   async snapshot(id: string, actor: AuthUser): Promise<AgreementWorkspace> {
     const role = normalizeRole(actor.role);
     if (!this.prisma.enabled) { const c = await this.contracts.getByIdFresh(id); return { contract: this.item(c), request: null, permissions: PERMISSIONS[role], revision: 0, documents: [], draft: null, approval: null, archive: null, obligations: [], activity: [] }; }
-    const row = await this.db().contract.findUnique({ where: { id }, include: { intakeRequest: REQUEST_META, owner: { select: { name: true } }, parentAgreement: { select: { id: true, title: true } }, amendments: { select: { id: true, title: true, stage: true }, orderBy: { createdAt: 'desc' } }, versions: { orderBy: { number: 'desc' }, include: { document: { select: { sha256: true } } } }, comments: { orderBy: { createdAt: 'asc' } }, approvalHistory: { orderBy: { createdAt: 'desc' } }, draft: true, documents: { orderBy: { createdAt: 'desc' }, select: { id: true, filename: true, status: true, sha256: true, createdAt: true, blobPath: true } }, obligations: { orderBy: { dueDate: 'asc' } } } });
+    const row = await this.db().contract.findUnique({ where: { id }, include: { ...attentionRelations(), intakeRequest: REQUEST_META, owner: { select: { name: true } }, parentAgreement: { select: { id: true, title: true } }, amendments: { select: { id: true, title: true, stage: true }, orderBy: { createdAt: 'desc' } }, versions: { orderBy: { number: 'desc' }, include: { document: { select: { sha256: true } } } }, comments: { orderBy: { createdAt: 'asc' } }, approvalHistory: { orderBy: { createdAt: 'desc' } }, draft: true, documents: { orderBy: { createdAt: 'desc' }, select: { id: true, filename: true, status: true, sha256: true, createdAt: true, blobPath: true } }, obligations: { orderBy: { dueDate: 'asc' } } } });
     if (!row) throw new NotFoundException('Agreement not found.');
     let request = null;
     if (row.intakeRequest && can(role, 'request:read')) { try { request = await this.requests.get(row.intakeRequest.id, actor); } catch (e) { if (!(e instanceof NotFoundException)) throw e; } }
-    const [routing, decision, archive, events] = await Promise.all([
+    const [routing, decision, archive, events, signing] = await Promise.all([
       this.db().approvalRouting.findUnique({ where: { contractId: id } }), this.db().approvalDecision.findUnique({ where: { contractId: id } }),
       row.authoritativeArchiveId ? this.db().archivedDocument.findUnique({ where: { id: row.authoritativeArchiveId } }) : null,
       can(role, 'audit:read') ? this.db().auditEvent.findMany({ where: { OR: [{ entity: 'contract', entityId: id }, ...(request ? [{ entity: 'intake', entityId: request.id }] : [])] }, orderBy: { seq: 'desc' }, take: 80, select: { id: true, at: true, summary: true, action: true } }) : [],
+      row.stage === 'signature' ? this.db().signatureRequest.findFirst({ where: { contractId: id }, select: { status: true }, orderBy: { createdAt: 'desc' } }) : null,
     ]);
-    return { contract: this.item(row), request, needsNewVersion: row.needsNewVersion, parentAgreement: row.parentAgreement, amendments: row.amendments,
+    return { contract: this.item({ ...row, signingStatus: signing?.status }), request, needsNewVersion: row.needsNewVersion, parentAgreement: row.parentAgreement, amendments: row.amendments,
       versionHistory: row.versions.map((v: any) => ({ documentId: v.documentId, number: v.number, label: v.label, authorName: v.authorName, organisation: v.organisation ?? undefined, source: v.source, reason: v.reason, stage: v.stage, round: v.round, createdAt: v.createdAt.toISOString(), sha256: v.document.sha256 ?? undefined, sharedAt: v.sharedAt?.toISOString(), agreedAt: v.agreedAt?.toISOString(), approvedAt: v.approvedAt?.toISOString(), executedAt: v.executedAt?.toISOString(), sections: v.sections ?? undefined, changeSummary: v.changeSummary ?? undefined })),
       comments: row.comments.map((v: any) => ({ id: v.id, documentId: v.documentId, sectionId: v.sectionId ?? undefined, body: v.body, visibility: v.visibility, authorName: v.authorName, createdAt: v.createdAt.toISOString(), resolvedAt: v.resolvedAt?.toISOString(), parentId: v.parentId ?? undefined })), permissions: PERMISSIONS[role], revision: row.lifecycleRevision, documents: row.documents.map((d: any) => ({ id: d.id, filename: d.filename, status: d.status, sha256: d.sha256 ?? undefined, createdAt: d.createdAt.toISOString(), hasFile: !!d.blobPath && d.status !== 'quarantined' })),
       draft: row.draft ? { templateId: row.draft.templateId, sections: row.draft.sections, model: row.draft.model, revision: row.draft.revision, documentId: row.draft.documentId } : null,

@@ -13,6 +13,7 @@ export function nextAction(stage: string, waiting = false): string {
 export interface WorkItem extends Contract {
   ownerId?: string; ownerName?: string; businessUnit?: string; businessOwner?: string;
   dueDate?: string; priority: string; nextAction: string; waitingOnClient: boolean;
+  waitingFor?: 'legal' | 'business' | 'counterparty' | 'approver' | 'signatory' | 'obligation-owner';
   waitingOn?: string; negotiationState?: string; parentAgreementId?: string;
 }
 export interface AgreementDocument { id: string; filename: string; status: string; sha256?: string; createdAt: string; hasFile: boolean; }

@@ -21,6 +21,9 @@ function fakeDb() {
   const stats = { claimInserts: 0, claimDeletes: 0 };
 
   const client: any = {
+    contract: { findUnique: async () => ({ id: 'CTR-1', stage: 'review', version: 'v1' }) },
+    signatureRequest: { findFirst: async () => null },
+    $queryRawUnsafe: async () => [],
     document: { findFirst: async () => ({ id: 'DOC-1', sha256: 'approved-document-hash' }) },
     approvalRouting: {
       findUnique: async ({ where }: any) =>
@@ -67,6 +70,7 @@ function fakeDb() {
       return 0;
     },
   };
+  client.$transaction = (fn: any) => fn(client);
   return { enabled: true, client, _routing: routing, _decisions: decisions, _claims: claims, _stats: stats } as any;
 }
 

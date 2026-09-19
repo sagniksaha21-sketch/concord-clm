@@ -241,6 +241,8 @@ export class NegotiationService {
       await this.verifiedDocument(tx,contract,documentId);
       if (invite.acceptedDocumentId === documentId) return;
       await tx.guestInvitation.update({ where: { id: invitationId }, data: { acceptedDocumentId: documentId } });
+      const outstanding = await tx.guestInvitation.count({ where: { contractId: contract.id, revokedAt: null, expiresAt: { gt: new Date() }, OR: [{ acceptedDocumentId: null },{ acceptedDocumentId: { not: documentId } }] } });
+      await tx.contract.update({ where: { id: contract.id }, data: { negotiationState: outstanding ? 'with-counterparty' : 'agreed-pending', lifecycleRevision: { increment: 1 } } });
       await this.notify(tx,contract,'accepted',`${invite.name} accepted the shared draft`,'The counterparty accepted the current shared document. Legal must still confirm agreed form and obtain approvals.');
       await this.audit.recordInTransaction(tx,{ action: 'negotiation.counterparty_accepted', entity: 'contract', entityId: contract.id, summary: 'Counterparty accepted the exact shared draft', metadata: { invitationId, documentId, sha256: invite.round.sha256 } });
     });
