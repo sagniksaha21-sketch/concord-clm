@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import { ArrayMaxSize, IsArray, IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, ValidateNested } from 'class-validator';
 
-class SectionDto {
+export class SectionDto {
   @IsOptional() @IsString() @Matches(/^[a-zA-Z0-9_-]+$/) @MaxLength(100) id?: string;
   @IsOptional() @IsIn(['clause', 'paragraph']) kind?: 'clause' | 'paragraph';
   @IsString() @Matches(/\S/) @MaxLength(500) heading!: string;

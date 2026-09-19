@@ -26,7 +26,7 @@ export class AgreementsService {
     return { id: row.id, title: row.title, counterparty: row.counterparty, type: row.type, valueDisplay: row.valueDisplay, stage: row.stage, risk: row.risk, version: row.version, source: row.source,
       requestId: r?.id, ownerId: r?.assignedLegalUserId ?? row.ownerId ?? undefined, ownerName: r?.assignedLegal?.name ?? row.owner?.name, businessOwner: r?.requester?.name, businessUnit: r?.businessUnit, dueDate: r?.requestedByDate ?? undefined,
       parentAgreementId: row.parentAgreementId ?? undefined, negotiationState: row.negotiationState ?? undefined, waitingOn: r?.clientStatus === 'waiting-on-client' ? r?.requester?.name : row.negotiationState === 'with-counterparty' ? row.counterparty : r?.assignedLegal?.name ?? row.owner?.name,
-      priority: r?.urgency ?? 'standard', waitingOnClient: r?.clientStatus === 'waiting-on-client', nextAction: nextAction(row.stage, r?.clientStatus === 'waiting-on-client') };
+      priority: r?.urgency ?? 'standard', waitingOnClient: r?.clientStatus === 'waiting-on-client', nextAction: row.negotiationState === 'changes-received' ? 'Review counterparty changes' : row.negotiationState === 'with-counterparty' ? 'Await the counterparty’s response' : row.negotiationState === 'ready-to-share' ? 'Share the resolved Legal response' : nextAction(row.stage, r?.clientStatus === 'waiting-on-client') };
   }
   async work(actor: AuthUser, view = 'all') {
     if (!['all', 'mine'].includes(view)) throw new BadRequestException('Choose all work or work assigned to you.');
@@ -123,7 +123,8 @@ export class AgreementsService {
     const file = await this.storage.get(doc.blobPath!);
     if (!doc.sha256 || createHash('sha256').update(file.buffer).digest('hex') !== doc.sha256) throw new ConflictException('The saved document failed its integrity check. Editing is blocked.');
     const current = contract.draft?.documentId === doc.id ? contract.draft : null;
-    const content = current ? { sections: current.sections, original: current.sections, trackedChanges: false, notice: '' } : readEditableDocument(file.buffer, doc.filename);
+    const response = await db.negotiationResponse.findFirst({ where: { documentId: doc.id } });
+    const content = current ? { sections: current.sections, original: response?.originalSections ?? current.sections, trackedChanges: !!response, notice: response ? 'Counterparty language is a proposal. Compare it with the shared draft, resolve changes and save a new Legal version.' : '' } : readEditableDocument(file.buffer, doc.filename);
     return { documentId: doc.id, revision: contract.lifecycleRevision, filename: doc.filename, ...content };
   }
   async comment(id: string, dto: AgreementCommentDto, actor: AuthUser) {

@@ -32,7 +32,7 @@ import { NAV, NAV_GROUPS, PRIMARY_NAV, navIsActive } from '@/components/workspac
 
 type Appearance = 'system' | 'light' | 'dark';
 
-const BARE = ['/login'];
+const BARE = ['/login', '/negotiate/'];
 const PRIMARY_MOBILE = ['/', '/work', '/repository', '/reports'];
 
 function titleFor(path: string): { eyebrow: string; title: string } {

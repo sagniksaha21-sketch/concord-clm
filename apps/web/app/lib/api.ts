@@ -529,3 +529,7 @@ export const createAgreementAmendment = (id: string, body: { id: string; title: 
 export interface ApproverCard { contract: { id: string; title: string; counterparty: string; type: string; valueDisplay: string; risk: string; version: string }; assignedReason: string; approval: ApprovalWorkspaceData; expired: boolean; }
 export const getMyApprovals = () => portalJson<{ id: string; title: string; counterparty: string; risk: string; valueDisplay: string; decision: string; reason: string; requestedAt: string }[]>('/approvals');
 export const getApproverCard = (id: string) => portalJson<ApproverCard>(`/approvals/${encodeURIComponent(id)}`);
+
+export const getNegotiation = (id: string) => portalJson<import('@concord/shared').NegotiationWorkspace>(`/agreements/${encodeURIComponent(id)}/negotiation`);
+export const inviteCounterparty = (id: string, body: { id: string; revision: number; documentId: string; name: string; email: string; organisation: string; expiresAt: string; responseDueAt?: string; allowDownload: boolean; allowRedline: boolean; allowUpload: boolean }) => portalJson<import('@concord/shared').NegotiationWorkspace>(`/agreements/${encodeURIComponent(id)}/negotiation/invitations`,jsonBody('POST',body));
+export const actOnNegotiation = (id: string, action: string, body: unknown = {}) => portalJson<import('@concord/shared').NegotiationWorkspace>(`/agreements/${encodeURIComponent(id)}/negotiation/${action}`,jsonBody('POST',body));

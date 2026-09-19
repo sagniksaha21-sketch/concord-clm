@@ -112,6 +112,8 @@ model Contract {
   owner User? @relation("AgreementOwner", fields: [ownerId], references: [id], onDelete: Restrict)
   versions AgreementVersion[]
   comments AgreementComment[]
+  negotiationRounds NegotiationRound[]
+  guestInvitations GuestInvitation[]
   parentAgreementId String?
   parentAgreement Contract? @relation("AmendmentParent", fields: [parentAgreementId], references: [id], onDelete: Restrict)
   amendments Contract[] @relation("AmendmentParent")
@@ -285,6 +287,105 @@ model AgreementComment {
   resolvedBy String?
   createdAt DateTime @default(now())
   @@index([contractId, documentId, visibility])
+}
+
+model NegotiationRound {
+  id String @id
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  documentId String
+  sha256 String
+  sections Json
+  number Int
+  createdBy String
+  createdAt DateTime @default(now())
+  invitations GuestInvitation[]
+  responses NegotiationResponse[]
+  @@unique([contractId, documentId])
+  @@unique([contractId, number])
+}
+
+model GuestInvitation {
+  id String @id
+  requestHash String
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  roundId String
+  round NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  name String
+  email String
+  organisation String
+  invitedBy String
+  expiresAt DateTime
+  responseDueAt DateTime?
+  allowDownload Boolean @default(false)
+  allowRedline Boolean @default(true)
+  allowUpload Boolean @default(true)
+  revokedAt DateTime?
+  viewedAt DateTime?
+  acceptedDocumentId String?
+  challengeId String?
+  otpHash String?
+  otpExpiresAt DateTime?
+  otpAttempts Int @default(0)
+  otpSentAt DateTime?
+  otpDelivery String?
+  createdAt DateTime @default(now())
+  sessions GuestSession[]
+  responses NegotiationResponse[]
+  deliveries GuestDelivery[]
+  @@index([contractId, expiresAt])
+}
+
+model GuestSession {
+  hash String @id
+  invitationId String
+  invitation GuestInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([invitationId])
+}
+
+model GuestAuthLimit {
+  id String @id
+  count Int @default(1)
+  expiresAt DateTime
+}
+
+model NegotiationResponse {
+  id String @id
+  requestHash String
+  invitationId String
+  invitation GuestInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  roundId String
+  round NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  documentId String
+  sections Json
+  originalSections Json
+  changes Json
+  source String
+  state String @default("received")
+  reviewedBy String?
+  reviewedDocumentId String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([invitationId, roundId])
+}
+
+model GuestDelivery {
+  id String @id
+  invitationId String
+  invitation GuestInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  roundId String
+  kind String
+  status String @default("queued")
+  attempts Int @default(0)
+  claimToken String?
+  leaseUntil DateTime?
+  nextAttemptAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  @@unique([invitationId, roundId, kind])
+  @@index([status, nextAttemptAt])
 }
 
 model SignatureRequest {

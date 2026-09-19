@@ -32,6 +32,29 @@ describe('Concord API (integration)', () => {
     await http().get('/api/contracts').expect(401);
   });
 
+  const guestPath = '/api/negotiation/guest/550e8400-e29b-41d4-a716-446655440000';
+  it.each(['','/file'])('never treats internal authentication as a guest invitation: %s',async suffix => {
+    await http().get(guestPath+suffix).expect(401);
+    await http().get(guestPath+suffix).set('Authorization',`Bearer ${token('admin')}`).expect(401);
+    await http().get(guestPath+suffix).set('Cookie',`concord_token=${token('admin')}`).expect(401);
+  });
+  it.each(['/challenge','/verify','/comments','/response','/upload','/accept','/logout'])('enforces same-origin guest mutations before authentication or file parsing: %s',async suffix => {
+    await http().post(guestPath+suffix).set('Origin','https://untrusted.example').send({}).expect(403);
+    await http().post(guestPath+suffix).send({}).expect(403);
+  });
+  it.each(['/comments','/response','/upload','/accept','/logout'])('requires an invitation session even with a valid internal JWT: %s',async suffix => {
+    await http().post(guestPath+suffix).set('Origin','http://localhost:3000').set('Authorization',`Bearer ${token('counsel')}`).send({}).expect(401);
+  });
+  it.each(['/invitations','/share','/agreed','/comments','/responses/any/reviewed'])('blocks Requestor and Approver access to negotiation management: %s',async suffix => {
+    for (const role of ['requester','approver','viewer']) await http().post('/api/agreements/any/negotiation'+suffix).set('Authorization',`Bearer ${token(role)}`).send({}).expect(403);
+  });
+  it('validates guest challenge and verification DTOs and rejects invalid room IDs',async () => {
+    await http().get('/api/negotiation/guest/invalid').expect(404);
+    await http().post(guestPath+'/challenge').set('Origin','http://localhost:3000').send({ email: 'invalid' }).expect(400);
+    await http().post(guestPath+'/verify').set('Origin','http://localhost:3000').send({ email: 'invited@example.test', challengeId: 'invalid', code: 'short' }).expect(400);
+    await http().post(guestPath+'/challenge').set('Origin','http://localhost:3000').send({ email: 'invited@example.test', role: 'admin' }).expect(400);
+  });
+
   it('protects customised report generation and export', async () => {
     await http().post('/api/reports/portfolio').send({ theme: 'black-gold' }).expect(401);
     await http().post('/api/reports/portfolio/pptx').send({ theme: 'black-gold' }).expect(401);

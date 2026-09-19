@@ -64,6 +64,8 @@ const STAGES: Array<{ stage: string; label: string; tone: PipelineLane['tone'] }
   { stage: 'intake', label: 'Requests', tone: 'neutral' },
   { stage: 'drafting', label: 'Drafting', tone: 'info' },
   { stage: 'review', label: 'Review', tone: 'med' },
+  { stage: 'negotiation', label: 'Negotiation', tone: 'info' },
+  { stage: 'agreed', label: 'Agreed form', tone: 'info' },
   { stage: 'approval', label: 'Approval', tone: 'med' },
   { stage: 'signature', label: 'Signature', tone: 'low' },
   { stage: 'active', label: 'Active', tone: 'low' },
