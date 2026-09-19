@@ -184,7 +184,7 @@ describeDb('Department portal on PostgreSQL', () => {
     const authoring = { generateDraft: jest.fn(async () => ({ sections: [{ heading: 'Parties', body: 'Lakmē Lever and the test counterparty.' }], model: 'template-assembly' })) };
     const contracts = new ContractsService(prisma);
     const agreements = new AgreementsService(prisma, service, contracts, authoring as any, audit, storage as any, new FileSecurityService());
-    const review = { getReview: jest.fn(async (id: string) => { const doc = await db.document.findFirst({ where: { contractId: id }, orderBy: { createdAt: 'desc' } }); const c = await db.contract.findUnique({ where: { id } }); return { documentId: doc?.id, documentSha256: doc?.sha256, contractVersion: c.version }; }) };
+    const review = { getReview: jest.fn(async (id: string) => { const doc = await db.document.findFirst({ where: { contractId: id }, orderBy: { createdAt: 'desc' } }); const c = await db.contract.findUnique({ where: { id } }); return { documentId: doc?.id, documentSha256: doc?.sha256, contractVersion: c.version, riskLevel: 'low', riskScore: 10, clausesParsed: 1, summary: 'Test-only review response', model: 'test-fixture', deviations: [], clauses: [], extractedTerms: [] }; }) };
     const workflow = new WorkflowService(contracts, review as any, mail as any, audit, new AuthService(prisma, audit), prisma);
     return { agreements, workflow, storage, contracts, review };
   }
