@@ -95,7 +95,7 @@ export class WorkflowService {
     if (this.useDb) {
       await this.prisma.client.$transaction(async (tx: any) => {
         await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE',contractId);
-        await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(728461)');
+        await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(728461)');
         if (await tx.approvalPolicy.count({ where: { enabled: true } })) throw new ConflictException('Use Agreement Workspace approvals so mandatory policies are applied.');
         const current = await tx.contract.findUnique({ where: { id: contractId }, include: { intakeRequest: true } });
         if (!current || current.stage !== 'review' || current.agreedDocumentId || current.executedAt || current.needsNewVersion) throw new ConflictException('Request approval from the Agreement Workspace for the current lifecycle stage.');
@@ -422,7 +422,7 @@ export class WorkflowService {
       const document = await tx.document.findFirst({ where: { contractId, status: { not: 'quarantined' }, blobPath: { not: null }, sha256: { not: null } }, orderBy: { createdAt: 'desc' } });
       if (!document?.sha256 || review.documentId !== document.id || review.documentSha256 !== document.sha256 || review.contractVersion !== current.version) throw new ConflictException('Approval requires a review grounded to the exact current document and version.');
       if (current.agreedDocumentId && (document.id !== current.agreedDocumentId || document.sha256 !== current.agreedSha256)) throw new ConflictException('The agreed form differs from the current document. Start a controlled revision.');
-      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(728461)');
+      await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(728461)');
       const requirements = evaluateApprovalPolicies(await tx.approvalPolicy.findMany({ where: { enabled: true } }), current);
       const approvers = [...new Set([...additional, ...requirements.flatMap(p => p.approvers)])];
       if (!approvers.length || approvers.includes(actor.email.toLowerCase())) throw new ForbiddenException('An independent approver is required. Ask another Legal owner to route if a mandatory policy names you.');

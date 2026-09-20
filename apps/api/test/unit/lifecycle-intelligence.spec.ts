@@ -66,6 +66,16 @@ describe('Recorded negotiation analytics', () => {
 });
 const word = (body: string, extras: { name: string; data: string | Buffer }[] = []) => zip([{ name: '[Content_Types].xml', data: '<Types/>' },{ name: 'word/document.xml', data: `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}</w:body></w:document>` },...extras]);
 describe('Word structural preservation and clean sharing', () => {
+  it('retains spacer paragraphs without shifting the editable outline or protected sections', () => {
+    const spacer = '<w:p><w:r><w:t xml:space="preserve">   </w:t></w:r></w:p>';
+    const file = word(`${spacer}<w:p><w:r><w:t>Payment within 30 days.</w:t></w:r></w:p>${spacer}<w:p><w:r><w:t>Illustration</w:t><w:drawing/></w:r></w:p>`);
+    const source = readEditableDocument(file,'spaced.docx');
+    expect(wordLockedSections(file)).toEqual(['paragraph-1']);
+    const output = preserveWord(file,[{ ...source.sections[0],body:'Payment within 45 days.' },source.sections[1]]);
+    const xml = readWordPackage(output).find(p=>p.name === 'word/document.xml')!.data.toString();
+    expect(xml.split(spacer)).toHaveLength(3);
+    expect(readEditableDocument(output,'saved.docx').sections.map(s=>s.body)).toEqual(['Payment within 45 days.','Illustration']);
+  });
   it('edits table-cell text while preserving drawings, table properties and other document parts', () => {
     const file = word('<w:tbl><w:tblPr><w:tblW w:w="5000"/></w:tblPr><w:tr><w:tc><w:p><w:r><w:t>Payment within 30 days.</w:t></w:r></w:p></w:tc></w:tr></w:tbl><w:p><w:r><w:drawing/></w:r></w:p>',[{ name:'word/media/image1.png',data:Buffer.from([1,2,3]) },{ name:'word/header1.xml',data:'<w:hdr><w:p>Brand</w:p></w:hdr>' }]);
     const source = readEditableDocument(file,'table.docx');

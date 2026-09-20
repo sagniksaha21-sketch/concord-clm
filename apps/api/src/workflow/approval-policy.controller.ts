@@ -38,7 +38,7 @@ export class ApprovalPolicyController {
     const approvers = [...new Set(dto.approvers.map(e => e.trim().toLowerCase()))];
     await this.db().$transaction(async (tx: any) => {
       // Serializes policy edits with routing evaluations across replicas.
-      await tx.$queryRawUnsafe('SELECT pg_advisory_xact_lock(728461)');
+      await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(728461)');
       const previous = await tx.approvalPolicy.findUnique({ where: { id: dto.id } });
       if ((previous?.revision ?? 0) !== dto.revision) throw new ConflictException('This policy changed. Refresh before saving.');
       for (const email of approvers) {

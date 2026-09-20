@@ -17,13 +17,17 @@ function paragraphs(xml: string) {
 const protectedContent = /<w:(?:drawing|pict|fldChar|fldSimple|instrText|footnoteReference|endnoteReference|sdt|bookmarkStart|commentRangeStart)\b|<m:/;
 function paragraphText(xml: string) {
   const bytes = zip([{ name: '[Content_Types].xml', data: '<Types/>' }, { name: 'word/document.xml', data: `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${xml}</w:body></w:document>` }]);
-  try { return readEditableDocument(bytes,'paragraph.docx').sections[0]?.body ?? ''; } catch { return ''; }
+  try { return readEditableDocument(bytes,'paragraph.docx').sections[0]?.body; }
+  catch (error) {
+    if (error instanceof BadRequestException && error.message.startsWith('No editable text was found.')) return undefined;
+    throw error;
+  }
 }
 export function wordLockedSections(bytes: Buffer): string[] {
   const xml = readWordPackage(bytes).find(e => e.name === 'word/document.xml')!.data.toString('utf8');
   let index = 0; const locked: string[] = [];
   for (const span of paragraphs(xml)) {
-    if (!paragraphText(span.xml).trim() && !/<w:(?:delText|t)\b/.test(span.xml)) continue;
+    if (paragraphText(span.xml) === undefined) continue;
     if (protectedContent.test(span.xml)) locked.push(`paragraph-${index}`);
     index++;
   }
@@ -38,7 +42,7 @@ export function preserveWord(bytes: Buffer, sections: DraftSection[], acceptTrac
   const replacements: { start: number; end: number; text: string }[] = [];
   for (const span of paragraphs(xml)) {
     const body = paragraphText(span.xml);
-    if (!body.trim() && !/<w:(?:delText|t)\b/.test(span.xml)) continue;
+    if (body === undefined) continue;
     const next = sections[index++];
     if (!next) return fail('The Word outline changed. Reload the source.');
     if (next.body === body) continue;
