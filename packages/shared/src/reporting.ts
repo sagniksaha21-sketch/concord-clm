@@ -13,6 +13,7 @@ export const REPORT_THEMES = {
 } as const;
 
 export const REPORT_FOCUSES = {
+  negotiation: { label: 'Negotiation performance', title: 'Negotiation intelligence' },
   portfolio: { label: 'Portfolio overview', title: 'Portfolio intelligence' },
   risk: { label: 'High-risk agreements', title: 'Risk exposure' },
   renewals: { label: 'Dates & renewals', title: 'Commitments & renewals' },

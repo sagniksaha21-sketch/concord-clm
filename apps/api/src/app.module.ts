@@ -1,3 +1,4 @@
+import { ObligationExtractionModule } from './obligations/obligation-extraction.service';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -27,7 +28,7 @@ import { AgreementsModule } from './agreements/agreements.module';
 import { NegotiationModule } from './negotiation/negotiation.module';
 
 @Module({
-  imports: [
+  imports: [ObligationExtractionModule,
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     PersistenceModule,

@@ -30,13 +30,13 @@ export class GuestDeliveryService {
     if (!claim.count) return;
     const row = await db.guestDelivery.findUnique({ where: { id }, include: { invitation: { include: { contract: { select: { title: true } } } } } });
     if (!row || row.claimToken !== claimToken) return;
-    if (!activeInvitation(row.invitation) || row.invitation.roundId !== row.roundId) { await db.guestDelivery.updateMany({ where: { id, claimToken }, data: { status: 'cancelled', claimToken: null } }); return; }
+    if (!activeInvitation(row.invitation) || row.invitation.roundId !== row.roundId || row.kind.startsWith('executed:') && row.invitation.executedArchiveId !== row.kind.slice(9)) { await db.guestDelivery.updateMany({ where: { id, claimToken }, data: { status: 'cancelled', claimToken: null } }); return; }
     let result: any;
     try {
       const origin = new URL((process.env.WEB_ORIGIN || 'http://localhost:3000').split(',')[0].trim());
       if (process.env.NODE_ENV === 'production' && origin.protocol !== 'https:') throw new Error('Secure origin required');
       const url = `${origin.origin}/negotiate/${row.invitationId}`;
-      const update = row.kind === 'legal-response' ? 'Lakmē Legal has responded in the shared discussion.' : row.kind === 'new-version' ? 'Lakmē Legal has shared a new version for your review.' : 'Lakmē Legal has shared an agreement for your review.';
+      const update = row.kind.startsWith('executed:') ? 'Lakmē Legal has shared the executed agreement with you. Sign in to download the authoritative copy.' : row.kind === 'legal-response' ? 'Lakmē Legal has responded in the shared discussion.' : row.kind === 'new-version' ? 'Lakmē Legal has shared a new version for your review.' : 'Lakmē Legal has shared an agreement for your review.';
       result = await sendGuestEmail(this.mail,{ to: [row.invitation.email], subject: `Concord agreement review: ${row.invitation.contract.title}`, html: `<div style="font-family:Arial,sans-serif"><h1>Concord</h1><h2>${escapeEmail(row.invitation.contract.title)}</h2><p>${update}</p><p><a href="${escapeEmail(url)}">Enter secure agreement review</a></p><p>Verify ${escapeEmail(row.invitation.email)} with the one-time code sent to your inbox. Access expires ${row.invitation.expiresAt.toISOString().slice(0,10)}.</p></div>` });
     } catch { /* Uncertain provider acceptance is never automatically retried. */ }
     const status = result?.status === 'sent' && !result.dryRun ? 'sent' : result?.status === 'dry-run' ? 'awaiting-configuration' : result?.status === 'failed' && result.retrySafe ? 'retry' : 'uncertain';

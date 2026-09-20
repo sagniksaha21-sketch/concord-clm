@@ -133,19 +133,27 @@ export function buildXlsx(report: PortfolioReport): Buffer {
     ['High', report.risk.high],
   ];
 
+  const sheetNames = ['Overview','Agreements','Obligations','Signatures', ...(report.negotiation ? ['Negotiation'] : [])];
   const entries = [
-    { name: '[Content_Types].xml', data: contentTypes(4) },
+    { name: '[Content_Types].xml', data: contentTypes(sheetNames.length) },
     { name: '_rels/.rels', data: rootRels() },
     { name: 'docProps/core.xml', data: coreProps(report.generatedAt) },
-    { name: 'docProps/app.xml', data: appProps(['Overview', 'Agreements', 'Obligations', 'Signatures']) },
-    { name: 'xl/workbook.xml', data: workbookXml(['Overview', 'Agreements', 'Obligations', 'Signatures']) },
-    { name: 'xl/_rels/workbook.xml.rels', data: workbookRels(4) },
+    { name: 'docProps/app.xml', data: appProps(sheetNames) },
+    { name: 'xl/workbook.xml', data: workbookXml(sheetNames) },
+    { name: 'xl/_rels/workbook.xml.rels', data: workbookRels(sheetNames.length) },
     { name: 'xl/styles.xml', data: styles() },
     { name: 'xl/worksheets/sheet1.xml', data: worksheet(overview, [34, 82, 28, 18, 34]) },
     { name: 'xl/worksheets/sheet2.xml', data: worksheet(agreementRows(report), [18, 34, 26, 18, 16, 14, 11, 11, 22, 12, 14, 17]) },
     { name: 'xl/worksheets/sheet3.xml', data: worksheet(obligationRows(report), [20, 30, 38, 14, 14, 14, 10, 30]) },
     { name: 'xl/worksheets/sheet4.xml', data: worksheet(signatureRows(report), [24, 30, 18, 16, 12, 24, 24]) },
   ];
+  if (report.negotiation) entries.push({ name: 'xl/worksheets/sheet5.xml', data: worksheet([
+    ['Negotiation performance'], ['Elapsed calendar time; open rounds excluded from completion medians. No-response records are not zero.'],
+    ['ID','Agreement','Counterparty','Rounds','Text changes','Started','Agreed','Elapsed days','Legal response median hours','Counterparty response median hours'],
+    ...report.negotiation.agreements.map(r => [r.id,r.title,r.counterparty,r.rounds,r.changes,r.startedAt,r.completedAt,r.elapsedDays,r.legalResponseHours,r.counterpartyResponseHours]),
+    [], ['Metric','Value','Samples'], ['Median completion days',report.negotiation.medianCompletionDays,report.negotiation.completedCount], ['Median Legal response hours',report.negotiation.medianLegalHours,report.negotiation.legalResponseSamples], ['Median counterparty response hours',report.negotiation.medianCounterpartyHours,report.negotiation.counterpartyResponseSamples],
+    [], ['Topic','Changed provisions','Agreement evidence'], ...report.negotiation.clausePatterns.map(p => [p.topic,p.changes,p.agreementIds.join(', ')])
+  ],[30,45,30,12,16,24,24,16,22,26]) });
   return zip(entries);
 }
 

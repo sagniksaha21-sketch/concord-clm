@@ -177,6 +177,7 @@ export class ReportAiService {
         selectionSummary: report.selectionSummary,
         restricted: report.restricted,
         metrics: report.metrics,
+        negotiation: report.negotiation,
         risk: report.risk,
         stageCounts: report.stageCounts,
         agreements,

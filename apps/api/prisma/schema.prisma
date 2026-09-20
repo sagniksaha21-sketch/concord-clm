@@ -87,6 +87,7 @@ model IntakeRequest {
 }
 
 model Contract {
+  obligationExtractions ObligationExtraction[]
   id String @id
   title String
   counterparty String
@@ -182,6 +183,7 @@ model AgreementDraft {
 }
 
 model AgreementObligation {
+  extractionKey String? @unique
   id String @id
   contractId String
   contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
@@ -306,6 +308,9 @@ model NegotiationRound {
 }
 
 model GuestInvitation {
+  version Int @default(1)
+  executedArchiveId String?
+  executedSharedAt DateTime?
   id String @id
   requestHash String
   contractId String
@@ -353,6 +358,7 @@ model GuestAuthLimit {
 }
 
 model NegotiationResponse {
+  analysis NegotiationAnalysis?
   id String @id
   requestHash String
   invitationId String
@@ -370,6 +376,20 @@ model NegotiationResponse {
   reviewedAt DateTime?
   createdAt DateTime @default(now())
   @@unique([invitationId, roundId])
+}
+
+model NegotiationAnalysis {
+  responseId String @id
+  response NegotiationResponse @relation(fields: [responseId], references: [id], onDelete: Restrict)
+  status String @default("queued")
+  assessments Json?
+  model String?
+  sourceSha256 String?
+  detail String?
+  claimToken String?
+  leaseUntil DateTime?
+  updatedAt DateTime @updatedAt
+  @@index([status, updatedAt])
 }
 
 model GuestDelivery {
@@ -432,8 +452,20 @@ model ApprovalRouting {
   documentSha256 String?
   contractVersion String?
   recommendation String?
+  policyEvidence Json?
 
   @@index([expiresAt])
+}
+
+model ApprovalPolicy {
+  id String @id
+  name String
+  enabled Boolean @default(true)
+  revision Int @default(1)
+  conditions Json
+  approvers String[]
+  updatedBy String
+  updatedAt DateTime @updatedAt
 }
 
 model ApprovalStep {
@@ -489,6 +521,7 @@ model DigestRun {
 }
 
 model ArchivedDocument {
+  obligationExtraction ObligationExtraction?
   id                 String   @id
   requestId          String   @unique
   contractId         String
@@ -553,4 +586,19 @@ model AuditEvent {
   @@index([entity, entityId])
   @@index([action])
   @@index([at])
+}
+
+model ObligationExtraction {
+  archiveId String @id
+  archive ArchivedDocument @relation(fields: [archiveId], references: [id], onDelete: Restrict)
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  status String @default("queued")
+  source String?
+  model String?
+  detail String?
+  claimToken String?
+  leaseUntil DateTime?
+  updatedAt DateTime @updatedAt
+  @@index([status, updatedAt])
 }

@@ -9,3 +9,5 @@ export * from './lifecycle';
 export * from './editing';
 export * from './negotiation';
 export * from './return-path';
+export * from './approval-policy';
+export * from './negotiation-report';

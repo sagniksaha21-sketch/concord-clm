@@ -18,7 +18,7 @@ function labelDate(value?: string): string {
 
 const FORMAT_META: Array<{ format: ReportFormat; label: string; detail: string }> = [
   { format: 'xlsx', label: 'Excel register', detail: 'Overview, agreements, obligations and signatures' },
-  { format: 'pdf', label: 'PDF brief', detail: 'Three-page legal operations summary' },
+  { format: 'pdf', label: 'PDF brief', detail: 'Legal operations and negotiation summary' },
   { format: 'pptx', label: 'PowerPoint deck', detail: 'Editable insight slides for leadership review' },
 ];
 
@@ -121,6 +121,12 @@ export default function ReportsPage() {
               {report.metrics.slice(0, 4).map((metric) => <div className="report-metric" key={metric.key}><span>{metric.label}</span><b>{metric.displayValue}</b><small>{metric.detail}</small></div>)}
             </div>
           </section>
+
+          {report.negotiation && <section className="card card-pad"><div className="agreement-section-head"><div><span className="section-kicker">Recorded activity · Calendar elapsed time</span><h3>Negotiation performance</h3></div><span className="badge neutral">{report.negotiation.agreements.length} agreements</span></div><div className="negotiation-metric-grid">{[
+            ['Time to agreed form',report.negotiation.medianCompletionDays,'days',report.negotiation.completedCount],
+            ['Legal response',report.negotiation.medianLegalHours,'hours',report.negotiation.legalResponseSamples],
+            ['Counterparty response',report.negotiation.medianCounterpartyHours,'hours',report.negotiation.counterpartyResponseSamples]
+          ].map(([label,value,unit,samples]) => <article key={String(label)}><span>{label}</span><b>{value === null ? '—' : value}<small>{value === null ? 'Not recorded' : ` ${unit}`}</small></b><small>{samples} completed observations · median</small></article>)}</div><p className="req-help">Open rounds are excluded from completion medians. Response time starts at sharing or invitation, and ends at submission or Legal review. No-response records are not counted as zero.</p><details className="workflow-disclosure"><summary>Agreement-level evidence</summary><div className="negotiation-evidence">{report.negotiation.agreements.map(r => <a key={r.id} href={`/contracts/${r.id}`}><div><b>{r.title}</b><small>{r.counterparty}</small></div><span>{r.rounds} rounds · {r.changes} text changes</span><span>{r.elapsedDays} days · {r.completedAt ? 'Agreed' : 'Still open'}</span></a>)}{!report.negotiation.agreements.length && <p>No negotiation rounds are recorded in this scope yet.</p>}</div></details>{!!report.negotiation.clausePatterns.length && <details className="workflow-disclosure"><summary>Recurring negotiation topics</summary><p className="req-help">Categories reflect words in changed provisions. These are not AI risk scores.</p><div className="negotiation-topic-list">{report.negotiation.clausePatterns.map(p => <div key={p.topic}><b>{p.topic}</b><span>{p.changes} changes · {p.agreementIds.length} agreements</span></div>)}</div></details>}</section>}
 
           <section className="report-export-grid" aria-label="Export formats">
             {FORMAT_META.map((item) => (

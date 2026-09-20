@@ -8,6 +8,8 @@ export class SectionDto {
   @IsString() @MaxLength(50000) body!: string;
 }
 export class SaveDraftDto {
+  @IsOptional() @IsBoolean() prepareExternalCopy?: boolean;
+  @IsOptional() @IsBoolean() confirmTrackedChanges?: boolean;
   @IsInt() @Min(0) revision!: number;
   @IsOptional() @IsString() @MaxLength(120) templateId?: string;
   @IsArray() @ArrayMaxSize(100) @ValidateNested({ each: true }) @Type(() => SectionDto) sections!: SectionDto[];

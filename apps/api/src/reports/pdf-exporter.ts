@@ -153,6 +153,18 @@ function buildPages(report: PortfolioReport): string[] {
   third += textLine(report.ai?.status === 'generated' ? 'AI narrative is advisory and linked to the supplied evidence rows; it does not change workflow state.' : 'AI narrative is not enabled; findings are produced by deterministic portfolio rules.', 36, 102, 8.7, '#637184');
   third += footer(3, report.generatedAt);
   pages.push(third);
+  if (report.negotiation) {
+    const n = report.negotiation;
+    let negotiation = pageHeader('Negotiation performance','Calendar elapsed time from recorded events; missing responses are not zero');
+    negotiation += kpi('AGREED FORMS',String(n.completedCount),'completed observations',36,555);
+    negotiation += kpi('MEDIAN DAYS',n.medianCompletionDays === null ? 'Not recorded' : String(n.medianCompletionDays),'to agreed form',219,555);
+    negotiation += textLine(`Legal response median: ${n.medianLegalHours ?? 'Not recorded'} hours (${n.legalResponseSamples} observations)`,36,508,11);
+    negotiation += textLine(`Counterparty response median: ${n.medianCounterpartyHours ?? 'Not recorded'} hours (${n.counterpartyResponseSamples} observations)`,36,482,11);
+    negotiation += textLine('Changed provision topics',36,428,15,'#172333',true);
+    n.clausePatterns.slice(0,8).forEach((p,i) => { negotiation += textLine(`${p.topic}: ${p.changes} changes in ${p.agreementIds.length} agreements`,36,395-i*30,10); });
+    negotiation += textLine('Open negotiations excluded from completion medians. Full evidence is in Excel.',36,90,9);
+    negotiation += footer(pages.length+1,report.generatedAt); pages.push(negotiation);
+  }
   return pages;
 }
 

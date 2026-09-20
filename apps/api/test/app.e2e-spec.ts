@@ -322,4 +322,16 @@ describe('Concord API (integration)', () => {
     const second = await send();
     expect(second.body.duplicate).toBe(true);
   });
+  it.each(['/api/approval-policies','/api/guest-access'])('restricts policy and guest administration: %s',async path => {
+    await http().get(path).expect(401);
+    for (const role of ['requester','approver','viewer','counsel','lead']) await http().get(path).set('Authorization',`Bearer ${token(role)}`).expect(403);
+  });
+  it.each(['/api/approval-policies','/api/agreements/any/commitment-extraction','/api/agreements/any/negotiation/invitations/any/access','/api/agreements/any/negotiation/responses/any/analysis'])('blocks unauthorized lifecycle intelligence writes: %s',async path => {
+    for (const role of ['requester','approver','viewer']) await http().post(path).set('Authorization',`Bearer ${token(role)}`).send({}).expect(403);
+  });
+  it('requires the invitation session for an executed-copy download and restricts negotiation analytics',async () => {
+    await http().get(guestPath+'/executed').set('Authorization',`Bearer ${token('admin')}`).expect(401);
+    await http().post('/api/reports/portfolio').set('Authorization',`Bearer ${token('viewer')}`).send({ focus: 'negotiation' }).expect(403);
+  });
+
 });

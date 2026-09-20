@@ -20,6 +20,8 @@ export const NAV: NavEntry[] = [
   { href: '/reports', label: 'Reports', match: '/reports', icon: IconChart, needs: 'contract:read', group: 'work', description: 'Portfolio insights, Excel, PDF and PowerPoint' },
   { href: '/workspace', label: 'More', match: '/workspace', icon: IconMore, needs: 'contract:read', group: 'governance', description: 'Administration and occasional tools' },
   { href: '/requests', label: 'My Requests', match: '/requests', icon: IconInbox, needs: 'request:read', group: 'work', description: 'Request a contract and follow its progress', portalOnly: true },
+  { href: '/approval-policies', label: 'Approval policies', match: '/approval-policies', icon: IconShield, needs: 'admin', group: 'governance', description: 'Required reviewers, thresholds and policy evidence' },
+  { href: '/guest-access', label: 'Guest access', match: '/guest-access', icon: IconShield, needs: 'admin', group: 'governance', description: 'External permissions, expiry and signed-copy sharing' },
   { href: '/team', label: 'Team & access', match: '/team', icon: IconShield, needs: 'admin', group: 'governance', description: 'Manage Requestors, lawyers and access' },
   { href: '/notifications', label: 'Email delivery', match: '/notifications', icon: IconMail, needs: 'audit:read', group: 'governance', description: 'Investigate Outlook delivery history' },
   { href: '/audit', label: 'Audit trail', match: '/audit', icon: IconShield, needs: 'audit:read', group: 'governance', description: 'Inspect system-wide recorded decisions' },
@@ -28,7 +30,7 @@ export const NAV: NavEntry[] = [
 export function navIsActive(entry: NavEntry, path: string): boolean {
   if (entry.href === '/work') return /^\/(work|pipeline|contracts|requests|review|authoring|intake|esign|obligations)(\/|$)/.test(path);
   if (entry.href === '/repository') return /^\/(repository|templates|ingest)(\/|$)/.test(path);
-  if (entry.href === '/workspace') return /^\/(workspace|team|audit|notifications)(\/|$)/.test(path);
+  if (entry.href === '/workspace') return /^\/(workspace|team|audit|notifications|approval-policies|guest-access)(\/|$)/.test(path);
   return entry.match === '/' ? path === '/' : path === entry.match || path.startsWith(`${entry.match}/`);
 }
 export function agreementHref(id: string): string { return `/contracts/${encodeURIComponent(id)}`; }

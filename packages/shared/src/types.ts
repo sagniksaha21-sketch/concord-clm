@@ -628,6 +628,7 @@ export interface ReportSignatureRow {
 
 /** Preview payload shared by the Reports page and all three exports. */
 export interface PortfolioReport {
+  negotiation?: import('./negotiation-report').NegotiationMetrics;
   scope: 'portfolio';
   generatedAt: string;
   dataMode: 'live' | 'illustrative';
