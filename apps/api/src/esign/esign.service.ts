@@ -7,6 +7,7 @@ import {
   OnModuleInit,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { isGraphConfigured } from '../notifications/graph.client';
 import { isProduction } from '../security/security.config';
 import { Cron } from '@nestjs/schedule';
 import {
@@ -382,7 +383,7 @@ export class ESignService implements OnModuleInit {
       // while retrieving/storing the provider-executed agreement. A retry must
       // repair that evidence gap rather than treating the callback as a harmless
       // duplicate forever.
-      if (skipped === 'terminal' && req.status === 'completed' && !(await this.isArchived(req.id))) {
+      if (skipped === 'terminal' && req.status === 'completed') {
         const current = await this.get(req.id);
         await this.archive(current);
         return { ok: true };
@@ -499,7 +500,7 @@ export class ESignService implements OnModuleInit {
 
   /** Seals the provider-executed agreement and files it into the document store. */
   private async archive(req: SignatureRequest): Promise<ArchivedDocument | null> {
-    if (await this.isArchived(req.id)) return null;
+    if (await this.isArchived(req.id)) { await this.completeAgreement(req); return null; }
 
     const prod = (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
     let buffer: Buffer;
@@ -586,7 +587,71 @@ export class ESignService implements OnModuleInit {
       })
       .catch((e) => this.logger.error(`Archived ${req.id} as ${doc.id} but could NOT write the esign.executed audit event: ${String(e)}`));
 
+    await this.completeAgreement(req);
     return doc;
+  }
+
+  /** Reconcile the permanent record after the executed bytes are safely filed.
+   * The entire handoff is atomic and retryable, including dates and notices.
+   * A simulator certificate must never become an authoritative executed PDF.
+   */
+  async completeAgreement(req: SignatureRequest): Promise<void> {
+    if (!this.prisma.enabled || !this.prisma.client?.agreementObligation || req.status !== 'completed') return;
+    const db = this.prisma.client;
+    const archive = await db.archivedDocument.findUnique({ where: { requestId: req.id } });
+    if (!archive || archive.format !== 'application/pdf') return;
+    if (archive.contractId !== req.contractId) throw new ConflictException('Execution archive belongs to a different agreement.');
+    if (!req.envelopeId || !req.documentSha256 || !req.signatories.length || req.signatories.some(s => s.status !== 'signed')) throw new ConflictException('Execution evidence is incomplete.');
+    const stored = await this.storage.get(archive.storageKey);
+    if (!stored.buffer || createHash('sha256').update(stored.buffer).digest('hex') !== archive.checksum) throw new ConflictException('The executed document could not be verified in storage.');
+    await db.$transaction(async (tx: any) => {
+      await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE', req.contractId);
+      const contract = await tx.contract.findUnique({ where: { id: req.contractId }, include: { intakeRequest: { include: { assignedLegal: { select: { email: true } } } } } });
+      if (!contract) throw new NotFoundException('The executed agreement record was not found.');
+      if (contract.authoritativeArchiveId === archive.id) return;
+      if (contract.authoritativeArchiveId) throw new ConflictException('An authoritative executed record is already present.');
+      const decision = await tx.approvalDecision.findUnique({ where: { contractId: req.contractId } });
+      if (decision?.decision !== 'approved' || decision.documentId !== req.documentId || decision.documentSha256 !== req.documentSha256 || decision.contractVersion !== req.contractVersion || contract.version !== req.contractVersion) throw new ConflictException('Execution does not match the approved version.');
+      await tx.contract.update({ where: { id: contract.id }, data: { stage: 'active', executedAt: archive.completedAt, authoritativeArchiveId: archive.id, lifecycleRevision: { increment: 1 } } });
+      const request = contract.intakeRequest;
+      const source = await tx.document.findUnique({ where: { id: req.documentId } });
+      const extracted = source?.extraction ?? {};
+      const terms = request?.terms ?? {};
+      // Draft/request dates are useful candidates, not silently confirmed legal
+      // commitments. Counsel confirms them against the signed PDF in the record.
+      const expiry = extracted.expiryDate || terms.endDate;
+      const validDate = typeof expiry === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(expiry) && Number.isFinite(Date.parse(expiry)) && new Date(expiry).toISOString().slice(0, 10) === expiry;
+      if (validDate) {
+        const rows = [{ type: 'renewal', title: 'Confirm renewal or expiry', dueDate: expiry, evidence: extracted.expiryDate ? 'Expiry extracted from the approved source. Confirm against the executed agreement.' : 'Proposed expiry from the request term sheet. Confirm against the executed agreement.' }];
+        if (Number.isInteger(terms.noticePeriodDays) && terms.noticePeriodDays >= 0 && terms.noticePeriodDays <= 3650) rows.push({ type: 'notice', title: 'Confirm renewal notice deadline', dueDate: new Date(Date.parse(expiry) - terms.noticePeriodDays * DAY_MS).toISOString().slice(0, 10), evidence: `Proposed expiry minus ${terms.noticePeriodDays} days from the request term sheet. Confirm the final notice provision.` });
+        for (const row of rows) await tx.agreementObligation.create({ data: { id: randomUUID(), contractId: contract.id, sourceArchiveId: archive.id, ownerEmail: request?.assignedLegal?.email ?? null, ...row } });
+      }
+      if (request) {
+        await tx.intakeRequest.update({ where: { id: request.id }, data: { clientStatus: 'closed', legalNote: 'The agreement has been executed. The signed copy is preserved in Concord.', version: { increment: 1 } } });
+        for (const recipientId of [...new Set([request.requesterId, request.assignedLegalUserId].filter(Boolean))]) await tx.requestNotification.create({ data: { id: randomUUID(), requestId: request.id, contractId: contract.id, recipientId, kind: `executed-${archive.id}`, title: `Executed: ${contract.title}`, body: 'All signatures are complete. The executed agreement has been filed automatically. Legal can confirm the key dates and ongoing commitments in the agreement record.', emailStatus: isGraphConfigured() ? 'queued' : 'awaiting-configuration' } });
+      }
+      await this.audit.recordInTransaction(tx, { action: 'contract.executed', entity: 'contract', entityId: contract.id, summary: 'Verified signed agreement became the authoritative repository record', metadata: { archiveId: archive.id, signatureId: req.id, executedChecksum: archive.checksum, approvedSourceSha256: req.documentSha256, contractVersion: req.contractVersion } });
+    }, { timeout: 20_000, maxWait: 10_000 });
+  }
+
+  @Cron('*/5 * * * *', { name: 'agreement-execution-reconcile' })
+  async reconcileExecuted(): Promise<void> {
+    if (!this.prisma.enabled || !this.prisma.client?.agreementObligation) return;
+    try {
+      // Walk all pending records. A fixed latest-100 window can permanently
+      // starve older envelopes after a busy signing period.
+      let cursor: string | undefined;
+      for (;;) {
+        const rows = await this.prisma.client.signatureRequest.findMany({ where: { status: 'completed' }, take: 100, orderBy: { id: 'asc' }, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
+        for (const row of rows) {
+          const contract = await this.prisma.client.contract.findUnique({ where: { id: row.contractId }, select: { authoritativeArchiveId: true } });
+          if (contract?.authoritativeArchiveId) continue;
+          try { await this.archive(this.fromRow(row)); } catch { this.logger.error(`Execution filing for ${row.id} remains pending reconciliation.`); }
+        }
+        if (rows.length < 100) break;
+        cursor = rows[rows.length - 1].id;
+      }
+    } catch { this.logger.error('Execution reconciliation is delayed.'); }
   }
 
   async listArchive(): Promise<ArchivedDocument[]> {

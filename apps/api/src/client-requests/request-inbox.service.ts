@@ -22,10 +22,10 @@ export class RequestInboxService {
     if (!this.prisma.enabled) return { items: [], unreadCount: 0 };
     const [rows, count] = await Promise.all([
       this.prisma.client.requestNotification.findMany({ where: { recipientId: actor.id }, orderBy: { createdAt: 'desc' }, take: 50,
-        select: { id: true, requestId: true, title: true, body: true, createdAt: true, readAt: true, emailStatus: true } }),
+        select: { id: true, requestId: true, contractId: true, request: { select: { contractId: true } }, title: true, body: true, createdAt: true, readAt: true, emailStatus: true } }),
       this.unread(actor),
     ]);
-    return { items: rows.map((r: any) => ({ ...r, createdAt: new Date(r.createdAt).toISOString(), readAt: r.readAt ? new Date(r.readAt).toISOString() : null })), unreadCount: count.unreadCount };
+    return { items: rows.map((r: any) => { const { request, ...item } = r; const contractId = r.contractId ?? request?.contractId; return { ...item, href: contractId && normalizeRole(actor.role) === 'approver' ? `/approvals/${encodeURIComponent(contractId)}` : contractId && can(normalizeRole(actor.role), 'contract:read') ? `/contracts/${encodeURIComponent(contractId)}` : r.requestId ? `/requests/${encodeURIComponent(r.requestId)}` : '/work', createdAt: new Date(r.createdAt).toISOString(), readAt: r.readAt ? new Date(r.readAt).toISOString() : null }; }), unreadCount: count.unreadCount };
   }
 
   async markRead(actor: AuthUser, id?: string) {
@@ -57,9 +57,18 @@ export class RequestInboxService {
     const claimed = await db.requestNotification.updateMany({ where: { id, emailStatus: { in: ['queued', 'awaiting-configuration', 'failed'] }, attempts: { lt: 5 }, nextAttemptAt: { lte: new Date() } },
       data: { emailStatus: 'sending', claimToken, leaseUntil: new Date(Date.now() + 120_000), attempts: { increment: 1 } } });
     if (!claimed.count) return;
-    const row = await db.requestNotification.findUnique({ where: { id }, include: { recipient: { select: { id: true, email: true, role: true } }, request: { select: { id: true, assignedLegalUserId: true } } } });
+    const row = await db.requestNotification.findUnique({ where: { id }, include: { recipient: { select: { id: true, email: true, role: true } }, request: { select: { id: true, assignedLegalUserId: true, requesterId: true, contractId: true } } } });
     if (!row || row.claimToken !== claimToken) return;
-    if (row.recipientId !== row.request.assignedLegalUserId || !can(normalizeRole(row.recipient.role), 'request:manage')) {
+    const legalRecipient = row.recipientId === row.request?.assignedLegalUserId && can(normalizeRole(row.recipient.role), 'request:manage');
+    const clientRecipient = row.kind !== 'assignment' && row.recipientId === row.request?.requesterId && can(normalizeRole(row.recipient.role), 'request:read');
+    const isApprovalRequest = row.kind === 'approval-request' || row.kind.startsWith('approval-request:');
+    const approval = isApprovalRequest && row.contractId ? await db.approvalRouting.findUnique({ where: { contractId: row.contractId } }) : null;
+    const approvalRecipient = approval && (row.kind === 'approval-request' || row.kind === `approval-request:${approval.contractVersion}`) && approval.approvers.includes(row.recipient.email.toLowerCase()) && can(normalizeRole(row.recipient.role), 'approve') && new Date(approval.expiresAt).getTime() > Date.now();
+    const ownedContract = row.contractId && !row.requestId ? await db.contract.findUnique({ where: { id: row.contractId }, select: { ownerId: true } }) : null;
+    const ownerRecipient = ownedContract?.ownerId === row.recipientId && can(normalizeRole(row.recipient.role), 'contract:write');
+    const obligation = row.kind.startsWith('obligation:') ? await db.agreementObligation.findUnique({ where: { id: row.kind.split(':')[1] } }) : null;
+    const obligationRecipient = obligation?.contractId === row.contractId && obligation?.ownerEmail === row.recipient.email && obligation?.confirmed && !obligation?.completedAt && (can(normalizeRole(row.recipient.role), 'contract:read') || clientRecipient);
+    if (isApprovalRequest ? !approvalRecipient : obligation ? !obligationRecipient : !legalRecipient && !clientRecipient && !ownerRecipient) {
       await db.requestNotification.updateMany({ where: { id, claimToken, emailStatus: 'sending' }, data: { emailStatus: 'failed', attempts: 5, claimToken: null, leaseUntil: null, lastError: 'The selected legal account is no longer eligible for assignment.' } });
       return;
     }
@@ -68,9 +77,10 @@ export class RequestInboxService {
     try {
       const origin = new URL((process.env.WEB_ORIGIN || 'http://localhost:3000').split(',')[0].trim());
       if (!['https:', 'http:'].includes(origin.protocol)) throw new Error('Invalid application origin');
-      const link = `${origin.origin}/requests/${encodeURIComponent(row.requestId)}`;
+      const agreementId = row.contractId ?? row.request?.contractId;
+      const link = approvalRecipient && normalizeRole(row.recipient.role) === 'approver' && agreementId ? `${origin.origin}/approvals/${encodeURIComponent(agreementId)}` : (legalRecipient || approvalRecipient || ownerRecipient || obligationRecipient && can(normalizeRole(row.recipient.role), 'contract:read')) && agreementId ? `${origin.origin}/contracts/${encodeURIComponent(agreementId)}` : `${origin.origin}/requests/${encodeURIComponent(row.requestId)}`;
       result = await Promise.race([
-        this.mail.sendEmail({ to: [row.recipient.email], subject: row.title, html: `<div style="font-family:Arial,sans-serif;color:#241e12;max-width:620px"><h1 style="color:#a17d1c">Concord</h1><h2>${escapeEmail(row.title)}</h2><p>${escapeEmail(row.body)}</p><p><a href="${escapeEmail(link)}">Open request and term sheet</a></p><p>Sign in with your own Concord account to review this request.</p><hr><small>Lakmē Legal for Lakmē Lever</small></div>` }),
+        this.mail.sendEmail({ to: [row.recipient.email], subject: row.title, html: `<div style="font-family:Arial,sans-serif;color:#241e12;max-width:620px"><h1 style="color:#a17d1c">Concord</h1><h2>${escapeEmail(row.title)}</h2><p>${escapeEmail(row.body)}</p><p><a href="${escapeEmail(link)}">Open in Concord</a></p><p>Sign in with your own Concord account to review this request.</p><hr><small>Lakmē Legal for Lakmē Lever</small></div>` }),
         new Promise<undefined>(resolve => { timer = setTimeout(() => resolve(undefined), 30_000); }),
       ]);
     } catch { /* An uncertain remote result must never be labelled sent. */ }
@@ -83,8 +93,8 @@ export class RequestInboxService {
         sentAt: status === 'sent' ? new Date() : null, claimToken: null, leaseUntil: null,
         nextAttemptAt: new Date(Date.now() + Math.min(60, 2 ** row.attempts) * 60_000),
         lastError: status === 'sent' ? null : status === 'awaiting-configuration' ? 'Microsoft Graph setup is required.' : 'Outlook has not confirmed delivery.' } });
-      if (changed.count) await this.audit.recordInTransaction(tx, { action: 'request.outlook_delivery', entity: 'intake', entityId: row.requestId,
-        summary: `Assigned-lawyer Outlook notification: ${status}`, metadata: { notificationId: id, recipientId: row.recipientId, status, attempt: row.attempts } });
+      if (changed.count) await this.audit.recordInTransaction(tx, { action: 'request.outlook_delivery', entity: row.requestId ? 'intake' : 'contract', entityId: row.requestId ?? row.contractId,
+        summary: `Request Outlook notification: ${status}`, metadata: { notificationId: id, recipientId: row.recipientId, status, attempt: row.attempts } });
     }, { timeout: 15_000, maxWait: 10_000 });
   }
 }

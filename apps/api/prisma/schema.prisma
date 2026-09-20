@@ -28,6 +28,9 @@ model User {
   raisedRequests IntakeRequest[] @relation("RequestClient")
   assignedRequests IntakeRequest[] @relation("RequestLawyer")
   inboxNotifications RequestNotification[]
+  requestAttachments RequestAttachment[]
+  requestMessages RequestMessage[]
+  ownedAgreements Contract[] @relation("AgreementOwner")
 }
 
 model Template {
@@ -76,6 +79,9 @@ model IntakeRequest {
   legalNote           String?
   version             Int @default(0)
   notifications       RequestNotification[]
+  attachments         RequestAttachment[]
+  messages            RequestMessage[]
+  assignmentPreference String?
   @@index([requesterId, createdAt])
   @@index([assignedLegalUserId, clientStatus])
 }
@@ -94,16 +100,110 @@ model Contract {
   updatedAt DateTime @updatedAt
   documents Document[]
   intakeRequest IntakeRequest?
+  executedAt DateTime?
+  authoritativeArchiveId String?
+  lifecycleRevision Int @default(0)
+  draft AgreementDraft?
+  obligations AgreementObligation[]
+  notifications RequestNotification[]
+  approvalSteps ApprovalStep[]
+  approvalHistory ApprovalRound[]
+  ownerId String?
+  owner User? @relation("AgreementOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  versions AgreementVersion[]
+  comments AgreementComment[]
+  negotiationRounds NegotiationRound[]
+  guestInvitations GuestInvitation[]
+  parentAgreementId String?
+  parentAgreement Contract? @relation("AmendmentParent", fields: [parentAgreementId], references: [id], onDelete: Restrict)
+  amendments Contract[] @relation("AmendmentParent")
+  needsNewVersion Boolean @default(false)
+  negotiationState String?
+  agreedDocumentId String?
+  agreedSha256 String?
+  agreedAt DateTime?
+  agreedBy String?
   @@index([counterparty])
   @@index([stage])
   @@index([risk])
 }
 
+// Prior approval rounds are append-only snapshots. Current routing/decision
+// tables remain compatible read indexes for the active contract version.
+model ApprovalRound {
+  id String @id
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  contractVersion String
+  evidence Json
+  evidenceSha256 String
+  createdAt DateTime @default(now())
+  @@unique([contractId, contractVersion])
+}
+
+model RequestAttachment {
+  id String @id
+  uploaderId String
+  uploader User @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+  requestId String?
+  request IntakeRequest? @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  filename String
+  size Int
+  category String
+  contentType String
+  storageKey String
+  sha256 String
+  createdAt DateTime @default(now())
+  @@index([uploaderId, requestId])
+}
+
+model RequestMessage {
+  id String @id
+  requestId String
+  request IntakeRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  authorId String
+  author User @relation(fields: [authorId], references: [id], onDelete: Restrict)
+  kind String
+  body String
+  createdAt DateTime @default(now())
+  @@index([requestId, createdAt])
+}
+
+model AgreementDraft {
+  contractId String @id
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  templateId String?
+  sections Json
+  model String
+  revision Int @default(1)
+  documentId String
+  updatedBy String
+  updatedAt DateTime @updatedAt
+}
+
+model AgreementObligation {
+  id String @id
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  title String
+  type String
+  dueDate String
+  ownerEmail String?
+  sourceArchiveId String
+  evidence String
+  confirmed Boolean @default(false)
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([contractId, dueDate])
+}
+
 // A durable personal inbox and Outlook outbox, committed with the request.
 model RequestNotification {
   id             String @id
-  requestId      String
-  request        IntakeRequest @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  requestId      String?
+  request        IntakeRequest? @relation(fields: [requestId], references: [id], onDelete: Restrict)
+  contractId     String?
+  contract       Contract? @relation(fields: [contractId], references: [id], onDelete: Restrict)
   recipientId    String
   recipient      User @relation(fields: [recipientId], references: [id], onDelete: Restrict)
   kind           String
@@ -120,6 +220,7 @@ model RequestNotification {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   @@unique([requestId, recipientId, kind])
+  @@unique([contractId, recipientId, kind])
   @@index([recipientId, readAt, createdAt])
   @@index([emailStatus, nextAttemptAt])
 }
@@ -141,7 +242,150 @@ model Document {
   extractedText String?
   sha256       String?
   createdAt    DateTime @default(now())
+  versionRecord AgreementVersion?
   @@index([contractId])
+}
+
+model AgreementVersion {
+  documentId String @id
+  document Document @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  number Int
+  label String
+  authorName String
+  authorUserId String?
+  authorGuestId String?
+  organisation String?
+  source String
+  reason String
+  stage String
+  round Int @default(0)
+  sections Json?
+  changeSummary Json?
+  sharedAt DateTime?
+  agreedAt DateTime?
+  approvedAt DateTime?
+  executedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([contractId, number])
+}
+
+model AgreementComment {
+  id String @id
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  documentId String
+  sectionId String?
+  authorUserId String?
+  authorGuestId String?
+  authorName String
+  visibility String @default("internal")
+  body String
+  parentId String?
+  resolvedAt DateTime?
+  resolvedBy String?
+  createdAt DateTime @default(now())
+  @@index([contractId, documentId, visibility])
+}
+
+model NegotiationRound {
+  id String @id
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  documentId String
+  sha256 String
+  sections Json
+  number Int
+  createdBy String
+  createdAt DateTime @default(now())
+  invitations GuestInvitation[]
+  responses NegotiationResponse[]
+  @@unique([contractId, documentId])
+  @@unique([contractId, number])
+}
+
+model GuestInvitation {
+  id String @id
+  requestHash String
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  roundId String
+  round NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  name String
+  email String
+  organisation String
+  invitedBy String
+  expiresAt DateTime
+  responseDueAt DateTime?
+  allowDownload Boolean @default(false)
+  allowRedline Boolean @default(true)
+  allowUpload Boolean @default(true)
+  revokedAt DateTime?
+  viewedAt DateTime?
+  acceptedDocumentId String?
+  challengeId String?
+  otpHash String?
+  otpExpiresAt DateTime?
+  otpAttempts Int @default(0)
+  otpSentAt DateTime?
+  otpDelivery String?
+  createdAt DateTime @default(now())
+  sessions GuestSession[]
+  responses NegotiationResponse[]
+  deliveries GuestDelivery[]
+  @@index([contractId, expiresAt])
+}
+
+model GuestSession {
+  hash String @id
+  invitationId String
+  invitation GuestInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  @@index([invitationId])
+}
+
+model GuestAuthLimit {
+  id String @id
+  count Int @default(1)
+  expiresAt DateTime
+}
+
+model NegotiationResponse {
+  id String @id
+  requestHash String
+  invitationId String
+  invitation GuestInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  roundId String
+  round NegotiationRound @relation(fields: [roundId], references: [id], onDelete: Restrict)
+  documentId String
+  sections Json
+  originalSections Json
+  changes Json
+  source String
+  state String @default("received")
+  reviewedBy String?
+  reviewedDocumentId String?
+  reviewedAt DateTime?
+  createdAt DateTime @default(now())
+  @@unique([invitationId, roundId])
+}
+
+model GuestDelivery {
+  id String @id
+  invitationId String
+  invitation GuestInvitation @relation(fields: [invitationId], references: [id], onDelete: Restrict)
+  roundId String
+  kind String
+  status String @default("queued")
+  attempts Int @default(0)
+  claimToken String?
+  leaseUntil DateTime?
+  nextAttemptAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  @@unique([invitationId, roundId, kind])
+  @@index([status, nextAttemptAt])
 }
 
 model SignatureRequest {
@@ -187,8 +431,22 @@ model ApprovalRouting {
   documentId String?
   documentSha256 String?
   contractVersion String?
+  recommendation String?
 
   @@index([expiresAt])
+}
+
+model ApprovalStep {
+  id String @id
+  contractId String
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Restrict)
+  approverEmail String
+  approverName String
+  reason String
+  decision String @default("pending")
+  comment String?
+  decidedAt DateTime?
+  @@unique([contractId, approverEmail])
 }
 
 ///

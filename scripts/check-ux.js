@@ -16,9 +16,9 @@ const css = read('apps/web/app/globals.css');
 const env = read('.env.example');
 
 const checks = [
-  ['permission-filtered adaptive navigation', shell.includes("NAV.filter((n) => !n.needs") && shell.includes('is-sidebar-collapsed')],
-  ['shared primary navigation and discoverable specialist tools', shell.includes('PRIMARY_NAV.includes') && shell.includes('href="/workspace"') && ['Draft & review', 'Library & insights', 'Signing', 'Administration'].every(x => navigation.includes(x))],
-  ['full mobile More sheet', shell.includes('mobile-sheet') && shell.includes('Everything in one place')],
+  ['permission-filtered adaptive navigation', shell.includes('perms.includes(n.needs)') && shell.includes('is-sidebar-collapsed')],
+  ['five primary destinations with contextual lifecycle tools', shell.includes('PRIMARY_NAV.includes') && ['Home', 'Work', 'Contracts', 'Reports', 'More'].every(x => navigation.includes(`label: '${x}'`))],
+  ['full mobile More sheet', shell.includes('mobile-sheet') && shell.includes('closeMobileMore')],
   ['mobile dialog traps keyboard focus', shell.includes('trapDialogTab') && shell.includes('aria-modal="true"')],
   ['command centre exposes recent + quick actions', palette.includes("section: 'Recent'") && palette.includes("section: 'Quick actions'")],
   ['command centre traps keyboard focus', palette.includes("e.key === 'Tab'") && palette.includes('aria-modal="true"')],

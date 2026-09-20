@@ -41,6 +41,7 @@ export class StorageService implements OnModuleInit {
 
   async onModuleInit(): Promise<void> {
     const prod = (process.env.NODE_ENV ?? '').toLowerCase() === 'production';
+    const durableRequired = prod || process.env.STORAGE_REQUIRE_DURABLE === 'true';
     if (process.env.GCS_BUCKET) {
       // Never create a bucket or silently switch stores on a configuration error.
       // Infrastructure owns the bucket, retention and access policy.
@@ -85,7 +86,7 @@ export class StorageService implements OnModuleInit {
         return;
       } catch (e) {
         this.container = null;
-        if (prod) throw new Error(`Azure Blob unavailable in production: ${String(e)}`);
+        if (durableRequired) throw new Error(`Configured Azure Blob storage is unavailable: ${String(e)}`);
         this.logger.warn(`Blob unavailable (${String(e)}) — trying next provider`);
       }
     }
@@ -98,7 +99,9 @@ export class StorageService implements OnModuleInit {
         const cfg: any = { region: process.env.AWS_REGION || 'us-east-1' };
         if (process.env.AWS_S3_ENDPOINT) {
           cfg.endpoint = process.env.AWS_S3_ENDPOINT;
-          cfg.forcePathStyle = true; // MinIO / S3-compatible
+          // Preserve MinIO defaults; Railway buckets require virtual-hosted
+          // addressing. Make the provider's addressing mode explicit.
+          cfg.forcePathStyle = process.env.AWS_S3_FORCE_PATH_STYLE !== 'false';
         }
         if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
           cfg.credentials = {
@@ -115,12 +118,12 @@ export class StorageService implements OnModuleInit {
         this.logger.log(`Amazon S3 storage ready (bucket: ${this.bucket})`);
         return;
       } catch (e) {
-        if (prod) throw new Error(`S3 unavailable in production: ${String(e)}`);
+        if (durableRequired) throw new Error(`Configured S3 storage is unavailable: ${String(e)}`);
         this.logger.warn(`S3 unavailable (${String(e)}) — using local disk`);
       }
     }
 
-    if (prod) throw new Error('Durable object storage is required in production');
+    if (durableRequired) throw new Error('Durable object storage is required');
     this.logger.log(`Using local disk storage at ${this.localDir} (development only)`);
   }
 

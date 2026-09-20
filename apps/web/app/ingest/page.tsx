@@ -1,5 +1,6 @@
 'use client';
 
+import ContractsNavigation from '@/components/ContractsNavigation';
 import { useRef, useState } from 'react';
 import type { IngestResult } from '@concord/shared';
 import { API_BASE, getSampleIngest, uploadFiles } from '@/app/lib/api';
@@ -72,6 +73,7 @@ export default function IngestPage() {
 
   return (
     <>
+      <ContractsNavigation />
       <div className="view-head">
         <div className="vh-left">
           <div className="eyebrow">Secure intake pipeline</div>

@@ -1,6 +1,6 @@
 import { Body, Controller, ForbiddenException, Get, Param, Patch, Post, Query, Req, Res } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { PERMISSIONS, ROLES, ROLE_LABELS, normalizeRole, requestReturnPath } from '@concord/shared';
+import { PERMISSIONS, ROLES, ROLE_LABELS, normalizeRole, appReturnPath, signedInHome } from '@concord/shared';
 import { AuthService } from './auth.service';
 import { EntraService } from './entra.service';
 import { CreateUserDto } from './create-user.dto';
@@ -114,7 +114,7 @@ export class AuthController {
       'Set-Cookie',
       [`sso_state=${state}; HttpOnly; Max-Age=600; Path=/; SameSite=Lax${
         process.env.NODE_ENV === 'production' ? '; Secure' : ''
-      }`, `sso_return=${encodeURIComponent(requestReturnPath(returnTo) ?? '')}; HttpOnly; Max-Age=600; Path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`],
+      }`, `sso_return=${encodeURIComponent(appReturnPath(returnTo) ?? '')}; HttpOnly; Max-Age=600; Path=/; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`],
     );
     res.redirect(await this.entra.getAuthUrl(state));
   }
@@ -149,6 +149,6 @@ export class AuthController {
     const token = this.auth.issueToken(user);
     const webOrigin = (process.env.WEB_ORIGIN ?? 'http://localhost:3000').split(',')[0];
     res.setHeader('Set-Cookie', [sessionCookie(token), `sso_state=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`, `sso_return=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`]);
-    res.redirect(`${webOrigin.replace(/\/$/, '')}${requestReturnPath(readCookie(req, 'sso_return')) ?? (normalizeRole(user.role) === 'requester' ? '/requests' : '/intake')}`);
+    res.redirect(`${webOrigin.replace(/\/$/, '')}${signedInHome(normalizeRole(user.role), readCookie(req, 'sso_return'))}`);
   }
 }

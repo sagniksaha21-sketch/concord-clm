@@ -23,6 +23,8 @@ import { ESignModule } from './esign/esign.module';
 import { WorkspaceModule } from './workspace/workspace.module';
 import { ReportsModule } from './reports/reports.module';
 import { ClientRequestsModule } from './client-requests/client-requests.module';
+import { AgreementsModule } from './agreements/agreements.module';
+import { NegotiationModule } from './negotiation/negotiation.module';
 
 @Module({
   imports: [
@@ -50,6 +52,8 @@ import { ClientRequestsModule } from './client-requests/client-requests.module';
     WorkspaceModule,
     ReportsModule,
     ClientRequestsModule,
+    AgreementsModule,
+    NegotiationModule,
   ],
 })
 export class AppModule {}

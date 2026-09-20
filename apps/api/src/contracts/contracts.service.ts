@@ -1,6 +1,6 @@
-import { ConflictException, Injectable, NotFoundException, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { CONTRACTS, Contract } from '@concord/shared';
+import { CONTRACTS, Contract, AuthUser, normalizeRole } from '@concord/shared';
 import { PrismaService } from '../persistence/prisma.service';
 import { isProduction } from '../security/security.config';
 import { CreateContractDto, UpdateContractDto } from './contract.dto';
@@ -53,20 +53,27 @@ export class ContractsService implements OnModuleInit {
     return this.toDomain(row);
   }
 
-  async update(id: string, dto: UpdateContractDto): Promise<Contract> {
+  async update(id: string, dto: UpdateContractDto, actor: AuthUser): Promise<Contract> {
     if (!this.prisma.enabled) throw new ServiceUnavailableException('Contract persistence unavailable');
-    await this.prisma.client.contract.findUniqueOrThrow({ where: { id } }).catch(() => { throw new NotFoundException(`Contract ${id} not found`); });
-    const [routing, decision, signature] = await Promise.all([
-      this.prisma.client.approvalRouting.findUnique({ where: { contractId: id }, select: { contractId: true } }),
-      this.prisma.client.approvalDecision.findUnique({ where: { contractId: id }, select: { contractId: true } }),
-      this.prisma.client.signatureRequest.findFirst({ where: { contractId: id }, select: { id: true } }),
-    ]);
-    if (routing || decision || signature) {
-      throw new ConflictException(
-        'This contract is frozen because it has entered approval/signature. Mutating its legal metadata would break the document-to-approval integrity chain. Create an explicit new version instead.',
-      );
-    }
-    const row = await this.prisma.client.contract.update({ where: { id }, data: dto });
+    const row = await this.prisma.client.$transaction(async (tx: any) => {
+      await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE',id);
+      const current = await tx.contract.findUnique({ where: { id }, include: { intakeRequest: true } });
+      if (!current) throw new NotFoundException(`Contract ${id} not found`);
+      const owner = current.intakeRequest?.assignedLegalUserId ?? current.ownerId;
+      if (owner && owner !== actor.id && !['admin','lead'].includes(normalizeRole(actor.role))) throw new ForbiddenException('This agreement is assigned to another lawyer.');
+      const [routing, decision, signature] = await Promise.all([
+        tx.approvalRouting.findUnique({ where: { contractId: id }, select: { contractId: true } }),
+        tx.approvalDecision.findUnique({ where: { contractId: id }, select: { contractId: true } }),
+        tx.signatureRequest.findFirst({ where: { contractId: id }, select: { id: true } }),
+      ]);
+      if (routing || decision || signature || current.agreedDocumentId || current.executedAt || ['negotiation','agreed','approval','signature','active','renewal'].includes(current.stage)) {
+        throw new ConflictException('This agreement is controlled by its current lifecycle. Use the Agreement Workspace to review or revise it.');
+      }
+      if (dto.stage !== undefined && dto.stage !== current.stage || dto.version !== undefined && dto.version !== current.version) {
+        throw new ConflictException('Progress the agreement or save a document version inside the Agreement Workspace. Metadata edits cannot change lifecycle stage or version.');
+      }
+      return tx.contract.update({ where: { id }, data: { ...dto, lifecycleRevision: { increment: 1 } } });
+    });
     await this.refresh();
     return this.toDomain(row);
   }
