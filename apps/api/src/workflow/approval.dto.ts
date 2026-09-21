@@ -2,7 +2,7 @@ import { ArrayMaxSize, ArrayMinSize, IsArray, IsEmail, IsIn, IsOptional, IsStrin
 
 export class ApprovalDto {
   @IsArray()
-  @ArrayMinSize(1)
+  @ArrayMinSize(0)
   @ArrayMaxSize(20)
   @IsEmail({}, { each: true })
   approvers!: string[];

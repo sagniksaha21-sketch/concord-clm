@@ -27,3 +27,11 @@ export class GuestUploadDto { @IsUUID() id!: string; @IsUUID() documentId!: stri
 export class GuestResponseDto extends GuestUploadDto { @IsArray() @ArrayMaxSize(100) @ValidateNested({ each: true }) @Type(() => SectionDto) sections!: SectionDto[]; }
 export class GuestCommentDto { @IsUUID() id!: string; @IsUUID() documentId!: string; @IsString() @Matches(/\S/) @MaxLength(6000) body!: string; }
 export class GuestAcceptDto { @IsUUID() documentId!: string; }
+export class GuestAccessDto {
+  @IsInt() @Min(1) version!: number;
+  @IsISO8601() expiresAt!: string;
+  @IsBoolean() allowDownload!: boolean;
+  @IsBoolean() allowRedline!: boolean;
+  @IsBoolean() allowUpload!: boolean;
+  @IsBoolean() shareExecuted!: boolean;
+}

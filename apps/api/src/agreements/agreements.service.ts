@@ -1,3 +1,4 @@
+import { preserveWord, wordLockedSections, cleanWordForSharing } from './preserve-word';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID, createHash } from 'crypto';
 import { AuthUser, can, normalizeRole, PERMISSIONS, nextAction, WorkItem, AgreementWorkspace } from '@concord/shared';
@@ -109,7 +110,19 @@ export class AgreementsService {
     const ids = dto.sections.map((s,i) => s.id ?? `section-${i}`);
     if (new Set(ids).size !== ids.length) throw new BadRequestException('Every clause must have a distinct identifier.');
     const sections = dto.sections.map((s,i) => ({ ...s, id: ids[i] }));
-    const bytes = draftDocument(before.title, sections);
+    await this.db().$transaction(async (tx: any) => { const c = await this.editable(tx,id,dto.revision); this.requireAssigned(c,actor); });
+    let bytes = draftDocument(before.title, sections);
+    if (dto.sourceDocumentId) {
+      const source = await this.db().document.findFirst({ where: { id: dto.sourceDocumentId, contractId: id, status: { not: 'quarantined' } }, include: { versionRecord: true } });
+      if (!source?.blobPath) throw new ConflictException('The editing source is no longer available.');
+      if (source.filename.toLowerCase().endsWith('.docx') && (!source.versionRecord?.sections || createHash('sha256').update(draftDocument(before.title,source.versionRecord.sections as any)).digest('hex') !== source.sha256 || (source.versionRecord.sections as any[]).some(s => s.kind === 'paragraph'))) {
+        const original = await this.storage.get(source.blobPath);
+        if (createHash('sha256').update(original.buffer).digest('hex') !== source.sha256) throw new ConflictException('Source document integrity failed.');
+        if (readEditableDocument(original.buffer,source.filename).trackedChanges && !dto.confirmTrackedChanges) throw new BadRequestException('Review and confirm the tracked Word changes before saving.');
+        bytes = preserveWord(original.buffer,sections, dto.confirmTrackedChanges); model = 'word-preserved';
+      }
+    }
+    if (dto.prepareExternalCopy) { bytes = cleanWordForSharing(bytes); model = 'word-external'; }
     const filename = `agreement-${id}-${dto.revision + 1}.docx`;
     const verdict = await this.security.check({ originalname: filename, buffer: bytes });
     if (!verdict.ok || (verdict.scan !== 'clean' && (process.env.UPLOAD_REQUIRE_SCAN === 'true' || verdict.scanEngine === 'error'))) throw new ServiceUnavailableException('The draft could not be cleared for storage by the file scanner.');
@@ -123,7 +136,7 @@ export class AgreementsService {
       const doc = await tx.document.create({ data: { contractId: id, filename, documentType: contract.type, confidence: 100, status: 'validated', extraction: {}, validations: [], notes: ['Counsel-controlled draft; commercial instructions require review.'], model, blobPath, sha256, extractedText: sections.map(s => `${s.heading}\n${s.body}`).join('\n\n') } });
       const data = { templateId: dto.templateId, sections, model, documentId: doc.id, updatedBy: actor.id };
       await tx.agreementDraft.upsert({ where: { contractId: id }, create: { contractId: id, ...data }, update: { ...data, revision: { increment: 1 } } });
-      const version = await recordVersion(tx, { documentId: doc.id, contract, actor, sections, source: model === 'counsel-edited' ? 'legal-edit' : model === 'template-assembly' ? 'template' : 'ai-assisted', reason: dto.reason?.trim() || 'Draft saved by Legal' });
+      const version = await recordVersion(tx, { documentId: doc.id, contract, actor, sections, source: ['counsel-edited','word-preserved','word-external'].includes(model) ? 'legal-edit' : model === 'template-assembly' ? 'template' : 'ai-assisted', reason: dto.reason?.trim() || 'Draft saved by Legal' });
       await tx.contract.update({ where: { id }, data: { lifecycleRevision: { increment: 1 }, stage: contract.stage === 'review' ? 'review' : contract.stage === 'negotiation' ? 'negotiation' : 'drafting', ...(contract.stage === 'negotiation' ? { negotiationState: 'legal-review' } : {}) } });
       await this.audit.recordInTransaction(tx, { actor, action: 'contract.draft_saved', entity: 'contract', entityId: id, summary: 'Draft version saved with an editable source document', metadata: { documentId: doc.id, version: version.label, reason: version.reason, sha256, templateId: dto.templateId, model } });
     }, { timeout: 30_000, maxWait: 10_000 });
@@ -141,7 +154,8 @@ export class AgreementsService {
     const current = contract.draft?.documentId === doc.id ? contract.draft : null;
     const response = await db.negotiationResponse.findFirst({ where: { documentId: doc.id } });
     const content = current ? { sections: current.sections, original: response?.originalSections ?? current.sections, trackedChanges: !!response, notice: response ? 'Counterparty language is a proposal. Compare it with the shared draft, resolve changes and save a new Legal version.' : '' } : readEditableDocument(file.buffer, doc.filename);
-    return { documentId: doc.id, revision: contract.lifecycleRevision, filename: doc.filename, ...content };
+    const preserveFormatting = doc.filename.toLowerCase().endsWith('.docx') && (!current || (current.sections as any[]).some(s => s.kind === 'paragraph'));
+    return { documentId: doc.id, revision: contract.lifecycleRevision, filename: doc.filename, ...content, ...(preserveFormatting ? { preserveFormatting: true, lockedSections: wordLockedSections(file.buffer), notice: 'Word structure, tables, drawings and supporting parts are preserved. Changed paragraphs use their original paragraph and first-run style. Use Word for insertion, reordering and anchored content. Prepare a clean copy before external sharing.' } : {}) };
   }
   async comment(id: string, dto: AgreementCommentDto, actor: AuthUser) {
     await this.db().$transaction(async (tx: any) => {

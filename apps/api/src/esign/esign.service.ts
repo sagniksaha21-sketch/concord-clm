@@ -613,6 +613,7 @@ export class ESignService implements OnModuleInit {
       const decision = await tx.approvalDecision.findUnique({ where: { contractId: req.contractId } });
       if (decision?.decision !== 'approved' || decision.documentId !== req.documentId || decision.documentSha256 !== req.documentSha256 || decision.contractVersion !== req.contractVersion || contract.version !== req.contractVersion) throw new ConflictException('Execution does not match the approved version.');
       await tx.contract.update({ where: { id: contract.id }, data: { stage: 'active', executedAt: archive.completedAt, authoritativeArchiveId: archive.id, lifecycleRevision: { increment: 1 } } });
+      await tx.obligationExtraction.upsert({ where: { archiveId: archive.id }, create: { archiveId: archive.id, contractId: contract.id }, update: {} });
       const request = contract.intakeRequest;
       const source = await tx.document.findUnique({ where: { id: req.documentId } });
       const extracted = source?.extraction ?? {};

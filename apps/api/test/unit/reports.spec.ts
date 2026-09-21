@@ -62,3 +62,15 @@ describe('ReportsService role scoping', () => {
     expect(result.obligations).toEqual([]);
   });
 });
+
+describe('negotiation performance exports', () => {
+  it('includes evidence in Excel and performance summaries in PDF and both deck themes', () => {
+    const enhanced: PortfolioReport = { ...report, negotiation: { agreements: [], completedCount: 2, medianCompletionDays: 8, medianLegalHours: 12, medianCounterpartyHours: 24, legalResponseSamples: 4, counterpartyResponseSamples: 4, clausePatterns: [{ topic: 'Liability & indemnity', changes: 3, agreementIds: ['CLM-1'] }] } };
+    expect(buildPdf(enhanced).toString('latin1')).toContain('Negotiation performance');
+    const { inflateRawSync } = require('zlib');
+    const xml = (bytes: Buffer) => { let p = 0, text = ''; while (p+30 < bytes.length && bytes.readUInt32LE(p) === 0x04034b50) { const size = bytes.readUInt32LE(p+18), start = p+30+bytes.readUInt16LE(p+26)+bytes.readUInt16LE(p+28); text += inflateRawSync(bytes.subarray(start,start+size)).toString(); p = start+size; } return text; };
+    const workbook = xml(buildXlsx(enhanced));
+    expect(workbook).toContain('name="Negotiation"'); expect(workbook).toContain('CLM-1'); expect(workbook).toContain('Median Legal response hours');
+    for (const theme of ['black-gold','golden-champagne'] as const) expect(xml(buildPptx({ ...enhanced, options: { theme, focus: 'negotiation', prompt: '', query: '', horizonDays: 90 } }))).toContain('Negotiation performance');
+  });
+});

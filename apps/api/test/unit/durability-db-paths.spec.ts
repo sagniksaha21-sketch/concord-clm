@@ -25,7 +25,8 @@ function fakeDb() {
     signatureRequest: { findFirst: async () => null },
     $queryRawUnsafe: async () => [],
     document: { findFirst: async () => ({ id: 'DOC-1', sha256: 'approved-document-hash' }) },
-    approvalRouting: {
+    approvalPolicy: { count: jest.fn().mockResolvedValue(0) },
+      approvalRouting: {
       findUnique: async ({ where }: any) =>
         routing.has(where.contractId) ? { ...routing.get(where.contractId) } : null,
       upsert: async ({ where, update, create }: any) => {

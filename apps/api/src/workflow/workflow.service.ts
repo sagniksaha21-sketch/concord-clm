@@ -7,7 +7,7 @@ import {
   ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ApprovalResult, AuthUser, can, normalizeRole } from '@concord/shared';
+import { ApprovalResult, AuthUser, can, normalizeRole, evaluateApprovalPolicies } from '@concord/shared';
 import { ContractsService } from '../contracts/contracts.service';
 import { AiReviewService } from '../ai-review/ai-review.service';
 import { AuditService } from '../audit/audit.service';
@@ -95,6 +95,8 @@ export class WorkflowService {
     if (this.useDb) {
       await this.prisma.client.$transaction(async (tx: any) => {
         await tx.$queryRawUnsafe('SELECT id FROM "Contract" WHERE id = $1 FOR UPDATE',contractId);
+        await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(728461)');
+        if (await tx.approvalPolicy.count({ where: { enabled: true } })) throw new ConflictException('Use Agreement Workspace approvals so mandatory policies are applied.');
         const current = await tx.contract.findUnique({ where: { id: contractId }, include: { intakeRequest: true } });
         if (!current || current.stage !== 'review' || current.agreedDocumentId || current.executedAt || current.needsNewVersion) throw new ConflictException('Request approval from the Agreement Workspace for the current lifecycle stage.');
         const ownerId = current.intakeRequest?.assignedLegalUserId ?? current.ownerId;
@@ -243,6 +245,7 @@ export class WorkflowService {
     dto: ApprovalDto,
     requestedBy?: string,
   ): Promise<ApprovalResult> {
+    if (this.prisma.enabled && await this.prisma.client.approvalPolicy.count({ where: { enabled: true } })) throw new ConflictException('Use Agreement Workspace approvals so mandatory policies are applied.');
     const contract = await this.contracts.getByIdFresh(contractId);
     if (['negotiation','agreed'].includes(contract.stage)) throw new ConflictException('Request approval from this Agreement Workspace so the agreed document and negotiation evidence stay linked.');
 
@@ -394,7 +397,9 @@ export class WorkflowService {
       can(normalizeRole(actor.role), 'approval:route') ? this.prisma.client.user.findMany({ select: { id: true, name: true, email: true, role: true }, orderBy: { name: 'asc' } }) : [],
     ]);
     if (!can(normalizeRole(actor.role), 'contract:read') && !steps.some((s: any) => s.approverEmail === actor.email.toLowerCase())) throw new ForbiddenException('This approval is not assigned to you.');
-    return { steps, recommendation: routing?.recommendation ?? '', documentId: routing?.documentId, documentSha256: routing?.documentSha256, contractVersion: routing?.contractVersion,
+    const policyContract = await this.prisma.client.contract.findUnique({ where: { id: contractId }, include: { intakeRequest: true } });
+    const requirements = can(normalizeRole(actor.role), 'approval:route') && policyContract ? evaluateApprovalPolicies(await this.prisma.client.approvalPolicy.findMany({ where: { enabled: true } }) as any, policyContract) : [];
+    return { requirements, steps, recommendation: routing?.recommendation ?? '', documentId: routing?.documentId, documentSha256: routing?.documentSha256, contractVersion: routing?.contractVersion,
       decision: decision?.decision, expiresAt: routing?.expiresAt, outlookConfigured: isGraphConfigured(),
       canDecide: !!routing && new Date(routing.expiresAt).getTime() > Date.now() && can(normalizeRole(actor.role), 'approve') && steps.some((s: any) => s.approverEmail === actor.email.toLowerCase() && s.decision === 'pending') && !decision,
       available: users.filter((u: any) => u.email.toLowerCase() !== actor.email.toLowerCase() && can(normalizeRole(u.role), 'approve')).map((u: any) => ({ id: u.id, name: u.name, email: u.email })) };
@@ -404,8 +409,7 @@ export class WorkflowService {
     if (!this.prisma.enabled) throw new ServiceUnavailableException('Approvals require durable storage.');
     const contract = await this.contracts.getByIdFresh(contractId);
     if (!['review','agreed'].includes(contract.stage)) throw new ConflictException('Finish drafting and open Review before requesting approval.');
-    const approvers = [...new Set(dto.approvers.map(e => e.trim().toLowerCase()))];
-    if (!approvers.length || approvers.includes(actor.email.toLowerCase())) throw new ForbiddenException('Choose another authorised approver; you cannot approve your own routing.');
+    const additional = [...new Set(dto.approvers.map(e => e.trim().toLowerCase()))];
     const review = await this.review.getReview(contractId);
     const db = this.prisma.client;
     await db.$transaction(async (tx: any) => {
@@ -418,16 +422,22 @@ export class WorkflowService {
       const document = await tx.document.findFirst({ where: { contractId, status: { not: 'quarantined' }, blobPath: { not: null }, sha256: { not: null } }, orderBy: { createdAt: 'desc' } });
       if (!document?.sha256 || review.documentId !== document.id || review.documentSha256 !== document.sha256 || review.contractVersion !== current.version) throw new ConflictException('Approval requires a review grounded to the exact current document and version.');
       if (current.agreedDocumentId && (document.id !== current.agreedDocumentId || document.sha256 !== current.agreedSha256)) throw new ConflictException('The agreed form differs from the current document. Start a controlled revision.');
+      await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(728461)');
+      const requirements = evaluateApprovalPolicies(await tx.approvalPolicy.findMany({ where: { enabled: true } }), current);
+      const approvers = [...new Set([...additional, ...requirements.flatMap(p => p.approvers)])];
+      if (!approvers.length) throw new ForbiddenException('An independent approver is required. Select a reviewer before routing.');
+      if (approvers.includes(actor.email.toLowerCase())) throw new ForbiddenException('You cannot approve your own routing. Ask another Legal owner to route if a mandatory policy names you.');
+      if (approvers.length > 50) throw new BadRequestException('Approval policies require too many approvers. Ask an administrator to consolidate the policies.');
       const pin = { documentId: document.id, documentSha256: document.sha256, contractVersion: current.version };
-      await tx.approvalRouting.create({ data: { contractId, approvers, routedBy: actor.email.toLowerCase(), expiresAt: new Date(Date.now() + this.routingTtlMs), recommendation: dto.note?.trim() || null, ...pin } });
+      await tx.approvalRouting.create({ data: { contractId, approvers, routedBy: actor.email.toLowerCase(), expiresAt: new Date(Date.now() + this.routingTtlMs), recommendation: dto.note?.trim() || null, policyEvidence: requirements, ...pin } });
       for (const email of approvers) {
         const user = await tx.user.findUnique({ where: { email } });
         if (!user || !can(normalizeRole(user.role), 'approve')) throw new ForbiddenException('Every approver must hold current approval authority in Concord.');
-        await tx.approvalStep.create({ data: { id: randomUUID(), contractId, approverEmail: email, approverName: user.name, reason: dto.note?.trim() || 'Legal has requested your approval of this agreement and its recorded deviations.' } });
+        await tx.approvalStep.create({ data: { id: randomUUID(), contractId, approverEmail: email, approverName: user.name, reason: requirements.filter(p => p.approvers.includes(email)).map(p => p.reason).join('; ') || dto.note?.trim() || 'Legal has requested your approval of this agreement and its recorded deviations.' } });
         await tx.requestNotification.create({ data: { id: randomUUID(), contractId, requestId: current.intakeRequest?.id ?? null, recipientId: user.id, kind: `approval-request:${current.version}`, title: `Approval required: ${current.title}`, body: `${actor.name} requests your decision. ${current.counterparty} · ${current.valueDisplay} · ${current.risk} risk. ${dto.note?.trim() || ''}`, emailStatus: isGraphConfigured() ? 'queued' : 'awaiting-configuration' } });
       }
       await tx.contract.update({ where: { id: contractId }, data: { stage: 'approval', lifecycleRevision: { increment: 1 } } });
-      await this.audit.recordInTransaction(tx, { actor, action: 'approval.requested', entity: 'contract', entityId: contractId, summary: 'Approval cards created for every required approver', metadata: { approvers, ...pin, delivery: 'in-app', outlook: isGraphConfigured() ? 'queued' : 'awaiting-configuration', recommendation: dto.note } });
+      await this.audit.recordInTransaction(tx, { actor, action: 'approval.requested', entity: 'contract', entityId: contractId, summary: 'Approval cards created for every required approver', metadata: { approvers, policies: requirements, ...pin, delivery: 'in-app', outlook: isGraphConfigured() ? 'queued' : 'awaiting-configuration', recommendation: dto.note } });
     }, { timeout: 20_000, maxWait: 10_000 });
     return this.approvalWorkspace(contractId, actor);
   }

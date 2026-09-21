@@ -1,3 +1,6 @@
+import { ApprovalPolicyController } from '../src/workflow/approval-policy.controller';
+import { RoundAnalysisService } from '../src/negotiation/round-analysis.service';
+import { ObligationExtractionService } from '../src/obligations/obligation-extraction.service';
 import { randomUUID, createHash } from 'crypto';
 import type { AuthUser } from '@concord/shared';
 import { AuditService } from '../src/audit/audit.service';
@@ -38,7 +41,7 @@ describeDb('Department portal on PostgreSQL', () => {
   });
   beforeEach(async () => {
     // The hostname + database-name guard above is mandatory for this cleanup.
-    await db.$executeRawUnsafe('TRUNCATE TABLE "GuestAuthLimit", "RequestNotification", "IntakeRequest", "ApprovalRouting", "ApprovalDecision", "SignatureRequest", "ArchivedDocument", "Contract", "User", "AuditEvent", "AuditAnchor" CASCADE');
+    await db.$executeRawUnsafe('TRUNCATE TABLE "ApprovalPolicy", "GuestAuthLimit", "RequestNotification", "IntakeRequest", "ApprovalRouting", "ApprovalDecision", "SignatureRequest", "ArchivedDocument", "Contract", "User", "AuditEvent", "AuditAnchor" CASCADE');
     await db.user.createMany({ data: Object.values(actors).map(a => ({ ...a, password: '', roleSource: 'manual' })) });
     configured.mockReturnValue(false); mail.sendEmail.mockReset();
   });
@@ -633,6 +636,91 @@ describeDb('Department portal on PostgreSQL', () => {
     expect((await f.agreements.snapshot(f.id,actors.counsel)).contract).toMatchObject({ waitingFor: 'legal', nextAction: 'Prepare the approved document for signature' });
     await db.signatureRequest.create({ data: { id: randomUUID(), contractId: f.id, contractTitle: f.request.title, status: 'sent', provider: 'test-fixture', signatories: [], audit: [] } });
     expect((await f.agreements.work(actors.counsel)).items[0]).toMatchObject({ waitingFor: 'signatory', waitingOn: 'Signatories' });
+  });
+
+  it('enforces policy approvers, revision safety and policy evidence in a real approval round', async () => {
+    const f = await readyForReview(); const id = f.request.contractId;
+    const policy = new ApprovalPolicyController(prisma,audit);
+    const input: any = { id: randomUUID(), revision: 0, name: 'Finance threshold', enabled: true, conditions: { minimumValue: 10000, currency: 'INR' }, approvers: [actors.approver.email] };
+    await policy.save(input,{ user: actors.admin });
+    await expect(policy.save(input,{ user: actors.admin })).rejects.toThrow('changed');
+    await f.workflow.routeInApp(id,{ approvers: [], note: 'Legal recommendation' },actors.counsel);
+    const route = await db.approvalRouting.findUnique({ where: { contractId: id } });
+    expect(route.approvers).toEqual([actors.approver.email]);
+    expect(route.policyEvidence[0]).toMatchObject({ policyId: input.id, revision: 1 });
+    expect((await db.approvalStep.findFirst({ where: { contractId: id } })).reason).toContain('Finance threshold');
+    await policy.save({ ...input, revision: 1, enabled: false },{ user: actors.admin });
+    expect((await db.approvalRouting.findUnique({ where: { contractId: id } })).policyEvidence[0].revision).toBe(1);
+  });
+  it('blocks invalid mandatory approvers and the legacy routing bypass', async () => {
+    const f = await readyForReview(); const id = f.request.contractId;
+    await db.approvalPolicy.create({ data: { id: randomUUID(), name: 'Mandatory review', conditions: {}, approvers: [actors.viewer.email], updatedBy: actors.admin.id } });
+    await expect(f.workflow.routeInApp(id,{ approvers: [actors.lead.email] },actors.counsel)).rejects.toThrow('approval authority');
+    expect(await db.approvalRouting.count()).toBe(0);
+    await expect(f.workflow.requestApproval(id,{ approvers: [actors.lead.email] },actors.counsel.email)).rejects.toThrow('mandatory policies');
+  });
+  it('changes guest permissions with a version check and invalidates existing sessions', async () => {
+    const f = await negotiationFixture(); const token = await guestLogin(f);
+    const access = { version: 1, expiresAt: new Date(Date.now()+5*86400000).toISOString(), allowDownload: true, allowRedline: false, allowUpload: false, shareExecuted: false };
+    await expect(f.negotiation.access(f.id,f.invite.id,access,actors['other-lawyer'])).rejects.toThrow('another lawyer');
+    await expect(f.negotiation.access(f.id,'other-invitation',access,actors.counsel)).rejects.toThrow();
+    await f.negotiation.access(f.id,f.invite.id,access,actors.counsel);
+    await expect(f.auth.authenticate(f.invite.id,token)).rejects.toThrow();
+    await expect(f.negotiation.access(f.id,f.invite.id,access,actors.counsel)).rejects.toThrow('changed');
+    const entry = (await f.negotiation.administration())[0];
+    expect(entry).toMatchObject({ allowRedline: false, version: 2 });
+    for (const secret of ['otpHash','challengeId','sessions','requestHash']) expect(entry).not.toHaveProperty(secret);
+  });
+  it('requires an explicit executed-copy grant and verifies its exact archive and bytes', async () => {
+    const f = await negotiationFixture(); const token = await guestLogin(f);
+    await expect(f.negotiation.executedFile(f.invite.id,token)).rejects.toThrow('not shared');
+    const pdf = Buffer.from('%PDF-1.7\nExecuted test fixture'), key = await f.storage.put(pdf), archiveId = randomUUID();
+    await db.archivedDocument.create({ data: { id: archiveId, requestId: randomUUID(), contractId: f.id, contractTitle: 'Test', signatories: [], completedAt: new Date(), storageKey: key, checksum: createHash('sha256').update(pdf).digest('hex'), format: 'application/pdf', size: pdf.length } });
+    await db.contract.update({ where: { id: f.id }, data: { stage: 'active', executedAt: new Date(), authoritativeArchiveId: archiveId } });
+    await f.negotiation.access(f.id,f.invite.id,{ version: 1, expiresAt: f.invite.expiresAt, allowDownload: false, allowRedline: false, allowUpload: false, shareExecuted: true },actors.counsel);
+    await db.guestInvitation.update({ where: { id: f.invite.id }, data: { otpSentAt: null } });
+    const fresh = await guestLogin(f);
+    expect((await f.negotiation.room(f.invite.id,fresh)).executedAvailable).toBe(true);
+    expect((await f.negotiation.executedFile(f.invite.id,fresh)).buffer).toEqual(pdf);
+    await db.archivedDocument.update({ where: { id: archiveId }, data: { checksum: 'tampered' } });
+    await expect(f.negotiation.executedFile(f.invite.id,fresh)).rejects.toThrow('integrity');
+    await f.negotiation.revoke(f.id,f.invite.id,actors.counsel);
+    await expect(f.negotiation.executedFile(f.invite.id,fresh)).rejects.toThrow();
+  });
+  it('queues one internal round analysis and never includes it in the guest projection', async () => {
+    process.env.AI_REVIEW_PROVIDER = 'none';
+    try {
+      const f = await negotiationFixture(); const token = await guestLogin(f); const room = await f.negotiation.room(f.invite.id,token);
+      const responseId = randomUUID();
+      await f.negotiation.respond(f.invite.id,token,{ id: responseId, documentId: room.documentId, sections: room.sections.map((s: any) => ({ ...s, body: s.body+' Each party shall protect personal data.' })) });
+      const worker = new RoundAnalysisService(prisma,f.storage as any,audit);
+      await Promise.all([worker.processNext(),worker.processNext()]);
+      expect(await db.negotiationAnalysis.count()).toBe(1);
+      expect((await db.negotiationAnalysis.findUnique({ where: { responseId } })).status).toBe('unavailable');
+      expect((await f.negotiation.workspace(f.id,actors.counsel)).responses[0].analysis.detail).toContain('Configure Legal AI');
+      expect((await f.negotiation.room(f.invite.id,token)).response).not.toHaveProperty('analysis');
+      expect(await db.auditEvent.count({ where: { action: 'negotiation.round_analyzed' } })).toBe(1);
+    } finally { delete process.env.AI_REVIEW_PROVIDER; }
+  });
+  it('extracts source-backed commitments once, with no reminders until Legal confirms', async () => {
+    process.env.AI_REVIEW_PROVIDER = 'none'; process.env.OCR_PROVIDER = 'none';
+    try {
+      const f = await readyForReview(); const id = f.request.contractId;
+      const doc = await db.document.findFirst({ where: { contractId: id } });
+      await db.document.update({ where: { id: doc.id }, data: { extractedText: 'Supplier shall maintain insurance and provide annual certificates. Customer shall pay invoices within 30 days.' } });
+      const signatureId = randomUUID(), archiveId = randomUUID(), pdf = Buffer.from('%PDF-1.7\nExecuted test'), key = await f.storage.put(pdf);
+      await db.signatureRequest.create({ data: { id: signatureId, contractId: id, contractTitle: 'Test', status: 'completed', provider: 'fixture', signatories: [], audit: [], documentId: doc.id, documentSha256: doc.sha256 } });
+      await db.archivedDocument.create({ data: { id: archiveId, requestId: signatureId, contractId: id, contractTitle: 'Test', signatories: [], completedAt: new Date(), storageKey: key, checksum: createHash('sha256').update(pdf).digest('hex'), format: 'application/pdf', size: pdf.length } });
+      await db.contract.update({ where: { id }, data: { authoritativeArchiveId: archiveId, executedAt: new Date(), stage: 'active' } });
+      const worker = new ObligationExtractionService(prisma,f.storage as any,audit);
+      await worker.request(id,actors.counsel,true);
+      await Promise.all([worker.processNext(),worker.processNext()]);
+      const rows = await db.agreementObligation.findMany({ where: { contractId: id } });
+      expect(rows).toHaveLength(2); expect(rows.every((o: any) => !o.confirmed && o.dueDate === '' && o.evidence.includes('Approved source'))).toBe(true);
+      expect((await worker.request(id,actors.counsel)).source).toBe('approved-source');
+      await db.obligationExtraction.update({ where: { archiveId }, data: { status: 'queued' } }); await worker.processNext();
+      expect(await db.agreementObligation.count({ where: { contractId: id } })).toBe(2);
+    } finally { delete process.env.AI_REVIEW_PROVIDER; delete process.env.OCR_PROVIDER; }
   });
 
 });

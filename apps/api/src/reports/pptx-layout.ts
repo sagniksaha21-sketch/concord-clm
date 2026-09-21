@@ -113,7 +113,7 @@ export function createSlides(report: PortfolioReport): string[] {
   const mix: string[] = [text(64, 184, 620, 30, 'Lifecycle stage', 18, t.ink, true), text(865, 184, 340, 30, 'Playbook risk', 18, t.ink, true)];
   const max = Math.max(1, ...report.stageCounts.map((s) => s.count));
   report.stageCounts.forEach((stage, i) => {
-    const y = 246 + i * 50;
+    const y = 236 + i * Math.min(50, 405 / report.stageCounts.length);
     mix.push(text(64, y, 150, 24, stage.label, 13, t.secondary));
     mix.push(rect(223, y + 5, 453, 14, t.inset));
     if (stage.count) mix.push(rect(223, y + 5, 453 * stage.count / max, 14, t.gold));
@@ -155,6 +155,18 @@ export function createSlides(report: PortfolioReport): string[] {
   commitments.push(text(904, 375, 290, 168, wrap(sigRestricted ? 'Execution detail is unavailable for this role or source.' : 'Open requests awaiting completion by the required signatories.', 27), 15, t.secondary));
   add('Commitments & execution', `Showing ${Math.min(6, report.obligations.length)} of ${report.obligations.length} selected ${obligationLabel}, ordered by recorded due date.`, commitments);
 
+  if (report.negotiation) {
+    const n = report.negotiation;
+    const timing = [text(64,190,1120,40,`${n.agreements.length} agreements · ${n.completedCount} agreed forms`,24,t.ink,true),
+      text(64,264,1120,40,`Median time to agreed form: ${n.medianCompletionDays === null ? 'No completed observations' : n.medianCompletionDays+' days'}`,21,t.gold),
+      text(64,336,1120,40,`Legal response: ${n.medianLegalHours === null ? 'Not yet recorded' : n.medianLegalHours+' hours'} (${n.legalResponseSamples} responses)`,18,t.ink),
+      text(64,396,1120,40,`Counterparty response: ${n.medianCounterpartyHours === null ? 'Not yet recorded' : n.medianCounterpartyHours+' hours'} (${n.counterpartyResponseSamples} responses)`,18,t.ink),
+      text(64,500,1120,80,wrap('Calendar elapsed time from recorded sharing, submission and Legal review events. Open negotiations are excluded from completion medians. Download Excel for agreement-level evidence.',105),14,t.secondary)];
+    add('Negotiation performance','Recorded response time and completed negotiation cycles.',timing);
+    const patterns = n.clausePatterns.slice(0,7).flatMap((p,i) => [text(64,205+i*54,770,28,p.topic,16,t.ink),text(884,205+i*54,300,28,`${p.changes} changes`,16,t.gold)]);
+    if (!patterns.length) patterns.push(text(64,230,1100,70,'No recorded counterparty changes in this scope.',22,t.secondary));
+    add('Recurring negotiation topics','Text-based categories of changed provisions; not AI risk classifications. Agreement evidence is in Excel.',patterns);
+  }
   if (options.prompt) {
     const lines = wrap(options.prompt, 98).split('\n');
     for (let offset = 0; offset < lines.length; offset += 17) {

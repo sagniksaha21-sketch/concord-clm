@@ -1,4 +1,5 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { negotiationMetrics } from './negotiation-metrics';
+import { BadRequestException, ForbiddenException, Injectable, Logger } from '@nestjs/common';
 import {
   can,
   Contract,
@@ -24,7 +25,9 @@ import { ReportAiService } from './report-ai.service';
 import { describeReportSelection, normalizeReportOptions, selectReportRows } from './report-selection';
 
 const STAGE_LABELS: Record<string, string> = {
-  intake: 'Intake',
+  intake: 'Request',
+  negotiation: 'Negotiation',
+  agreed: 'Agreed form',
   drafting: 'Drafting',
   review: 'Review',
   approval: 'Approval',
@@ -103,7 +106,17 @@ export class ReportsService {
       ? allObligations
       : allObligations.filter((row) => row.type !== 'signature');
     const selected = selectReportRows({ contracts: allContracts, obligations: visibleObligations, signatures }, options, generatedAt);
-    const contracts = selected.contracts;
+    let contracts = selected.contracts;
+    let negotiation: import('@concord/shared').NegotiationMetrics | undefined;
+    if (options.focus === 'negotiation' && !can(role,'contract:write')) throw new ForbiddenException('Negotiation reporting requires Legal access.');
+    if (this.prisma.enabled && can(role,'contract:write')) {
+      const details = await this.prisma.client.contract.findMany({ where: { id: { in: contracts.map(c => c.id) } }, select: { id: true, title: true, counterparty: true, agreedAt: true } });
+      const rounds = await this.prisma.client.negotiationRound.findMany({ where: { contractId: { in: details.map((c: any) => c.id) } }, include: { responses: { select: { createdAt: true, reviewedAt: true, changes: true, invitation: { select: { createdAt: true } } } } } });
+      negotiation = negotiationMetrics(details,rounds,generatedAt);
+      if (options.focus === 'negotiation') contracts = contracts.filter(c => negotiation!.agreements.some(a => a.id === c.id));
+    } else restricted.push('negotiation');
+    const selectedIds = new Set(contracts.map(c => c.id));
+    if (options.focus === 'negotiation') { selected.obligations = selected.obligations.filter(o => selectedIds.has(o.contractId)); selected.signatures = selected.signatures.filter(s => selectedIds.has(s.contractId)); }
     signatures = selected.signatures;
     const obligationRows = selected.obligations
       .map((row) => this.toObligationRow(row))
@@ -165,6 +178,7 @@ export class ReportsService {
     });
 
     return {
+      negotiation,
       scope: 'portfolio',
       generatedAt,
       dataMode: sampleData ? 'illustrative' : 'live',

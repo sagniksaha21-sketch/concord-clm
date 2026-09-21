@@ -1,0 +1,13 @@
+'use client';
+import { useState } from 'react';
+import { actOnNegotiation } from '@/app/lib/api';
+import { errorMessage, RequestError } from './RequestUI';
+export default function GuestAccessEditor({ invitation, contractId, executed, onChange }: { invitation: { id: string; name: string; version: number; expiresAt: string; allowDownload: boolean; allowRedline: boolean; allowUpload: boolean; executedArchiveId?: string }; contractId: string; executed: boolean; onChange: () => void }) {
+  const [open,setOpen] = useState(false), [busy,setBusy] = useState(false), [error,setError] = useState('');
+  async function save(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault(); const f = new FormData(e.currentTarget); setBusy(true); setError('');
+    try { await actOnNegotiation(contractId,`invitations/${invitation.id}/access`,{ version: invitation.version, expiresAt: new Date(String(f.get('expiry'))).toISOString(), allowDownload: f.get('download') === 'on', allowRedline: f.get('redline') === 'on', allowUpload: f.get('upload') === 'on', shareExecuted: f.get('executed') === 'on' }); setOpen(false); onChange(); }
+    catch(e) { setError(errorMessage(e)); } finally { setBusy(false); }
+  }
+  return <div className="guest-access-controls"><button className="btn" aria-expanded={open} onClick={() => setOpen(!open)}>Manage access<span className="sr-only"> for {invitation.name}</span></button>{open && <form className="req-form" onSubmit={save}><h4>Access for {invitation.name}</h4><label className="req-field">Expires at · your local time<input required name="expiry" type="datetime-local" defaultValue={new Date(new Date(invitation.expiresAt).getTime()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,16)} /></label><div className="guest-permissions"><label><input name="download" type="checkbox" defaultChecked={invitation.allowDownload} />Download shared draft</label>{!executed && <><label><input name="redline" type="checkbox" defaultChecked={invitation.allowRedline} />Suggest changes</label><label><input name="upload" type="checkbox" defaultChecked={invitation.allowUpload} />Upload Word redline</label></>}{executed && <label><input name="executed" type="checkbox" defaultChecked={!!invitation.executedArchiveId} />Share authoritative executed PDF for download</label>}</div><p className="req-help">Saving ends existing guest sessions. The participant must verify their email again. Access can last up to 30 days.</p>{error && <RequestError message={error} />}<div className="req-actions"><button type="button" className="btn" onClick={() => setOpen(false)} disabled={busy}>Cancel</button><button className="btn btn-gold" disabled={busy}>{busy ? 'Saving…' : 'Save permissions'}</button></div></form>}</div>;
+}

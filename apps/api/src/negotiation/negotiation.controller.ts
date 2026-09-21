@@ -3,7 +3,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { Public, Roles } from '../auth/rbac';
 import { GuestAuthService, guestCookieName, guestCookiePath } from './guest-auth.service';
 import { GuestBrowserGuard } from './guest-browser.guard';
-import { GuestAcceptDto, GuestCommentDto, GuestEmailDto, GuestOtpDto, GuestResponseDto, GuestUploadDto, InviteGuestDto, NegotiationVersionDto } from './negotiation.dto';
+import { GuestAcceptDto, GuestCommentDto, GuestEmailDto, GuestOtpDto, GuestResponseDto, GuestUploadDto, InviteGuestDto, NegotiationVersionDto, GuestAccessDto } from './negotiation.dto';
 import { NegotiationService } from './negotiation.service';
 
 @Controller('agreements/:id/negotiation') @Roles('contract:write')
@@ -12,6 +12,8 @@ export class NegotiationController {
   @Get() @Header('Cache-Control','private, no-store') workspace(@Param('id') id: string, @Req() req: any) { return this.negotiation.workspace(id,req.user); }
   @Post('invitations') invite(@Param('id') id: string, @Req() req: any, @Body() dto: InviteGuestDto) { return this.negotiation.invite(id,dto,req.user); }
   @Post('invitations/:invitationId/revoke') revoke(@Param('id') id: string, @Param('invitationId') invite: string, @Req() req: any) { return this.negotiation.revoke(id,invite,req.user); }
+  @Post('invitations/:invitationId/access') access(@Param('id') id: string, @Param('invitationId') invite: string, @Req() req: any, @Body() dto: GuestAccessDto) { return this.negotiation.access(id,invite,dto,req.user); }
+  @Post('responses/:responseId/analysis') analysis(@Param('id') id: string, @Param('responseId') response: string, @Req() req: any) { return this.negotiation.retryAnalysis(id,response,req.user); }
   @Post('share') share(@Param('id') id: string, @Req() req: any, @Body() dto: NegotiationVersionDto) { return this.negotiation.share(id,dto,req.user); }
   @Post('responses/:responseId/reviewed') reviewed(@Param('id') id: string, @Param('responseId') responseId: string, @Req() req: any, @Body() dto: NegotiationVersionDto) { return this.negotiation.reviewed(id,responseId,dto,req.user); }
   @Post('agreed') agreed(@Param('id') id: string, @Req() req: any, @Body() dto: NegotiationVersionDto) { return this.negotiation.agreed(id,dto,req.user); }
@@ -29,13 +31,18 @@ export class GuestNegotiationController {
   @Post('challenge') @Header('Cache-Control','no-store') challenge(@Param('invitationId') id: string, @Req() req: any, @Body() dto: GuestEmailDto) { return this.auth.challenge(id,dto.email,req.ip ?? req.socket.remoteAddress ?? 'unknown'); }
   @Post('verify') @Header('Cache-Control','no-store') async verify(@Param('invitationId') id: string, @Req() req: any, @Res({ passthrough: true }) res: any, @Body() dto: GuestOtpDto) {
     const result = await this.auth.verify(id,dto,req.ip ?? req.socket.remoteAddress ?? 'unknown');
-    res.cookie(guestCookieName(id),result.token,{ httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict', path: guestCookiePath(id), expires: result.expiresAt });
+    res.cookie(guestCookieName(id),result.token,{ httpOnly: true, secure: !['development','test'].includes(process.env.NODE_ENV ?? 'production'), sameSite: 'strict', path: guestCookiePath(id), expires: result.expiresAt });
     return { ok: true };
   }
-  @Post('logout') async logout(@Param('invitationId') id: string, @Req() req: any, @Res({ passthrough: true }) res: any) { await this.auth.logout(id,this.token(req,id)); res.clearCookie(guestCookieName(id),{ path: guestCookiePath(id), httpOnly: true, secure: process.env.NODE_ENV === 'production', sameSite: 'strict' }); return { ok: true }; }
+  @Post('logout') async logout(@Param('invitationId') id: string, @Req() req: any, @Res({ passthrough: true }) res: any) { await this.auth.logout(id,this.token(req,id)); res.clearCookie(guestCookieName(id),{ path: guestCookiePath(id), httpOnly: true, secure: !['development','test'].includes(process.env.NODE_ENV ?? 'production'), sameSite: 'strict' }); return { ok: true }; }
   @Get() @Header('Cache-Control','private, no-store') room(@Param('invitationId') id: string, @Req() req: any) { return this.negotiation.room(id,this.token(req,id)); }
   @Get('file') async file(@Param('invitationId') id: string, @Req() req: any, @Res({ passthrough: true }) res: any) {
     const file = await this.negotiation.guestFile(id,this.token(req,id));
+    res.set({ 'Content-Type': file.contentType, 'Content-Disposition': `attachment; filename="${file.filename.replace(/["\r\n]/g,'_')}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
+    return new StreamableFile(file.buffer);
+  }
+  @Get('executed') async executed(@Param('invitationId') id: string, @Req() req: any, @Res({ passthrough: true }) res: any) {
+    const file = await this.negotiation.executedFile(id,this.token(req,id));
     res.set({ 'Content-Type': file.contentType, 'Content-Disposition': `attachment; filename="${file.filename.replace(/["\r\n]/g,'_')}"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
     return new StreamableFile(file.buffer);
   }
@@ -47,4 +54,10 @@ export class GuestNegotiationController {
     return this.negotiation.respond(id,this.token(req,id),{ ...dto, sections: [] },file);
   }
   @Post('accept') accept(@Param('invitationId') id: string, @Req() req: any, @Body() dto: GuestAcceptDto) { return this.negotiation.accept(id,this.token(req,id),dto.documentId); }
+}
+
+@Controller('guest-access') @Roles('admin')
+export class GuestAccessController {
+  constructor(private readonly negotiation: NegotiationService) {}
+  @Get() @Header('Cache-Control','private, no-store') list() { return this.negotiation.administration(); }
 }

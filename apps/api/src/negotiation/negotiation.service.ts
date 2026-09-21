@@ -1,3 +1,4 @@
+import { cleanWordForSharing, preserveWord } from '../agreements/preserve-word';
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException } from '@nestjs/common';
 import { randomUUID, createHash } from 'crypto';
 import { AuthUser, DraftSection, compareSections, normalizeRole } from '@concord/shared';
@@ -12,7 +13,7 @@ import { readEditableDocument } from '../agreements/read-document';
 import { recordVersion } from '../agreements/version-record';
 import { GuestAuthService } from './guest-auth.service';
 import { canonicalJson } from '../common/canonical-json';
-import { InviteGuestDto, NegotiationVersionDto, GuestResponseDto, GuestCommentDto } from './negotiation.dto';
+import { InviteGuestDto, NegotiationVersionDto, GuestResponseDto, GuestCommentDto, GuestAccessDto } from './negotiation.dto';
 
 const latestDocument = { where: { status: { not: 'quarantined' }, blobPath: { not: null } }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }] };
 @Injectable()
@@ -39,18 +40,65 @@ export class NegotiationService {
     return this.db().$transaction(async (tx: any) => {
       await this.legal(tx,id,actor);
       const [invitations,responses,rounds] = await Promise.all([
-        tx.guestInvitation.findMany({ where: { contractId: id }, orderBy: { createdAt: 'desc' }, select: { id: true, name: true, email: true, organisation: true, expiresAt: true, responseDueAt: true, revokedAt: true, viewedAt: true, acceptedDocumentId: true, roundId: true, allowDownload: true, allowRedline: true, allowUpload: true, deliveries: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } } } }),
-        tx.negotiationResponse.findMany({ where: { round: { contractId: id } }, orderBy: { createdAt: 'desc' }, include: { invitation: { select: { name: true, organisation: true } }, round: { select: { number: true } } } }),
+        tx.guestInvitation.findMany({ where: { contractId: id }, orderBy: { createdAt: 'desc' }, select: { id: true, name: true, email: true, organisation: true, expiresAt: true, responseDueAt: true, revokedAt: true, viewedAt: true, acceptedDocumentId: true, roundId: true, allowDownload: true, allowRedline: true, allowUpload: true, version: true, executedArchiveId: true, executedSharedAt: true, deliveries: { orderBy: { createdAt: 'desc' }, take: 1, select: { status: true } } } }),
+        tx.negotiationResponse.findMany({ where: { round: { contractId: id } }, orderBy: { createdAt: 'desc' }, include: { analysis: { select: { status: true, assessments: true, model: true, detail: true, sourceSha256: true, updatedAt: true } }, invitation: { select: { name: true, organisation: true } }, round: { select: { number: true } } } }),
         tx.negotiationRound.findMany({ where: { contractId: id }, orderBy: { number: 'desc' }, select: { id: true, number: true, documentId: true, sha256: true, createdAt: true } }),
       ]);
       return { invitations, responses, rounds, emailConfigured: isGraphConfigured() };
     });
   }
+
+  async administration() {
+    return this.db().guestInvitation.findMany({ orderBy: { createdAt: 'desc' }, take: 500, select: { id: true, name: true, email: true, organisation: true, contractId: true, contract: { select: { title: true, executedAt: true } }, expiresAt: true, revokedAt: true, allowDownload: true, allowRedline: true, allowUpload: true, version: true, executedArchiveId: true } });
+  }
+  async access(id: string, invitationId: string, dto: GuestAccessDto, actor: AuthUser) {
+    const expiry = Date.parse(dto.expiresAt);
+    if (!Number.isFinite(expiry) || expiry <= Date.now() || expiry > Date.now()+30*86400000) throw new BadRequestException('Access must expire within the next 30 days.');
+    await this.db().$transaction(async (tx: any) => {
+      const c = await this.legal(tx,id,actor);
+      const invitation = await tx.guestInvitation.findFirst({ where: { id: invitationId, contractId: id } });
+      if (!invitation || invitation.revokedAt) throw new ForbiddenException('Revoked access cannot be restored. Issue a new invitation.');
+      if (invitation.version !== dto.version) throw new ConflictException('Guest permissions changed. Refresh before saving.');
+      const archive = dto.shareExecuted && c.authoritativeArchiveId ? await tx.archivedDocument.findUnique({ where: { id: c.authoritativeArchiveId } }) : null;
+      if (dto.shareExecuted && (!c.executedAt || !archive || archive.contractId !== id || archive.format !== 'application/pdf')) throw new ConflictException('Share only a verified authoritative executed PDF.');
+      const grantChanged = dto.shareExecuted && invitation.executedArchiveId !== archive.id;
+      const data = { expiresAt: new Date(expiry), allowDownload: dto.allowDownload, allowRedline: dto.allowRedline && !c.executedAt, allowUpload: dto.allowUpload && !c.executedAt, executedArchiveId: dto.shareExecuted ? archive.id : null, executedSharedAt: dto.shareExecuted ? invitation.executedSharedAt ?? new Date() : null, otpHash: null, challengeId: null, version: { increment: 1 } };
+      await tx.guestInvitation.update({ where: { id: invitationId }, data });
+      await tx.guestSession.deleteMany({ where: { invitationId } });
+      if (grantChanged) await tx.guestDelivery.upsert({ where: { invitationId_roundId_kind: { invitationId, roundId: invitation.roundId, kind: `executed:${archive.id}` } }, update: {}, create: { id: randomUUID(), invitationId, roundId: invitation.roundId, kind: `executed:${archive.id}`, status: isGraphConfigured() ? 'queued' : 'awaiting-configuration' } });
+      await this.audit.recordInTransaction(tx,{ actor, action: 'negotiation.access_updated', entity: 'contract', entityId: id, summary: dto.shareExecuted ? 'Executed copy explicitly shared with an invited participant' : 'External access updated', metadata: { invitationId, version: dto.version + 1, expiresAt: dto.expiresAt, allowDownload: dto.allowDownload, allowRedline: data.allowRedline, allowUpload: data.allowUpload, archiveId: data.executedArchiveId, sessionsRevoked: true } });
+    });
+    return this.workspace(id,actor);
+  }
+  async executedFile(invitationId: string, token: string) {
+    const invitation = await this.auth.authenticate(invitationId,token);
+    const c = await this.db().contract.findUnique({ where: { id: invitation.contractId } });
+    if (!invitation.executedArchiveId || invitation.executedArchiveId !== c?.authoritativeArchiveId || !c.executedAt) throw new ForbiddenException('Legal has not shared the executed copy with this invitation.');
+    const archive = await this.db().archivedDocument.findUnique({ where: { id: invitation.executedArchiveId } });
+    if (!archive || archive.contractId !== c.id || archive.format !== 'application/pdf') throw new ForbiddenException('Executed copy is unavailable.');
+    const file = await this.storage.get(archive.storageKey);
+    if (createHash('sha256').update(file.buffer).digest('hex') !== archive.checksum) throw new ConflictException('Executed copy failed its integrity check.');
+    const current = await this.auth.authenticate(invitationId,token);
+    if (current.version !== invitation.version || current.executedArchiveId !== archive.id) throw new ForbiddenException('Executed-copy access changed. Sign in again.');
+    await this.audit.record({ action: 'negotiation.executed_downloaded', entity: 'contract', entityId: c.id, summary: 'Authorised guest downloaded the executed agreement', metadata: { invitationId, archiveId: archive.id, checksum: archive.checksum } });
+    return { buffer: file.buffer, contentType: 'application/pdf', filename: archive.filename };
+  }
+  async retryAnalysis(id: string, responseId: string, actor: AuthUser) {
+    await this.db().$transaction(async (tx: any) => {
+      await this.legal(tx,id,actor);
+      const response = await tx.negotiationResponse.findFirst({ where: { id: responseId, round: { contractId: id } }, include: { analysis: true } });
+      if (!response) throw new NotFoundException('Response not found.');
+      if (response.analysis?.status === 'processing' || response.analysis?.updatedAt && Date.now()-response.analysis.updatedAt.getTime() < 60000) throw new ConflictException('Analysis is running or was just requested. Try again shortly.');
+      await tx.negotiationAnalysis.upsert({ where: { responseId }, create: { responseId }, update: { status: 'queued', detail: null } });
+      await this.audit.recordInTransaction(tx,{ actor, action: 'negotiation.analysis_requested', entity: 'contract', entityId: id, summary: 'Internal round analysis requested', metadata: { responseId } });
+    });
+    return this.workspace(id,actor);
+  }
   private async currentRound(tx: any, c: any, dto: NegotiationVersionDto, actor: AuthUser, review: any) {
     if (!['review','negotiation'].includes(c.stage) || c.needsNewVersion || c.executedAt || await tx.approvalRouting.findUnique({ where: { contractId: c.id } }) || await tx.signatureRequest.findFirst({ where: { contractId: c.id } })) throw new ConflictException('Complete internal review before sharing a draft. Approved and signing versions are locked.');
-    const { doc } = await this.verifiedDocument(tx,c,dto.documentId);
+    const { doc, file } = await this.verifiedDocument(tx,c,dto.documentId);
     if (review.documentId !== doc.id || review.documentSha256 !== doc.sha256 || review.contractVersion !== c.version) throw new ConflictException('Finish a review of the exact current document before sharing.');
-    if (!c.draft || c.draft.documentId !== doc.id || createHash('sha256').update(draftDocument(c.title,c.draft.sections)).digest('hex') !== doc.sha256) throw new ConflictException('Save a reviewed editing copy before sharing. This removes embedded Word comments and metadata from the external copy. The original stays in Versions.');
+    if (!c.draft || c.draft.documentId !== doc.id || (createHash('sha256').update(draftDocument(c.title,c.draft.sections)).digest('hex') !== doc.sha256 && (doc.model !== 'word-external' || createHash('sha256').update(cleanWordForSharing(file.buffer)).digest('hex') !== doc.sha256))) throw new ConflictException('Save a reviewed editing copy before sharing. This removes embedded Word comments and metadata from the external copy. The original stays in Versions.');
     if (await tx.negotiationResponse.count({ where: { round: { contractId: c.id }, state: 'received' } })) throw new ConflictException('Finish reviewing the received counterparty response before sharing another version.');
     let round = await tx.negotiationRound.findUnique({ where: { contractId_documentId: { contractId: c.id, documentId: doc.id } } });
     if (!round) {
@@ -115,7 +163,7 @@ export class NegotiationService {
       await this.legal(tx,id,actor);
       const invite = await tx.guestInvitation.findFirst({ where: { id: invitationId, contractId: id } });
       if (!invite) throw new NotFoundException('Invitation not found.');
-      await tx.guestInvitation.update({ where: { id: invitationId }, data: { revokedAt: new Date(), otpHash: null, challengeId: null } });
+      await tx.guestInvitation.update({ where: { id: invitationId }, data: { revokedAt: new Date(), otpHash: null, challengeId: null, executedArchiveId: null, version: { increment: 1 } } });
       await tx.guestSession.deleteMany({ where: { invitationId } });
       await tx.guestDelivery.updateMany({ where: { invitationId, status: { in: ['queued','retry','awaiting-configuration'] } }, data: { status: 'cancelled' } });
       await this.audit.recordInTransaction(tx,{ actor, action: 'negotiation.access_revoked', entity: 'contract', entityId: id, summary: 'External participant access revoked', metadata: { invitationId } });
@@ -142,7 +190,7 @@ export class NegotiationService {
         tx.negotiationResponse.findUnique({ where: { invitationId_roundId: { invitationId, roundId: current.roundId } }, select: { id: true, createdAt: true, state: true, changes: true } }),
       ]);
       // Explicit projection: no internal AI, playbook, owner, risk, approvals or audit data.
-      return { title: c.title, sharedBy: 'Lakmē Legal', participant: current.name, organisation: current.organisation, documentId: current.round.documentId, round: current.round.number, sections: current.round.sections, sharedAt: current.round.createdAt, dueAt: current.responseDueAt, expiresAt: current.expiresAt, canDownload: current.allowDownload, canRedline: current.allowRedline && c.stage === 'negotiation' && !response, canUpload: current.allowUpload && c.stage === 'negotiation' && !response, canComment: c.stage === 'negotiation', canAccept: c.stage === 'negotiation' && !response, accepted: current.acceptedDocumentId === current.round.documentId, comments, response };
+      return { executedAvailable: !!current.executedArchiveId && current.executedArchiveId === c.authoritativeArchiveId && !!c.executedAt, title: c.title, sharedBy: 'Lakmē Legal', participant: current.name, organisation: current.organisation, documentId: current.round.documentId, round: current.round.number, sections: current.round.sections, sharedAt: current.round.createdAt, dueAt: current.responseDueAt, expiresAt: current.expiresAt, canDownload: current.allowDownload, canRedline: current.allowRedline && c.stage === 'negotiation' && !response, canUpload: current.allowUpload && c.stage === 'negotiation' && !response, canComment: c.stage === 'negotiation', canAccept: c.stage === 'negotiation' && !response, accepted: current.acceptedDocumentId === current.round.documentId, comments, response };
     });
   }
   async guestFile(invitationId: string, token: string) {
@@ -153,7 +201,7 @@ export class NegotiationService {
     const file = await this.storage.get(doc.blobPath);
     if (createHash('sha256').update(file.buffer).digest('hex') !== invite.round.sha256) throw new ConflictException('The document failed its integrity check.');
     const still = await this.auth.authenticate(invitationId,token);
-    if (still.roundId !== invite.roundId) throw new ConflictException('A newer shared version is available. Refresh the room.');
+    if (!still.allowDownload || still.version !== invite.version || still.roundId !== invite.roundId) throw new ConflictException('A newer shared version is available. Refresh the room.');
     await this.audit.record({ action: 'negotiation.document_downloaded', entity: 'contract', entityId: invite.contractId, summary: 'Invited participant downloaded the shared document', metadata: { invitationId, documentId: doc.id, sha256: invite.round.sha256 } });
     return { ...file, filename: doc.filename };
   }
@@ -207,12 +255,24 @@ export class NegotiationService {
       if (!verdict.ok || verdict.scanEngine === 'error' || process.env.UPLOAD_REQUIRE_SCAN === 'true' && verdict.scan !== 'clean') throw new BadRequestException('The redline could not be cleared by the file scanner.');
       if (!upload.originalname.toLowerCase().endsWith('.docx')) throw new BadRequestException('Upload a Word .docx redline.');
       const parsed = readEditableDocument(upload.buffer,upload.originalname); sections = parsed.sections;
-      original = readEditableDocument(draftDocument(c.title,initial.round.sections as any),'shared.docx').sections;
+      const shared = await this.db().document.findFirst({ where: { id: initial.round.documentId, contractId: initial.contractId } });
+      if (!shared?.blobPath) throw new ConflictException('The shared source is unavailable.');
+      const sharedFile = await this.storage.get(shared.blobPath);
+      if (createHash('sha256').update(sharedFile.buffer).digest('hex') !== initial.round.sha256) throw new ConflictException('Shared source integrity failed.');
+      original = readEditableDocument(sharedFile.buffer,shared.filename).sections;
     }
     const ids = sections.map((s,i) => s.id ?? `section-${i}`);
     if (!sections.length || sections.length > 100 || new Set(ids).size !== ids.length || sections.every(s => !s.body.trim())) throw new BadRequestException('Provide a complete proposed document with distinct clauses.');
     sections = sections.map((s,i) => ({ ...s, id: ids[i] }));
-    const bytes = upload?.buffer ?? draftDocument(c.title,sections), filename = upload?.originalname ?? `counterparty-${dto.id}.docx`;
+    let bytes = upload?.buffer ?? draftDocument(c.title,sections);
+    const filename = upload?.originalname ?? `counterparty-${dto.id}.docx`;
+    if (!upload && (initial.round.sections as any[]).some(s => s.kind === 'paragraph')) {
+      const shared = await this.db().document.findFirst({ where: { id: initial.round.documentId, contractId: initial.contractId } });
+      if (!shared?.blobPath) throw new ConflictException('The shared source is unavailable.');
+      const file = await this.storage.get(shared.blobPath);
+      if (createHash('sha256').update(file.buffer).digest('hex') !== initial.round.sha256) throw new ConflictException('Shared source integrity failed.');
+      bytes = preserveWord(file.buffer,sections);
+    }
     const requestHash = createHash('sha256').update(canonicalJson({ documentId: dto.documentId, sections, source: upload ? 'word' : 'browser', fileHash: createHash('sha256').update(bytes).digest('hex') })).digest('hex');
     const verdict = await this.security.check({ originalname: filename, buffer: bytes });
     if (!verdict.ok || verdict.scanEngine === 'error' || process.env.UPLOAD_REQUIRE_SCAN === 'true' && verdict.scan !== 'clean') throw new BadRequestException('The response could not be cleared for storage.');
@@ -227,6 +287,7 @@ export class NegotiationService {
       const doc = await tx.document.create({ data: { contractId: contract.id, filename, documentType: contract.type, confidence: 100, status: 'validated', extraction: {}, validations: [], notes: ['Counterparty proposal; requires Legal review.'], model: 'counterparty', blobPath, sha256, extractedText: sections.map(s => `${s.heading}\n${s.body}`).join('\n\n') } });
       await recordVersion(tx,{ contract, documentId: doc.id, guest: { id: invitationId, name: invite.name, organisation: invite.organisation }, source: upload ? 'counterparty-word' : 'counterparty-redline', reason: `Counterparty response, round ${invite.round.number}`, sections, round: invite.round.number });
       await tx.negotiationResponse.create({ data: { id: dto.id, requestHash, invitationId, roundId: invite.roundId, documentId: doc.id, sections, originalSections: original, changes: compareSections(original,sections), source: upload ? 'word' : 'browser' } });
+      await tx.negotiationAnalysis.create({ data: { responseId: dto.id } });
       await tx.agreementDraft.upsert({ where: { contractId: contract.id }, create: { contractId: contract.id, documentId: doc.id, sections, model: 'counterparty', updatedBy: invitationId }, update: { documentId: doc.id, sections, model: 'counterparty', updatedBy: invitationId, revision: { increment: 1 } } });
       await tx.contract.update({ where: { id: contract.id }, data: { negotiationState: 'changes-received', lifecycleRevision: { increment: 1 } } });
       await this.notify(tx,contract,'response',`${invite.name} submitted changes`,`${compareSections(original,sections).length} clause changes received in round ${invite.round.number}. Open the agreement to review them.`);
