@@ -425,7 +425,8 @@ export class WorkflowService {
       await tx.$queryRawUnsafe('SELECT 1 AS locked FROM pg_advisory_xact_lock(728461)');
       const requirements = evaluateApprovalPolicies(await tx.approvalPolicy.findMany({ where: { enabled: true } }), current);
       const approvers = [...new Set([...additional, ...requirements.flatMap(p => p.approvers)])];
-      if (!approvers.length || approvers.includes(actor.email.toLowerCase())) throw new ForbiddenException('An independent approver is required. Ask another Legal owner to route if a mandatory policy names you.');
+      if (!approvers.length) throw new ForbiddenException('An independent approver is required. Select a reviewer before routing.');
+      if (approvers.includes(actor.email.toLowerCase())) throw new ForbiddenException('You cannot approve your own routing. Ask another Legal owner to route if a mandatory policy names you.');
       if (approvers.length > 50) throw new BadRequestException('Approval policies require too many approvers. Ask an administrator to consolidate the policies.');
       const pin = { documentId: document.id, documentSha256: document.sha256, contractVersion: current.version };
       await tx.approvalRouting.create({ data: { contractId, approvers, routedBy: actor.email.toLowerCase(), expiresAt: new Date(Date.now() + this.routingTtlMs), recommendation: dto.note?.trim() || null, policyEvidence: requirements, ...pin } });
