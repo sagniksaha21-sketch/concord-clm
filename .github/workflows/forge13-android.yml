@@ -1,0 +1,54 @@
+name: Forge 13 Android APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [forge-13-native]
+    paths:
+      - 'forge13-native/**'
+      - '.github/workflows/forge13-android.yml'
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Create React Native 0.87 project
+        run: |
+          cd /tmp
+          npx --yes @react-native-community/cli@latest init Forge13 --version 0.87.0 --pm npm --install-pods false --skip-git-init true --package-name com.forge.training
+      - name: Apply FORGE 13 source
+        run: |
+          cp forge13-native/App.tsx /tmp/Forge13/App.tsx
+          cd /tmp/Forge13
+          npm install @react-native-async-storage/async-storage react-native-image-picker react-native-share react-native-view-shot react-native-svg
+      - name: Set display name
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/Forge13/android/app/src/main/res/values/strings.xml')
+          s=p.read_text().replace('<string name="app_name">Forge13</string>','<string name="app_name">FORGE</string>')
+          p.write_text(s)
+          PY
+      - name: Build installable APK
+        working-directory: /tmp/Forge13/android
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+      - name: Stage APK
+        run: |
+          mkdir -p forge13-output
+          cp /tmp/Forge13/android/app/build/outputs/apk/debug/app-debug.apk forge13-output/FORGE-13-Native-Preview.apk
+          sha256sum forge13-output/FORGE-13-Native-Preview.apk > forge13-output/FORGE-13-Native-Preview.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FORGE-13-Native-Preview
+          path: forge13-output/*
+          retention-days: 30
