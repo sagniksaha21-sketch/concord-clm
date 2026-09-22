@@ -65,6 +65,33 @@ npm test
 node scripts/static-check.mjs
 node scripts/check-body.mjs
 
+echo "[FORGE] Normalizing Expo Android 16 config"
+node - <<'NODE'
+const fs=require('fs');
+if(fs.existsSync('app.json')){
+  const cfg=JSON.parse(fs.readFileSync('app.json','utf8'));
+  let removed=0;
+  const walk=(v)=>{
+    if(!v||typeof v!=='object') return;
+    if(Object.prototype.hasOwnProperty.call(v,'edgeToEdgeEnabled')){
+      delete v.edgeToEdgeEnabled; removed++;
+    }
+    for(const x of Object.values(v)) walk(x);
+  };
+  walk(cfg);
+  fs.writeFileSync('app.json',JSON.stringify(cfg,null,2)+'\\n');
+  console.log('[FORGE] edgeToEdgeEnabled entries removed:',removed);
+}
+NODE
+
+# Defensive cleanup for JS config variants if present.
+if [ -f app.config.js ]; then
+  sed -i '/edgeToEdgeEnabled[[:space:]]*:/d' app.config.js
+fi
+if [ -f app.config.ts ]; then
+  sed -i '/edgeToEdgeEnabled[[:space:]]*:/d' app.config.ts
+fi
+
 echo "[FORGE] Generating Android native project"
 npx expo prebuild --platform android --no-install
 
