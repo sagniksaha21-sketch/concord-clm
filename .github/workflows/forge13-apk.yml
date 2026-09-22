@@ -13,6 +13,9 @@ jobs:
   build-apk:
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - name: Checkout build branch
         uses: actions/checkout@v4
@@ -28,14 +31,15 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK 36
+      - name: Verify and install Android SDK 36
         shell: bash
         run: |
+          set -euxo pipefail
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/16.0/bin:$ANDROID_HOME/platform-tools:$PATH"
+          sdkmanager --version
           yes | sdkmanager --licenses >/dev/null || true
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+          adb --version
 
       - name: Rehydrate Forge 13 native source
         shell: bash
