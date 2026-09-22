@@ -79,7 +79,7 @@ if(fs.existsSync('app.json')){
     for(const x of Object.values(v)) walk(x);
   };
   walk(cfg);
-  fs.writeFileSync('app.json',JSON.stringify(cfg,null,2)+'\\n');
+  fs.writeFileSync('app.json',JSON.stringify(cfg,null,2));
   console.log('[FORGE] edgeToEdgeEnabled entries removed:',removed);
 }
 NODE
