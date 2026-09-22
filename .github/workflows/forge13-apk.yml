@@ -1,0 +1,111 @@
+name: Forge 13 APK
+
+on:
+  push:
+    branches:
+      - forge13-native-apk
+    paths:
+      - ".forge13/**"
+      - ".github/workflows/forge13-apk.yml"
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK 36
+        shell: bash
+        run: |
+          yes | sdkmanager --licenses >/dev/null || true
+          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Rehydrate Forge 13 native source
+        shell: bash
+        run: |
+          set -euxo pipefail
+          rm -rf forge13
+          mkdir -p forge13
+          cat .forge13/src.* | base64 -d > /tmp/forge13.tgz
+          tar -xzf /tmp/forge13.tgz -C forge13
+          test -f forge13/package.json
+          test -f forge13/app.json
+
+      - name: Restore canonical FORGE visual assets
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p forge13/assets/programmes forge13/assets/splash
+          BASE="https://forge-v120-2.vercel.app"
+          curl --retry 3 --retry-delay 2 -fL "$BASE/assets/FORGE-HD-Chest-Shoulders.jpg" -o forge13/assets/programmes/chest-shoulders.jpg
+          curl --retry 3 --retry-delay 2 -fL "$BASE/assets/FORGE-HD-Back-Biceps.jpg" -o forge13/assets/programmes/back-biceps.jpg
+          curl --retry 3 --retry-delay 2 -fL "$BASE/assets/FORGE-HD-Legs-Triceps.jpg" -o forge13/assets/programmes/legs-triceps.jpg
+          curl --retry 3 --retry-delay 2 -fL "$BASE/assets/FORGE-SPLASH-01.jpg" -o forge13/assets/splash/01.jpg
+          curl --retry 3 --retry-delay 2 -fL "$BASE/assets/FORGE-SPLASH-02.jpg" -o forge13/assets/splash/02.jpg
+          curl --retry 3 --retry-delay 2 -fL "$BASE/assets/FORGE-SPLASH-03.jpg" -o forge13/assets/splash/03.jpg
+          curl --retry 3 --retry-delay 2 -fL "$BASE/assets/FORGE-SPLASH-04.jpg" -o forge13/assets/splash/04.jpg
+          curl --retry 3 --retry-delay 2 -fL "$BASE/assets/analytics-body-poster.png" -o forge13/assets/body-poster.png
+          curl --retry 3 --retry-delay 2 -fL "$BASE/icon-512.png" -o forge13/assets/icon.png
+          curl --retry 3 --retry-delay 2 -fL "$BASE/icon-maskable-512.png" -o forge13/assets/adaptive-icon.png
+          test -s forge13/assets/icon.png
+          test -s forge13/assets/body-poster.png
+
+      - name: Install JavaScript dependencies
+        working-directory: forge13
+        env:
+          CI: "1"
+        run: npm install --no-audit --no-fund
+
+      - name: Forge regression checks
+        working-directory: forge13
+        run: |
+          npm test
+          node scripts/static-check.mjs
+          node scripts/parse-ts.mjs
+
+      - name: Generate native Android project
+        working-directory: forge13
+        env:
+          CI: "1"
+        run: npx expo prebuild --platform android --clean --no-install
+
+      - name: Build installable release APK
+        working-directory: forge13/android
+        env:
+          CI: "1"
+          NODE_ENV: production
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+          test -f app/build/outputs/apk/release/app-release.apk
+          cp app/build/outputs/apk/release/app-release.apk ../../FORGE-13.0.0-alpha1.apk
+
+      - name: APK checksum
+        run: sha256sum FORGE-13.0.0-alpha1.apk | tee FORGE-13.0.0-alpha1-SHA256.txt
+
+      - name: Upload Forge APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FORGE-13.0.0-alpha1-APK
+          path: |
+            FORGE-13.0.0-alpha1.apk
+            FORGE-13.0.0-alpha1-SHA256.txt
+          if-no-files-found: error
+          retention-days: 30
