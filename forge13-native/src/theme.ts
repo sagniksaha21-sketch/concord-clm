@@ -45,3 +45,18 @@ export const THEMES = {
 
 export const RADIUS = { sm: 12, md: 18, lg: 24, xl: 30 };
 export const SPACE = { xs: 6, sm: 10, md: 14, lg: 18, xl: 24, xxl: 32 };
+
+// Forge 14 semantic design primitives. Components should consume these instead of inventing local geometry.
+export const V14 = {
+  radius:{control:14,surface:18,hero:28,pill:999},
+  space:{hairline:2,tight:8,control:12,surface:16,section:24,hero:32},
+  type:{micro:9,label:11,body:13,title:22,display:36},
+  motion:{tap:110,fast:180,standard:260,hero:420},
+  opacity:{secondary:.72,quiet:.52,hairline:.10},
+} as const;
+
+export const FORGE_SEMANTICS = {
+  gold:'PR / selected / progress / primary action',
+  ember:'effort / urgency / live training',
+  teal:'recovered / ready / positive recovery',
+} as const;
