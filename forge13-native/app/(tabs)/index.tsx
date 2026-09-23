@@ -1,105 +1,36 @@
-
 import React from 'react';
-import { View, Text, StyleSheet, Pressable, ImageBackground } from 'react-native';
-import { useRouter } from 'expo-router';
-import { Screen } from '@/components/Screen';
-import { ForgeButton } from '@/components/ForgeButton';
-import { ProgrammeArt } from '@/components/ProgrammeArt';
-import { Metric } from '@/components/Metric';
-import { ProgressBar } from '@/components/ProgressBar';
-import { useForge, programs } from '@/store/ForgeProvider';
-import { hallOfFame, last30, latestSession, weekSessions } from '@/utils/analytics';
-import { tons, shortDate } from '@/utils/format';
-import { readiness } from '@/utils/readiness';
-import { coachAction } from '@/utils/coach';
+import {View,Text,StyleSheet,Pressable,ImageBackground} from 'react-native';
+import {useRouter} from 'expo-router';
+import {Screen} from '@/components/Screen';
+import {ForgeButton} from '@/components/ForgeButton';
+import {Metric} from '@/components/Metric';
+import {ProgressBar} from '@/components/ProgressBar';
+import {useForge,programs} from '@/store/ForgeProvider';
+import {hallOfFame,last30,latestSession,weekSessions} from '@/utils/analytics';
+import {tons,shortDate} from '@/utils/format';
+import {readiness} from '@/utils/readiness';
+import {coachAction} from '@/utils/coach';
 
 export default function Today(){
- const router=useRouter();
- const {state,theme,startWorkout}=useForge();
- const prog:any=(programs as any)[state.selectedProgramId] || (programs as any).pushA;
- const tr=last30(state), last=latestSession(state), hof=hallOfFame(state), week=weekSessions(state);
- const calPct=state.calTarget?state.kcal/state.calTarget*100:0;
- const proPct=state.proteinTarget?state.protein/state.proteinTarget*100:0;
- const active=!!state.workout?.startedAt;
- const ready=readiness(state);
- const coach=coachAction(state);
+ const router=useRouter(),{state,theme,startWorkout}=useForge();
+ const prog:any=(programs as any)[state.selectedProgramId]||(programs as any).pushA;
+ const tr=last30(state),last=latestSession(state),hof=hallOfFame(state),week=weekSessions(state),ready=readiness(state),coach=coachAction(state),active=!!state.workout?.startedAt;
+ const calPct=state.calTarget?state.kcal/state.calTarget*100:0,proPct=state.proteinTarget?state.protein/state.proteinTarget*100:0;
  return <Screen>
-   <View style={[styles.readiness,{borderColor:theme.line}]}><View><Text style={[styles.kicker,{color:theme.amber}]}>FORGE READINESS · {ready.band}</Text><Text style={[styles.readinessScore,{color:theme.text}]}>{ready.score}<Text style={[styles.readinessUnit,{color:theme.muted}]}> / 100</Text></Text></View><View style={styles.readinessCopy}><Text style={[styles.readinessTitle,{color:theme.text}]}>{ready.headline}</Text><Text style={[styles.readinessReason,{color:theme.muted}]}>{ready.reason}</Text></View></View>
-   <View style={[styles.coach,{borderColor:theme.line}]}><View style={{flex:1}}><Text style={[styles.eyebrow,{color:theme.gold}]}>FORGE COACH · {coach.action}</Text><Text style={[styles.coachTitle,{color:theme.text}]}>{coach.title}</Text><Text style={[styles.readinessReason,{color:theme.muted}]}>{coach.why}</Text></View></View>
-   <ImageBackground source={require('../../assets/splash/01.jpg')} imageStyle={styles.heroImage} style={styles.photoHero}><View style={styles.heroShade}/><View style={styles.heroRow}>
-    <View style={{flex:1,minWidth:0}}>
-      <Text style={[styles.kicker,{color:theme.amber}]}>TODAY · {String(state.phase).toUpperCase()}</Text>
-      <Text style={[styles.h1,{color:theme.text}]}>{active?'Finish what you started.':'Build the next version.'}</Text>
-      <Text style={[styles.copy,{color:theme.muted}]}>
-       {active?`Resume ${prog.name} exactly where you left it.`:`${prog.name} · ${prog.exercises.length} exercises`}
-      </Text>
-    </View>
-    <ProgrammeArt id={state.selectedProgramId} style={styles.heroArt}/>
-   </View></ImageBackground>
-
-   <ForgeButton label={active?'Resume workout':'Start workout'} onPress={()=>{
-     if(!active) startWorkout();
-     router.push('/workout');
-   }}/>
-
-   <View style={[styles.performance,{borderColor:theme.line}]}>
-     <Text style={[styles.eyebrow,{color:theme.amber}]}>30 DAY PERFORMANCE</Text>
-     <View style={styles.metrics}>
-       <Metric value={tr.sessions} label="sessions"/>
-       <Metric value={tr.sets} label="working sets"/>
-       <Metric value={tons(tr.volume)} label="volume" accent/>
-     </View>
-     <Text style={[styles.micro,{color:theme.muted,marginTop:14}]}>
-       {last?`Last trained ${shortDate(last.date)} · ${last.name}`:'Training history will build here as you log sessions.'}
-     </Text>
-   </View>
-
-   <View style={[styles.nutrition,{borderColor:theme.line}]}>
-     <View style={styles.cardHead}>
-       <View>
-        <Text style={[styles.eyebrow,{color:theme.amber}]}>NUTRITION</Text>
-        <Text style={[styles.cardTitle,{color:theme.text}]}>{Math.round(state.kcal).toLocaleString()} / {state.calTarget.toLocaleString()} kcal</Text>
-       </View>
-       <Text style={[styles.side,{color:theme.gold}]}>{Math.max(0,state.calTarget-state.kcal).toLocaleString()} left</Text>
-     </View>
-     <View style={{gap:9,marginTop:14}}>
-      <ProgressBar value={calPct}/>
-      <View style={styles.rowBetween}><Text style={[styles.micro,{color:theme.muted}]}>Protein</Text><Text style={[styles.micro,{color:theme.text}]}>{Math.round(state.protein)} / {state.proteinTarget}g</Text></View>
-      <ProgressBar value={proPct}/>
-     </View>
-   </View>
-
-   <View style={[styles.weekRail,{borderColor:theme.line}]}>
-    <View style={styles.half}>
-      <Text style={[styles.eyebrow,{color:theme.amber}]}>THIS WEEK</Text>
-      <Text style={[styles.big,{color:theme.text}]}>{week}</Text>
-      <Text style={[styles.micro,{color:theme.muted}]}>sessions forged</Text>
-    </View>
-    <Pressable style={[styles.half,styles.hofLink,{borderColor:theme.line}]} onPress={()=>router.push('/(tabs)/analytics')}>
-       <Text style={[styles.eyebrow,{color:theme.amber}]}>HALL OF FAME</Text>
-       <Text style={[styles.big,{color:theme.text}]}>{hof.length}</Text>
-       <Text style={[styles.micro,{color:theme.muted}]}>earned records</Text>
-    </Pressable>
-   </View>
+  <ImageBackground source={require('../../assets/splash/01.jpg')} imageStyle={s.heroImage} style={s.hero}>
+   <View style={s.heroShade}/><View style={s.heroTop}><Text style={[s.wordmark,{color:theme.gold}]}>FORGE</Text><Text style={[s.phase,{color:theme.amber}]}>{String(state.phase).toUpperCase()}</Text></View>
+   <View><Text style={[s.overline,{color:theme.amber}]}>{active?'SESSION IN PROGRESS':'TODAY / PRIMARY MISSION'}</Text><Text style={[s.h1,{color:theme.text}]}>{active?'Finish what you started.':'Build the next version.'}</Text><Text style={[s.heroCopy,{color:theme.text}]}>{prog.name} · {prog.exercises.length} exercises</Text></View>
+  </ImageBackground>
+  <ForgeButton label={active?'RESUME WORKOUT':'START WORKOUT'} onPress={()=>{if(!active)startWorkout();router.push('/workout')}}/>
+  <View style={[s.signal,{borderColor:theme.line}]}>
+   <View style={s.score}><Text style={[s.overline,{color:theme.teal}]}>READINESS</Text><Text style={[s.scoreValue,{color:theme.text}]}>{ready.score}</Text><Text style={[s.phase,{color:theme.muted}]}>/ 100 · {ready.band}</Text></View>
+   <View style={{flex:1}}><Text style={[s.overline,{color:theme.gold}]}>FORGE COACH · {coach.action}</Text><Text style={[s.signalTitle,{color:theme.text}]}>{coach.title}</Text><Text style={[s.micro,{color:theme.muted}]}>{coach.why}</Text></View>
+  </View>
+  <View><Text style={[s.sectionKicker,{color:theme.amber}]}>THE WORK / 30 DAYS</Text><Text style={[s.sectionTitle,{color:theme.text}]}>Momentum at a glance.</Text></View>
+  <View style={[s.metrics,{borderColor:theme.line}]}><Metric value={tr.sessions} label="sessions"/><Metric value={tr.sets} label="working sets"/><Metric value={tons(tr.volume)} label="volume" accent/></View>
+  <View style={s.week}><View><Text style={[s.overline,{color:theme.amber}]}>THIS WEEK</Text><Text style={[s.weekValue,{color:theme.text}]}>{week}</Text><Text style={[s.micro,{color:theme.muted}]}>sessions forged</Text></View><Pressable onPress={()=>router.push('/(tabs)/analytics')}><Text style={[s.overline,{color:theme.gold}]}>HALL OF FAME</Text><Text style={[s.weekValue,{color:theme.text}]}>{hof.length}</Text><Text style={[s.micro,{color:theme.muted}]}>earned marks ›</Text></Pressable></View>
+  <View style={[s.fuel,{borderColor:theme.line}]}><View style={s.row}><View><Text style={[s.overline,{color:theme.amber}]}>FUEL STATUS</Text><Text style={[s.fuelTitle,{color:theme.text}]}>{Math.round(state.kcal).toLocaleString()} / {state.calTarget.toLocaleString()} kcal</Text></View><Text style={[s.phase,{color:theme.gold}]}>{Math.max(0,state.calTarget-state.kcal).toLocaleString()} LEFT</Text></View><View style={{gap:8,marginTop:12}}><ProgressBar value={calPct}/><View style={s.row}><Text style={[s.micro,{color:theme.muted}]}>Protein</Text><Text style={[s.micro,{color:theme.text}]}>{Math.round(state.protein)} / {state.proteinTarget}g</Text></View><ProgressBar value={proPct}/></View></View>
+  <Text style={[s.micro,{color:theme.muted}]}>{last?`Last forged ${shortDate(last.date)} · ${last.name}`:'Your training history becomes the intelligence layer as you log sessions.'}</Text>
  </Screen>
 }
-const styles=StyleSheet.create({
- performance:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:16},nutrition:{borderLeftWidth:2,paddingLeft:14,paddingVertical:5},
- readiness:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:15,flexDirection:'row',alignItems:'center',gap:18},readinessScore:{fontSize:30,fontWeight:'900',letterSpacing:-1.2,marginTop:4},readinessUnit:{fontSize:10,fontWeight:'700'},readinessCopy:{flex:1},readinessTitle:{fontSize:15,fontWeight:'900'},readinessReason:{fontSize:9.5,lineHeight:14,fontWeight:'600',marginTop:4},
- coach:{borderLeftWidth:2,paddingLeft:12,paddingVertical:4},coachTitle:{fontSize:16,fontWeight:'900',letterSpacing:-.3,marginTop:5},
- photoHero:{minHeight:190,justifyContent:'flex-end',padding:16,overflow:'hidden',position:'relative'},heroImage:{opacity:.34},heroShade:{...StyleSheet.absoluteFill,backgroundColor:'rgba(3,3,3,.46)'},heroRow:{flexDirection:'row',gap:14,alignItems:'center'},
- heroArt:{width:112,height:140},
- kicker:{fontSize:9,fontWeight:'900',letterSpacing:1.6},
- h1:{fontSize:31,lineHeight:31,fontWeight:'900',letterSpacing:-1.4,marginTop:7},
- copy:{fontSize:12,lineHeight:17,fontWeight:'600',marginTop:8},
- eyebrow:{fontSize:8.5,fontWeight:'900',letterSpacing:1.45},
- metrics:{flexDirection:'row',gap:10,marginTop:15},
- micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
- cardHead:{flexDirection:'row',justifyContent:'space-between',alignItems:'flex-start',gap:12},
- cardTitle:{fontSize:18,fontWeight:'900',letterSpacing:-.4,marginTop:4},
- side:{fontSize:10,fontWeight:'900',marginTop:3},
- rowBetween:{flexDirection:'row',justifyContent:'space-between'},
- weekRail:{flexDirection:'row',borderTopWidth:1,borderBottomWidth:1},
- half:{flex:1,minHeight:105,paddingVertical:14,justifyContent:'center'},hofLink:{borderLeftWidth:1,paddingLeft:16},
- big:{fontSize:34,fontWeight:'900',letterSpacing:-1.4,marginTop:8}
-});
+const s=StyleSheet.create({hero:{minHeight:300,justifyContent:'space-between',padding:20,overflow:'hidden'},heroImage:{opacity:.68},heroShade:{...StyleSheet.absoluteFill,backgroundColor:'rgba(0,0,0,.43)'},heroTop:{flexDirection:'row',justifyContent:'space-between',alignItems:'center'},wordmark:{fontSize:22,fontWeight:'900',fontStyle:'italic',letterSpacing:-1},phase:{fontSize:8,fontWeight:'900',letterSpacing:1.1},overline:{fontSize:8,fontWeight:'900',letterSpacing:1.45},h1:{fontSize:38,lineHeight:38,fontWeight:'900',letterSpacing:-1.8,marginTop:8,maxWidth:310},heroCopy:{fontSize:12,fontWeight:'800',marginTop:9},signal:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:15,flexDirection:'row',gap:18,alignItems:'center'},score:{width:86},scoreValue:{fontSize:38,fontWeight:'900',letterSpacing:-1.8,marginTop:3},signalTitle:{fontSize:17,fontWeight:'900',letterSpacing:-.4,marginTop:5},micro:{fontSize:9.5,lineHeight:14,fontWeight:'600'},sectionKicker:{fontSize:8,fontWeight:'900',letterSpacing:1.5},sectionTitle:{fontSize:24,fontWeight:'900',letterSpacing:-.8,marginTop:5},metrics:{flexDirection:'row',borderTopWidth:1,borderBottomWidth:1,paddingVertical:13,gap:8},week:{flexDirection:'row',justifyContent:'space-between',paddingVertical:4},weekValue:{fontSize:34,fontWeight:'900',letterSpacing:-1.4,marginTop:5},fuel:{borderLeftWidth:2,paddingLeft:13,paddingVertical:4},row:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:12},fuelTitle:{fontSize:19,fontWeight:'900',letterSpacing:-.4,marginTop:4}});
