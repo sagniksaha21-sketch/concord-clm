@@ -1,34 +1,35 @@
+import React,{useEffect,useRef,useState} from 'react';
+import {Animated,Image,StyleSheet,Text,View} from 'react-native';
+import {LinearGradient} from 'expo-linear-gradient';
+import {useForge} from '../store/ForgeProvider';
 
-import React, { useEffect, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useForge } from '../store/ForgeProvider';
-
-export function ForgeIntro({children}:{children:React.ReactNode}) {
-  const {ready,theme}=useForge();
-  const [show,setShow]=useState(true);
-  useEffect(()=>{ if(ready){ const t=setTimeout(()=>setShow(false),1500); return()=>clearTimeout(t); }},[ready]);
-  if(!ready || show) return (
-    <View style={[styles.root,{backgroundColor:theme.bg}]}>
-      <View style={styles.photos}>
-        <Image source={require('../../assets/splash/01.jpg')} style={[styles.photo,{transform:[{rotate:'-4deg'}]}]}/>
-        <Image source={require('../../assets/splash/03.jpg')} style={[styles.photo,styles.photo2,{transform:[{rotate:'4deg'}]}]}/>
-      </View>
-      <LinearGradient colors={[theme.gold,theme.amber,theme.ember]} start={{x:0,y:0}} end={{x:1,y:1}} style={styles.line}/>
-      <Text style={[styles.word,{color:theme.text}]}>FORGE</Text>
-      <Text style={[styles.sub,{color:theme.amber}]}>ADAPT · EXECUTE · EVOLVE</Text>
-      <Text style={[styles.ver,{color:theme.muted}]}>NATIVE · 13.0</Text>
-    </View>
-  );
-  return <>{children}</>;
+export function ForgeIntro({children}:{children:React.ReactNode}){
+ const {ready}=useForge(); const [show,setShow]=useState(true); const fade=useRef(new Animated.Value(1)).current;
+ useEffect(()=>{if(!ready)return;const t=setTimeout(()=>Animated.timing(fade,{toValue:0,duration:430,useNativeDriver:true}).start(()=>setShow(false)),1650);return()=>clearTimeout(t)},[ready]);
+ if(!ready||show)return <Animated.View style={[styles.root,{opacity:fade}]}>
+  <View style={styles.triptych}>
+   <Image source={require('../../assets/splash/01.jpg')} style={styles.photo}/>
+   <Image source={require('../../assets/splash/02.jpg')} style={styles.photo}/>
+   <Image source={require('../../assets/splash/03.jpg')} style={styles.photo}/>
+  </View>
+  <LinearGradient colors={['rgba(3,3,3,.80)','rgba(3,3,3,.42)','rgba(3,3,3,.84)']} start={{x:0,y:.5}} end={{x:1,y:.5}} style={StyleSheet.absoluteFillObject}/>
+  <LinearGradient colors={['rgba(3,3,3,.20)','rgba(3,3,3,.08)','rgba(3,3,3,.90)']} style={StyleSheet.absoluteFillObject}/>
+  <View style={styles.lockup}>
+   <Text style={styles.word}>FORGE</Text>
+   <LinearGradient colors={['transparent','#D88922','#FF7A14','transparent']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.line}/>
+   <Text style={styles.tag}>ADAPT · EXECUTE · EVOLVE</Text>
+   <Text style={styles.ver}>NATIVE · 13.0</Text>
+  </View>
+ </Animated.View>;
+ return <>{children}</>;
 }
 const styles=StyleSheet.create({
-  root:{flex:1,alignItems:'center',justifyContent:'center',overflow:'hidden'},
-  photos:{height:210,width:250,flexDirection:'row',alignItems:'center',justifyContent:'center',marginBottom:25},
-  photo:{width:130,height:185,borderRadius:22,borderWidth:1,borderColor:'rgba(255,190,80,.18)'},
-  photo2:{marginLeft:-24,marginTop:18},
-  line:{width:70,height:3,borderRadius:9,marginBottom:12},
-  word:{fontSize:54,fontWeight:'1000',fontStyle:'italic',letterSpacing:-4,lineHeight:56},
-  sub:{fontSize:9,fontWeight:'900',letterSpacing:2.6,marginTop:5},
-  ver:{fontSize:8,fontWeight:'800',letterSpacing:1.5,marginTop:13}
+ root:{flex:1,backgroundColor:'#030303',alignItems:'center',justifyContent:'center',overflow:'hidden'},
+ triptych:{...StyleSheet.absoluteFillObject,flexDirection:'row',transform:[{scale:1.06}]},
+ photo:{flex:1,height:'100%',opacity:.42},
+ lockup:{width:'92%',alignItems:'center',justifyContent:'center'},
+ word:{fontSize:78,lineHeight:82,fontWeight:'900',fontStyle:'italic',letterSpacing:-6,color:'#FFF0D4',textShadowColor:'rgba(0,0,0,.75)',textShadowRadius:24,textShadowOffset:{width:0,height:12}},
+ line:{width:'70%',height:3,borderRadius:99,marginTop:16},
+ tag:{marginTop:12,fontSize:10,letterSpacing:3,fontWeight:'900',color:'#C7B9A5'},
+ ver:{marginTop:9,fontSize:9,letterSpacing:1.5,fontWeight:'700',color:'#746C63'}
 });
