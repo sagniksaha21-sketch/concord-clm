@@ -110,3 +110,19 @@ test('FHM3 exposes stage-explicit shader diagnostics',()=>{
  assert.match(body,/program link/);
  assert.match(body,/mesh decode: empty geometry/);
 });
+
+
+test('Transformation Studio gives repeatable capture guidance',()=>{
+ const studio=read('app/progress-photos.tsx');
+ assert.match(studio,/CAPTURE PROTOCOL/);
+ assert.match(studio,/Camera at mid-torso height/);
+ assert.match(studio,/Repeat distance \+ light/);
+ assert.match(studio,/comparable\.slice\(0,2\)/);
+});
+
+test('Train library avoids returning to a generic GlassCard stack',()=>{
+ const train=read('app/(tabs)/train.tsx');
+ assert.doesNotMatch(train,/GlassCard/);
+ assert.match(train,/borderBottomWidth:1/);
+ assert.match(train,/ImageBackground/);
+});
