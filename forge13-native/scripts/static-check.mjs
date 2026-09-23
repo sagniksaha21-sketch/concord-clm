@@ -47,7 +47,7 @@ if(!screen.includes('react-native-safe-area-context')||!screen.includes("edges={
 if(!packageJson.dependencies?.['react-native-safe-area-context']) throw new Error('Safe-area runtime dependency missing');
 if(exercises.length!==85) throw new Error(`Expected 85 exercises, found ${exercises.length}`);
 if(Object.keys(programs).length!==14) throw new Error(`Expected 14 programmes, found ${Object.keys(programs).length}`);
-if(missing.length) throw new Error(`Missing native routes/modules: ${missing.join(', ')}`);
+if(missing.length) throw new Error(`Missing native routes/modules: ${missing.join(', ')}`);\nif(fs.existsSync(path.join(root,'app/music.tsx'))||fs.existsSync(path.join(root,'src/services/youtube.ts'))) throw new Error('Retired Forge Audio/YouTube integration must not ship in RC2');\nif(packageJson.version!=='14.0.0-rc.2'||appJson.expo?.version!=='14.0.0-rc.2'||appJson.expo?.android?.versionCode!==140200) throw new Error('RC2 release identity mismatch');
 if(bad.length) throw new Error(`Programme references missing exercises: ${bad.join(', ')}`);
 if(!stateKey) throw new Error('Canonical Forge state key missing');
 if(!migrationContract) throw new Error('Forge 14 migration contract missing');
