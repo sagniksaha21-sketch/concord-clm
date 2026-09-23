@@ -149,7 +149,7 @@ test('Today and Analytics stay card-light at the primary hierarchy level',()=>{
  const analytics=read('app/(tabs)/analytics.tsx');
  assert.doesNotMatch(today,/GlassCard/);
  assert.doesNotMatch(analytics,/GlassCard/);
- assert.match(today,/weekRail/);
+ assert.match(today,/PRIMARY MISSION/);\n assert.match(today,/cinematic|ImageBackground|hero/);
  assert.match(analytics,/bodyBlock/);
  assert.match(analytics,/FORGE HALL OF FAME/);
 });
