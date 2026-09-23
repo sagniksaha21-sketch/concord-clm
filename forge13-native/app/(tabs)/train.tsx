@@ -9,11 +9,12 @@ import { SectionTitle } from '@/components/SectionTitle';
 import { Body3D } from '@/components/Body3D';
 import { useForge, exerciseMap } from '@/store/ForgeProvider';
 import {programMuscles} from '@/utils/training';
+import {trainingRecommendation} from '@/utils/adaptiveTraining';
 
 export default function Train(){
  const router=useRouter();
  const {state,theme,selectProgram,startWorkout,getProgram,programList}=useForge();
- const selected=getProgram(state.selectedProgramId),active=!!state.workout?.startedAt,groups=programMuscles(selected.exercises);
+ const selected=getProgram(state.selectedProgramId),active=!!state.workout?.startedAt,groups=programMuscles(selected.exercises),recommendation=trainingRecommendation(state);
  return <Screen>
    <SectionTitle eyebrow="TRAIN" title={active?'Workout in progress':'Choose the work.'}/>
    <GlassCard style={styles.hero}>
@@ -30,6 +31,7 @@ export default function Train(){
     <ForgeButton label="Open Programme Builder" onPress={()=>router.push('/program-builder')} ghost/>
    </GlassCard>
 
+   <View style={[styles.adaptive,{borderColor:theme.line}]}><View style={{flex:1}}><Text style={[styles.eyebrow,{color:theme.gold}]}>FORGE INTELLIGENCE · {recommendation.kind.replace('_',' ')}</Text><Text style={[styles.adaptiveTitle,{color:theme.text}]}>{recommendation.title}</Text><Text style={[styles.note,{color:theme.muted,marginTop:4}]}>{recommendation.detail}</Text></View><Text style={[styles.factor,{color:theme.gold}]}>{Math.round(recommendation.volumeFactor*100)}%</Text></View>
    <SectionTitle eyebrow="ANATOMY" title="What this session is built to hit"/>
    <Body3D groups={groups} height={288}/>
    <Text style={[styles.note,{color:theme.muted}]}>Drag the body to rotate. The highlighted regions come from the selected programme’s exercise mix.</Text>
@@ -54,4 +56,4 @@ export default function Train(){
    </View>
  </Screen>
 }
-const styles=StyleSheet.create({hero:{gap:14},heroContent:{flexDirection:'row',gap:14,alignItems:'center'},art:{width:94,height:118},eyebrow:{fontSize:8.5,fontWeight:'900',letterSpacing:1.4},title:{fontSize:25,fontWeight:'900',letterSpacing:-.8,marginTop:5},meta:{fontSize:10.5,lineHeight:15,fontWeight:'600',marginTop:4},tags:{gap:5,marginTop:10},tag:{fontSize:8.5,fontWeight:'700',paddingHorizontal:8,paddingVertical:5,borderRadius:999,borderWidth:1,alignSelf:'flex-start'},program:{flexDirection:'row',alignItems:'center',gap:12,padding:10,minHeight:112},thumb:{width:74,height:92,borderRadius:15},programName:{fontSize:19,fontWeight:'900',letterSpacing:-.35},targets:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:8},target:{fontSize:7.5,fontWeight:'800',paddingHorizontal:6,paddingVertical:4,borderRadius:999,borderWidth:1,maxWidth:120},programActions:{width:52,alignItems:'center',gap:12},edit:{height:34,minWidth:46,borderRadius:11,borderWidth:1,alignItems:'center',justifyContent:'center'},editText:{fontSize:8,fontWeight:'900',letterSpacing:.7},small:{fontSize:8,fontWeight:'900',letterSpacing:1.1,marginTop:8},note:{fontSize:9.5,lineHeight:14,fontWeight:'600',marginTop:-6,paddingHorizontal:2}});
+const styles=StyleSheet.create({adaptive:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12},adaptiveTitle:{fontSize:15,fontWeight:'900',marginTop:5},factor:{fontSize:22,fontWeight:'900'},hero:{gap:14},heroContent:{flexDirection:'row',gap:14,alignItems:'center'},art:{width:94,height:118},eyebrow:{fontSize:8.5,fontWeight:'900',letterSpacing:1.4},title:{fontSize:25,fontWeight:'900',letterSpacing:-.8,marginTop:5},meta:{fontSize:10.5,lineHeight:15,fontWeight:'600',marginTop:4},tags:{gap:5,marginTop:10},tag:{fontSize:8.5,fontWeight:'700',paddingHorizontal:8,paddingVertical:5,borderRadius:999,borderWidth:1,alignSelf:'flex-start'},program:{flexDirection:'row',alignItems:'center',gap:12,padding:10,minHeight:112},thumb:{width:74,height:92,borderRadius:15},programName:{fontSize:19,fontWeight:'900',letterSpacing:-.35},targets:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:8},target:{fontSize:7.5,fontWeight:'800',paddingHorizontal:6,paddingVertical:4,borderRadius:999,borderWidth:1,maxWidth:120},programActions:{width:52,alignItems:'center',gap:12},edit:{height:34,minWidth:46,borderRadius:11,borderWidth:1,alignItems:'center',justifyContent:'center'},editText:{fontSize:8,fontWeight:'900',letterSpacing:.7},small:{fontSize:8,fontWeight:'900',letterSpacing:1.1,marginTop:8},note:{fontSize:9.5,lineHeight:14,fontWeight:'600',marginTop:-6,paddingHorizontal:2}});
