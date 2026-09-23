@@ -6,20 +6,13 @@
     "orientation": "portrait",
     "scheme": "forge",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "icon": "./assets/icon.png",
-    "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#050507"
-    },
     "android": {
       "package": "com.forge.training",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#050507"
       },
-      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": true,
       "versionCode": 140001
     },
