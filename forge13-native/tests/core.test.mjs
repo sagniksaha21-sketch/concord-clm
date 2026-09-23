@@ -76,3 +76,6 @@ test('anatomy renderer exposes init and runtime GL diagnostics',()=>{const body=
 
 test('Records 2.0 derives working-set metrics and tolerates bad imported dates',()=>{const a=read('src/utils/analytics.ts');assert.ok(a.includes('sessionMetrics'));assert.ok(a.includes("set.setType||'working'"));assert.ok(a.includes('Number.isFinite(x.time)'));assert.ok(a.includes('x.m.volume'));});
 test('readiness and adaptive training ignore malformed imported dates',()=>{assert.ok(read('src/utils/readiness.ts').includes("Number.isFinite(Date.parse(s.date||''))"));assert.ok(read('src/utils/adaptiveTraining.ts').includes("Number.isFinite(Date.parse(s.date||''))"));});
+
+test('v14 migration sanitizes unsafe legacy values without dropping valid history',()=>{const m=read('src/store/migration.ts');assert.ok(m.includes('Math.max(15,Math.min(300'));for(const field of ['state.sessions=state.sessions.filter','state.foodLog=state.foodLog.filter','state.bodyLogs=state.bodyLogs.filter','state.progressPhotos=state.progressPhotos.filter'])assert.ok(m.includes(field),field);});
+test('v14 primary actions are tactile and consume shared geometry',()=>{const b=read('src/components/ForgeButton.tsx'),g=read('src/components/GlassCard.tsx');assert.ok(b.includes('Haptics.selectionAsync'));assert.ok(b.includes('V14.radius.control'));assert.ok(g.includes('V14.radius.surface'));});
