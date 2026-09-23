@@ -84,16 +84,16 @@ const styles=StyleSheet.create({
  heroRow:{flexDirection:'row',gap:14,alignItems:'center'},
  heroArt:{width:112,height:140},
  kicker:{fontSize:9,fontWeight:'900',letterSpacing:1.6},
- h1:{fontSize:31,lineHeight:31,fontWeight:'1000',letterSpacing:-1.4,marginTop:7},
+ h1:{fontSize:31,lineHeight:31,fontWeight:'900',letterSpacing:-1.4,marginTop:7},
  copy:{fontSize:12,lineHeight:17,fontWeight:'600',marginTop:8},
  eyebrow:{fontSize:8.5,fontWeight:'900',letterSpacing:1.45},
  metrics:{flexDirection:'row',gap:10,marginTop:15},
- micro:{fontSize:10.5,lineHeight:15,fontWeight:'650'},
+ micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
  cardHead:{flexDirection:'row',justifyContent:'space-between',alignItems:'flex-start',gap:12},
  cardTitle:{fontSize:18,fontWeight:'900',letterSpacing:-.4,marginTop:4},
  side:{fontSize:10,fontWeight:'900',marginTop:3},
  rowBetween:{flexDirection:'row',justifyContent:'space-between'},
  two:{flexDirection:'row',gap:12},
  half:{flex:1,minHeight:125},
- big:{fontSize:34,fontWeight:'1000',letterSpacing:-1.4,marginTop:8}
+ big:{fontSize:34,fontWeight:'900',letterSpacing:-1.4,marginTop:8}
 });
