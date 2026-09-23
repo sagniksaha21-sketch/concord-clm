@@ -4,7 +4,7 @@ export type ReadinessBand='READY'|'BALANCED'|'RECOVER';
 export type Readiness={score:number;band:ReadinessBand;headline:string;reason:string;sessionGapHours:number|null;weekSessions:number};
 
 export function readiness(state:ForgeState,now=Date.now()):Readiness{
- const sessions=[...(state.sessions||[])].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
+ const sessions=[...(state.sessions||[])].filter(s=>Number.isFinite(Date.parse(s.date||''))).sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
  const last=sessions[0];
  const gap=last?Math.max(0,(now-Date.parse(last.date))/36e5):null;
  const week=sessions.filter(s=>Date.parse(s.date)>=now-7*864e5).length;
