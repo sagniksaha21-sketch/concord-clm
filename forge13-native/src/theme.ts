@@ -1,5 +1,5 @@
 
-export type ForgeThemeName = 'black-amber' | 'graphite-champagne' | 'pure-black';
+export type ForgeThemeName = 'black-amber' | 'graphite-champagne' | 'pure-black' | 'midnight-blue' | 'crimson-forge' | 'emerald-carbon' | 'violet-neon';
 
 export const THEMES = {
   'black-amber': {
@@ -27,6 +27,18 @@ export const THEMES = {
     gold: '#F0D8A9',
     ember: '#E39B57',
     teal: '#6EC8B8',
+  },
+  'midnight-blue': {
+    name:'MIDNIGHT BLUE', bg:'#030711', panel:'#08111F', panel2:'#0D1A2C', text:'#F3F7FF', muted:'#8998AE', line:'rgba(130,174,255,.13)', amber:'#4E9DFF', gold:'#9AC8FF', ember:'#2868D8', teal:'#58D8D0',
+  },
+  'crimson-forge': {
+    name:'CRIMSON', bg:'#080304', panel:'#140708', panel2:'#210C0E', text:'#FFF4F2', muted:'#A98D8B', line:'rgba(255,115,105,.12)', amber:'#FF5148', gold:'#FF9B82', ember:'#D91F2A', teal:'#66D3BC',
+  },
+  'emerald-carbon': {
+    name:'EMERALD', bg:'#020706', panel:'#07120F', panel2:'#0C1D18', text:'#F1FFF9', muted:'#88A096', line:'rgba(93,225,172,.12)', amber:'#3ED39B', gold:'#8AE8BF', ember:'#15976B', teal:'#5DE4D1',
+  },
+  'violet-neon': {
+    name:'VIOLET', bg:'#07040B', panel:'#11091A', panel2:'#1B1027', text:'#FCF5FF', muted:'#9F8DA8', line:'rgba(202,124,255,.13)', amber:'#B85CFF', gold:'#E0A6FF', ember:'#8134C9', teal:'#5CDACD',
   },
   'pure-black': {
     name: 'PURE BLACK',
