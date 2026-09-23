@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ImageBackground } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { GlassCard } from '@/components/GlassCard';
@@ -27,7 +27,7 @@ export default function Today(){
  return <Screen>
    <View style={[styles.readiness,{borderColor:theme.line}]}><View><Text style={[styles.kicker,{color:theme.amber}]}>FORGE READINESS · {ready.band}</Text><Text style={[styles.readinessScore,{color:theme.text}]}>{ready.score}<Text style={[styles.readinessUnit,{color:theme.muted}]}> / 100</Text></Text></View><View style={styles.readinessCopy}><Text style={[styles.readinessTitle,{color:theme.text}]}>{ready.headline}</Text><Text style={[styles.readinessReason,{color:theme.muted}]}>{ready.reason}</Text></View></View>
    <View style={[styles.coach,{borderColor:theme.line}]}><View style={{flex:1}}><Text style={[styles.eyebrow,{color:theme.gold}]}>FORGE COACH · {coach.action}</Text><Text style={[styles.coachTitle,{color:theme.text}]}>{coach.title}</Text><Text style={[styles.readinessReason,{color:theme.muted}]}>{coach.why}</Text></View></View>
-   <View style={styles.heroRow}>
+   <ImageBackground source={require('../../assets/splash/01.jpg')} imageStyle={styles.heroImage} style={styles.photoHero}><View style={styles.heroShade}/><View style={styles.heroRow}>
     <View style={{flex:1,minWidth:0}}>
       <Text style={[styles.kicker,{color:theme.amber}]}>TODAY · {String(state.phase).toUpperCase()}</Text>
       <Text style={[styles.h1,{color:theme.text}]}>{active?'Finish what you started.':'Build the next version.'}</Text>
@@ -36,7 +36,7 @@ export default function Today(){
       </Text>
     </View>
     <ProgrammeArt id={state.selectedProgramId} style={styles.heroArt}/>
-   </View>
+   </View></ImageBackground>
 
    <ForgeButton label={active?'Resume workout':'Start workout'} onPress={()=>{
      if(!active) startWorkout();
@@ -89,7 +89,7 @@ export default function Today(){
 const styles=StyleSheet.create({
  readiness:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:15,flexDirection:'row',alignItems:'center',gap:18},readinessScore:{fontSize:30,fontWeight:'900',letterSpacing:-1.2,marginTop:4},readinessUnit:{fontSize:10,fontWeight:'700'},readinessCopy:{flex:1},readinessTitle:{fontSize:15,fontWeight:'900'},readinessReason:{fontSize:9.5,lineHeight:14,fontWeight:'600',marginTop:4},
  coach:{borderLeftWidth:2,paddingLeft:12,paddingVertical:4},coachTitle:{fontSize:16,fontWeight:'900',letterSpacing:-.3,marginTop:5},
- heroRow:{flexDirection:'row',gap:14,alignItems:'center'},
+ photoHero:{minHeight:190,justifyContent:'flex-end',padding:16,overflow:'hidden',position:'relative'},heroImage:{opacity:.34},heroShade:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(3,3,3,.46)'},heroRow:{flexDirection:'row',gap:14,alignItems:'center'},
  heroArt:{width:112,height:140},
  kicker:{fontSize:9,fontWeight:'900',letterSpacing:1.6},
  h1:{fontSize:31,lineHeight:31,fontWeight:'900',letterSpacing:-1.4,marginTop:7},
