@@ -31,12 +31,13 @@ jobs:
       - name: Checkout reconciled builder branch
         uses: actions/checkout@v4
 
-      - name: Reconstruct reconciled Forge Alpha 3 source
+      - name: Reconstruct Alpha 2 source and apply reconciled Alpha 3 overlay
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p forge13-native
-          base64 -d forge13-reconciled-ci/FORGE-V13.0.0-Alpha3-source.tar.gz.b64 | tar -xz -C forge13-native
+          base64 -d forge13-ci/FORGE-V13.0.0-Alpha2-source.tar.gz.b64 | tar -xz -C forge13-native
+          base64 -d forge13-reconciled-ci/FORGE-V13.0.0-Alpha3-overlay.tar.gz.b64 | tar -xz -C forge13-native
           cd forge13-native
           test "$(node -p "require('./package.json').version")" = "13.0.0-alpha.3"
           mkdir -p assets/splash assets/programmes src/graphics
