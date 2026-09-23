@@ -15,7 +15,7 @@ export function ForgeIntro({children}:{children:React.ReactNode}){
   </Animated.View>
   <LinearGradient colors={['rgba(3,3,3,.80)','rgba(3,3,3,.42)','rgba(3,3,3,.84)']} start={{x:0,y:.5}} end={{x:1,y:.5}} style={StyleSheet.absoluteFill}/>
   <LinearGradient colors={['rgba(3,3,3,.20)','rgba(3,3,3,.08)','rgba(3,3,3,.90)']} style={StyleSheet.absoluteFill}/>
-  <Animated.View style={[styles.lockup,{transform:[{translateY:rise}]}]>
+  <Animated.View style={[styles.lockup,{transform:[{translateY:rise}]}]}>
    <Text style={styles.word}>FORGE</Text>
    <LinearGradient colors={['transparent','#D88922','#FF7A14','transparent']} start={{x:0,y:0}} end={{x:1,y:0}} style={styles.line}/>
    <Text style={styles.tag}>BUILT UNDER PRESSURE</Text>
