@@ -38,19 +38,20 @@ export default function Train(){
    <View style={{gap:10}}>
     {programList.map(p=>{
       const on=p.id===state.selectedProgramId;
-      return <Pressable key={p.id} onPress={()=>selectProgram(p.id)}>
+      return <Pressable key={p.id} onPress={()=>{selectProgram(p.id)}} onLongPress={()=>{selectProgram(p.id);router.push('/program-builder')}}>
        <GlassCard style={[styles.program,on&&{borderColor:theme.amber}]}>
         <ProgrammeArt id={p.id} style={styles.thumb}/>
         <View style={{flex:1,minWidth:0}}>
          <Text style={[styles.programName,{color:theme.text}]}>{p.name}</Text>
          <Text style={[styles.meta,{color:theme.muted}]}>{p.subtitle}</Text>
-         <Text style={[styles.small,{color:on?theme.gold:theme.muted}]}>{on?'SELECTED':`${p.exercises.length} EXERCISES`}</Text>
+         <View style={styles.targets}>{p.exercises.slice(0,3).map(id=><Text key={id} numberOfLines={1} style={[styles.target,{color:theme.gold,borderColor:theme.amber+'33'}]}>{exerciseMap[id]?.name}</Text>)}</View>
+         <Text style={[styles.small,{color:on?theme.gold:theme.muted}]}>{on?'SELECTED · TAP TO START / HOLD TO EDIT':`${p.exercises.length} EXERCISES · HOLD TO EDIT`}</Text>
         </View>
-        <Text style={{color:on?theme.amber:theme.muted,fontSize:19,fontWeight:'900'}}>{on?'◆':'›'}</Text>
+        <View style={styles.programActions}><Pressable onPress={()=>{selectProgram(p.id);router.push('/program-builder')}} style={[styles.edit,{borderColor:theme.line}]}><Text style={[styles.editText,{color:theme.muted}]}>EDIT</Text></Pressable><Text style={{color:on?theme.amber:theme.muted,fontSize:19,fontWeight:'900'}}>{on?'◆':'›'}</Text></View>
        </GlassCard>
       </Pressable>
     })}
    </View>
  </Screen>
 }
-const styles=StyleSheet.create({hero:{gap:14},heroContent:{flexDirection:'row',gap:14,alignItems:'center'},art:{width:94,height:118},eyebrow:{fontSize:8.5,fontWeight:'900',letterSpacing:1.4},title:{fontSize:25,fontWeight:'1000',letterSpacing:-.8,marginTop:5},meta:{fontSize:10.5,lineHeight:15,fontWeight:'650',marginTop:4},tags:{gap:5,marginTop:10},tag:{fontSize:8.5,fontWeight:'750',paddingHorizontal:8,paddingVertical:5,borderRadius:999,borderWidth:1,alignSelf:'flex-start'},program:{flexDirection:'row',alignItems:'center',gap:12,padding:10,minHeight:112},thumb:{width:74,height:92,borderRadius:15},programName:{fontSize:17,fontWeight:'900',letterSpacing:-.35},small:{fontSize:8,fontWeight:'900',letterSpacing:1.1,marginTop:8},note:{fontSize:9.5,lineHeight:14,fontWeight:'650',marginTop:-6,paddingHorizontal:2}});
+const styles=StyleSheet.create({hero:{gap:14},heroContent:{flexDirection:'row',gap:14,alignItems:'center'},art:{width:94,height:118},eyebrow:{fontSize:8.5,fontWeight:'900',letterSpacing:1.4},title:{fontSize:25,fontWeight:'1000',letterSpacing:-.8,marginTop:5},meta:{fontSize:10.5,lineHeight:15,fontWeight:'650',marginTop:4},tags:{gap:5,marginTop:10},tag:{fontSize:8.5,fontWeight:'750',paddingHorizontal:8,paddingVertical:5,borderRadius:999,borderWidth:1,alignSelf:'flex-start'},program:{flexDirection:'row',alignItems:'center',gap:12,padding:10,minHeight:112},thumb:{width:74,height:92,borderRadius:15},programName:{fontSize:19,fontWeight:'900',letterSpacing:-.35},targets:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:8},target:{fontSize:7.5,fontWeight:'800',paddingHorizontal:6,paddingVertical:4,borderRadius:999,borderWidth:1,maxWidth:120},programActions:{width:52,alignItems:'center',gap:12},edit:{height:34,minWidth:46,borderRadius:11,borderWidth:1,alignItems:'center',justifyContent:'center'},editText:{fontSize:8,fontWeight:'900',letterSpacing:.7},small:{fontSize:8,fontWeight:'900',letterSpacing:1.1,marginTop:8},note:{fontSize:9.5,lineHeight:14,fontWeight:'650',marginTop:-6,paddingHorizontal:2}});
