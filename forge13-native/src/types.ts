@@ -11,7 +11,7 @@ export type ProgramEdit = { name?:string; exercises:string[]; blocks?:TrainingBl
 export type WorkoutState = {
   startedAt: number | null; programId: string; exerciseIndex: number;
   exerciseSets: Record<string, SetLog[]>; input: SetLog; inputExerciseId?: string;
-  exerciseOrder: string[]; restTimerEndsAt: number | null; restSeconds: number;
+  exerciseOrder: string[]; restTimerEndsAt: number | null; restSeconds: number; adaptationFactor?: number;
 };
 export type ForgeState = {
   dataVersion: number; selectedProgramId: string; phase: string; phaseWeek: number; phaseLength: number;
