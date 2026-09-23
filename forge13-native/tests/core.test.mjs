@@ -221,3 +221,12 @@ test('dashboard analytics ignore malformed imported session dates',()=>{
  assert.match(analytics,/Number\.isFinite\(t\)/);
  assert.match(analytics,/filter\(s=>Number\.isFinite\(Date\.parse\(s\.date\|\|''\)\)\)/);
 });
+
+
+test('substitution cannot orphan already logged exercise history',()=>{
+ const workout=read('app/workout.tsx'),provider=read('src/store/ForgeProvider.tsx');
+ assert.match(workout,/SWAP LOCKED AFTER FIRST LOGGED SET/);
+ assert.match(workout,/sets\.length===0/);
+ assert.match(provider,/exerciseSets\[old\]/);
+ assert.match(provider,/\.length\)return s/);
+});
