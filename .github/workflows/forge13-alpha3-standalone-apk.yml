@@ -7,6 +7,7 @@ on:
       - forge13-alpha3-play
     paths:
       - ".github/workflows/forge13-alpha3-standalone-apk.yml"
+      - "forge13-native/**"
 
 permissions:
   contents: read
@@ -110,7 +111,7 @@ jobs:
           cp "$APK" "$OUT"
           SIZE="$(stat -c '%s' "$OUT")"
           SHA="$(sha256sum "$OUT" | awk '{print $1}')"
-          printf 'version_name=13.0.0-alpha.3\nversion_code=130003\npackage=com.forge.training\nstandalone=true\nmetro_required=false\nfilename=%s\nsize_bytes=%s\nsha256=%s\ngit_sha=%s\n'             "$(basename "$OUT")" "$SIZE" "$SHA" "$GITHUB_SHA"             | tee dist-standalone/BUILD-METADATA.txt
+          printf 'version_name=13.0.0-alpha.3\nversion_code=130004\npackage=com.forge.training\nstandalone=true\nmetro_required=false\nfilename=%s\nsize_bytes=%s\nsha256=%s\ngit_sha=%s\n'             "$(basename "$OUT")" "$SIZE" "$SHA" "$GITHUB_SHA"             | tee dist-standalone/BUILD-METADATA.txt
           printf '%s  %s\n' "$SHA" "$(basename "$OUT")" > dist-standalone/SHA256.txt
 
       - name: Upload standalone APK
