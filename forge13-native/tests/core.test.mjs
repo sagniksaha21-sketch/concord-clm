@@ -186,3 +186,15 @@ test('adaptive intelligence explicitly discloses its evidence source',()=>{
  assert.match(train,/TRAINING HISTORY ONLY/);
  assert.match(train,/NO WEARABLE OR RECOVERY SENSOR DATA/);
 });
+
+
+test('smart substitutions explain why alternatives are relevant',()=>{
+ const training=read('src/utils/training.ts');
+ const picker=read('app/exercise-picker.tsx');
+ assert.match(training,/reasons/);
+ assert.match(training,/same movement pattern/);
+ assert.match(training,/same target group/);
+ assert.match(training,/score>=4/);
+ assert.match(picker,/WHY ·/);
+ assert.match(picker,/rankedMatches/);
+});
