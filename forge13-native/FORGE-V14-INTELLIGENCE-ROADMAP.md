@@ -1,11 +1,22 @@
 # FORGE 14 — INTELLIGENCE ROADMAP
 
-Status: **Queued after Forge v13 stabilization**
-Base: stable Forge v13 native/standalone architecture
+Status: **Active development on `forge14-planning`**
+Base: valuable Forge native functionality and user data retained; v13 visual parity is not a release gate
 Principle: **Plan → Train → Measure → Recover → Adapt → Repeat**
 
-## Release gate
-Forge 14 implementation must not begin by destabilizing v13. First establish a device-validated v13 baseline: standalone install, v12.0.5 visual/behavioral parity, live FHM2, training/programme flows, More, Forge Audio, persistence and core v13 features.
+## Mission and release gate
+Forge 14 is a new native product direction, not a cosmetic v13 iteration and not a recreation of v12.0.5. Preserve valuable training, programme, nutrition, history, backup and user-data behavior while replacing weak or generic presentation. Phase 7 is complete only when an installable release-candidate APK passes CI, migration/offline/persistence/performance QA and Samsung flagship validation.
+
+### Seven-phase execution
+1. Foundation + cleanup — architecture, safe areas, migration protection, vestigial cleanup, green CI.
+2. World-class UI/UX — new design system, meaningful photography, premium motion/haptics and responsive navigation.
+3. Core training — Workout HUD, programmes, logging, PRs, substitutions, timers and Hall of Fame.
+4. FHM3 Muscle Intelligence — functional interactive anatomy, muscle state/history/intelligence; no fallback presented as finished 3D.
+5. Forge Intelligence — readiness, adaptive programmes, recovery, explainable recommendations and Coach.
+6. Expanded ecosystem — Sound, Vision, advanced analytics/Records and later Wear OS.
+7. Release candidate validation — full gates and installable v14 APK.
+
+Independent workstreams may advance in parallel when they do not compromise migration safety or create conflicting writes. Status is evidence-based: COMPLETE only when the phase gate is actually met.
 
 ## Product direction
 Forge 14 is an adaptive training operating system, not a menu expansion. Preserve the premium OLED-black / graphite / champagne-gold identity. Reduce visual noise, use gold semantically, keep training offline-first, and make intelligence explainable and user-controlled.
@@ -117,18 +128,13 @@ Answer questions rather than add dashboard clutter:
 - Avoid generic rounded-card fitness-app aesthetics.
 
 ## Engineering sequence
-1. Freeze/device-validate stable v13 baseline.
-2. Add v13→v14 state migration and feature flags.
-3. Build intelligence data model and deterministic recommendation engine.
-4. Build FHM3 data/visual layer.
-5. Rework workout UI + Live HUD.
-6. Add adaptive programme recommendations.
-7. Add Recovery + training-aware Nutrition.
-8. Add Forge Coach over structured Forge context.
-9. Expand Forge Sound.
-10. Add Vision, Analytics and Records 2.0.
-11. Add Wear OS companion after phone flows are stable.
-12. Full regression, offline, migration, performance and device validation.
+1. Establish the v14 foundation: safe areas, migration protection, cleanup and green CI.
+2. Build the new v14 design system and phone information architecture while preserving the state contract.
+3. Rework Workout + Live HUD in parallel with the FHM3 data/visual foundation.
+4. Build deterministic intelligence/readiness and adaptive-programme recommendations.
+5. Add Recovery, training-aware Nutrition and Forge Coach over structured Forge context.
+6. Expand Sound, Vision, Analytics and Records 2.0; add Wear OS after phone flows stabilize.
+7. Run full regression, offline, migration, persistence, performance and Samsung-device validation; produce the RC APK.
 
 ## Non-negotiable acceptance criteria
 - No regression of stable v13 functionality.
