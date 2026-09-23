@@ -2,6 +2,7 @@
 import React from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ForgeProvider, useForge } from '@/store/ForgeProvider';
 import { ForgeIntro } from '@/components/ForgeIntro';
 
@@ -21,4 +22,4 @@ function AppStack(){
    </Stack>
  </ForgeIntro>
 }
-export default function RootLayout(){return <ForgeProvider><AppStack/></ForgeProvider>}
+export default function RootLayout(){return <SafeAreaProvider><ForgeProvider><AppStack/></ForgeProvider></SafeAreaProvider>}
