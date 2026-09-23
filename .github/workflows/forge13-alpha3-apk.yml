@@ -1,0 +1,177 @@
+name: Forge 13 Alpha 3 Reconciled APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - forge13-apk-builder
+    paths:
+      - "forge13-reconciled-ci/**"
+      - ".github/workflows/forge13-alpha3-apk.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: forge13-alpha3-reconciled-apk
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: Build Forge 13 Alpha 3 Reconciled APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      EXPO_NO_TELEMETRY: "1"
+      CI: "1"
+      FORGE_ASSET_BASE: "https://forge-v120-2.vercel.app"
+
+    steps:
+      - name: Checkout reconciled builder branch
+        uses: actions/checkout@v4
+
+      - name: Reconstruct reconciled Forge Alpha 3 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p forge13-native
+          base64 -d forge13-reconciled-ci/FORGE-V13.0.0-Alpha3-source.tar.gz.b64 | tar -xz -C forge13-native
+          cd forge13-native
+          test "$(node -p "require('./package.json').version")" = "13.0.0-alpha.3"
+          mkdir -p assets/splash assets/programmes src/graphics
+
+      - name: Restore proven Forge visual assets and FHM2 body mesh
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd forge13-native
+          BASE="$FORGE_ASSET_BASE"
+          fetch(){ echo "[FORGE] $2"; curl -fsSL --retry 6 --retry-delay 2 "$1" -o "$2"; }
+          fetch "$BASE/icon-512.png" assets/icon.png
+          cp assets/icon.png assets/adaptive-icon.png
+          fetch "$BASE/assets/analytics-body-poster.png" assets/body-poster.png
+          fetch "$BASE/assets/FORGE-HD-Chest-Shoulders.jpg" assets/programmes/chest-shoulders.jpg
+          fetch "$BASE/assets/FORGE-HD-Back-Biceps.jpg" assets/programmes/back-biceps.jpg
+          fetch "$BASE/assets/FORGE-HD-Legs-Triceps.jpg" assets/programmes/legs-triceps.jpg
+          fetch "$BASE/assets/FORGE-SPLASH-01.jpg" assets/splash/01.jpg
+          fetch "$BASE/assets/FORGE-SPLASH-02.jpg" assets/splash/02.jpg
+          fetch "$BASE/assets/FORGE-SPLASH-03.jpg" assets/splash/03.jpg
+          fetch "$BASE/assets/FORGE-SPLASH-04.jpg" assets/splash/04.jpg
+          fetch "$BASE/forge-v11-classic.html" /tmp/forge-v11-classic.html
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('/tmp/forge-v11-classic.html','utf8');
+          const m=html.match(/(?:const|let|var)\s+V104_MESH_B64\s*=\s*["']([^"']+)["']/);
+          if(!m) throw new Error('V104_MESH_B64 not found in parity source');
+          fs.mkdirSync('src/graphics',{recursive:true});
+          fs.writeFileSync('src/graphics/bodyMesh.ts',
+            '// FORGE native body mesh — recovered from proven v12 FHM2 payload.\nexport const BODY_MESH_B64 = '+JSON.stringify(m[1])+';\n');
+          console.log('[FORGE] FHM2 payload chars',m[1].length);
+          NODE
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Verify hosted Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 4 -type f -name sdkmanager -perm -111 | head -n 1)"
+          fi
+          test -n "$SDKMANAGER"
+          test -x "$SDKMANAGER"
+          echo "SDKMANAGER=$SDKMANAGER" >> "$GITHUB_ENV"
+          "$SDKMANAGER" --version
+
+      - name: Install Android API 36
+        shell: bash
+        run: |
+          set -euo pipefail
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Install native dependencies
+        working-directory: forge13-native
+        run: npm install --no-audit --no-fund
+
+      - name: Verify reconciled Forge Alpha 3 source
+        working-directory: forge13-native
+        run: |
+          npm test
+          node scripts/static-check.mjs
+          node scripts/check-body.mjs
+          node scripts/parse-ts.mjs
+
+      - name: Normalize Android 16 Expo config
+        working-directory: forge13-native
+        shell: bash
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          if(fs.existsSync('app.json')){
+            const cfg=JSON.parse(fs.readFileSync('app.json','utf8'));
+            let removed=0;
+            const walk=(v)=>{
+              if(!v||typeof v!=='object') return;
+              if(Object.prototype.hasOwnProperty.call(v,'edgeToEdgeEnabled')){ delete v.edgeToEdgeEnabled; removed++; }
+              for(const x of Object.values(v)) walk(x);
+            };
+            walk(cfg);
+            fs.writeFileSync('app.json',JSON.stringify(cfg,null,2));
+            console.log('[FORGE] edgeToEdgeEnabled entries removed:',removed);
+          }
+          NODE
+          if [ -f app.config.js ]; then sed -i '/edgeToEdgeEnabled[[:space:]]*:/d' app.config.js; fi
+          if [ -f app.config.ts ]; then sed -i '/edgeToEdgeEnabled[[:space:]]*:/d' app.config.ts; fi
+
+      - name: Generate Android project
+        working-directory: forge13-native
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build installable debug APK
+        working-directory: forge13-native/android
+        env:
+          GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --max-workers=2 --stacktrace
+
+      - name: Verify, name and fingerprint APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="forge13-native/android/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          mkdir -p dist
+          OUT="dist/FORGE-V13.0.0-Alpha3-Reconciled.apk"
+          cp "$APK" "$OUT"
+          SIZE="$(stat -c '%s' "$OUT")"
+          SHA="$(sha256sum "$OUT" | awk '{print $1}')"
+          printf 'version=13.0.0-alpha.3\nfilename=%s\nsize_bytes=%s\nsha256=%s\ngit_sha=%s\n' "$(basename "$OUT")" "$SIZE" "$SHA" "$GITHUB_SHA" | tee dist/BUILD-METADATA.txt
+          printf '%s  %s\n' "$SHA" "$(basename "$OUT")" | tee dist/SHA256.txt
+          ls -lh "$OUT"
+
+      - name: Upload reconciled Forge APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: FORGE-V13.0.0-Alpha3-Reconciled-APK
+          path: |
+            dist/FORGE-V13.0.0-Alpha3-Reconciled.apk
+            dist/SHA256.txt
+            dist/BUILD-METADATA.txt
+            forge13-native/FORGE-V13.0.0-ALPHA3-RECONCILIATION.md
+            forge13-native/FORGE-V13.0.0-ALPHA3-QA.md
+          if-no-files-found: error
+          retention-days: 30
