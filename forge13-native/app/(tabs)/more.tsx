@@ -53,17 +53,17 @@ export default function More(){
   <SectionTitle eyebrow="SOCIAL" title="Achievement cards"/>
   <GlassCard><Text style={[styles.title,{color:theme.text}]}>FORGE Share Studio</Text><Text style={[styles.copy,{color:theme.muted}]}>Create PR, workout, consistency and custom achievement cards with your own photos.</Text><ForgeButton label="Open Share Studio" onPress={()=>router.push('/share')}/></GlassCard>
 
-  <SectionTitle eyebrow="MUSIC" title="YouTube Music"/>
+  <SectionTitle eyebrow="MUSIC" title="Forge Audio"/>
   <GlassCard>
    <Text style={[styles.title,{color:theme.text}]}>Train with your playlists.</Text>
    <Text style={[styles.copy,{color:theme.muted}]}>Open YouTube Music directly. When the Google Android client ID is configured, FORGE also surfaces your own playlists through Google's official YouTube API.</Text>
    {clientId?<GoogleMusic theme={theme} clientId={clientId}/>:<Text style={[styles.micro,{color:theme.gold}]}>YOUTUBE MUSIC READY · PLAYLIST SIGN-IN NEEDS GOOGLE CLIENT ID</Text>}
-   <View style={{height:9}}/><ForgeButton label="Open YouTube Music" onPress={()=>Linking.openURL(musicHome)}/>
+   <View style={{height:9}}/><ForgeButton label="Open Forge Audio" onPress={()=>router.push("/music")}/>
   </GlassCard>
 
   <SectionTitle eyebrow="DATA" title="Portable by design"/>
   <GlassCard><Text style={[styles.copy,{color:theme.muted}]}>Import or export your Forge JSON backup without wiping your original web data.</Text><View style={{gap:9}}><ForgeButton label="Import Forge backup" onPress={importBackup}/><ForgeButton label="Export native backup" onPress={exportBackup} ghost/></View></GlassCard>
-  <GlassCard><View style={styles.row}><Text style={[styles.micro,{color:theme.muted}]}>NATIVE STATE</Text><Text style={[styles.micro,{color:theme.gold}]}>{state.sessions.length} sessions · {state.foodLog.length} foods</Text></View><View style={styles.row}><Text style={[styles.micro,{color:theme.muted}]}>BUILD</Text><Text style={[styles.micro,{color:theme.text}]}>FORGE 13.0.0 α3 · FIXED</Text></View></GlassCard>
+  <GlassCard><View style={styles.row}><Text style={[styles.micro,{color:theme.muted}]}>NATIVE STATE</Text><Text style={[styles.micro,{color:theme.gold}]}>{state.sessions.length} sessions · {state.foodLog.length} foods</Text></View><View style={styles.row}><Text style={[styles.micro,{color:theme.muted}]}>BUILD</Text><Text style={[styles.micro,{color:theme.text}]}>FORGE 13.0.0 · REBUILD</Text></View></GlassCard>
  </Screen>;
 }
 const styles=StyleSheet.create({
