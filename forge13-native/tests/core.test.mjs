@@ -153,3 +153,11 @@ test('Today and Analytics stay card-light at the primary hierarchy level',()=>{
  assert.match(analytics,/bodyBlock/);
  assert.match(analytics,/FORGE HALL OF FAME/);
 });
+
+
+test('exercise history remains evidence-first and card-light',()=>{
+ const history=read('app/exercise-history.tsx');
+ assert.doesNotMatch(history,/GlassCard/);
+ assert.match(history,/bestBlock/);
+ assert.match(history,/historyRow/);
+});
