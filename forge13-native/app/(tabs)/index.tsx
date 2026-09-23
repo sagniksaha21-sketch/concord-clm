@@ -89,7 +89,7 @@ export default function Today(){
 const styles=StyleSheet.create({
  readiness:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:15,flexDirection:'row',alignItems:'center',gap:18},readinessScore:{fontSize:30,fontWeight:'900',letterSpacing:-1.2,marginTop:4},readinessUnit:{fontSize:10,fontWeight:'700'},readinessCopy:{flex:1},readinessTitle:{fontSize:15,fontWeight:'900'},readinessReason:{fontSize:9.5,lineHeight:14,fontWeight:'600',marginTop:4},
  coach:{borderLeftWidth:2,paddingLeft:12,paddingVertical:4},coachTitle:{fontSize:16,fontWeight:'900',letterSpacing:-.3,marginTop:5},
- photoHero:{minHeight:190,justifyContent:'flex-end',padding:16,overflow:'hidden',position:'relative'},heroImage:{opacity:.34},heroShade:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(3,3,3,.46)'},heroRow:{flexDirection:'row',gap:14,alignItems:'center'},
+ photoHero:{minHeight:190,justifyContent:'flex-end',padding:16,overflow:'hidden',position:'relative'},heroImage:{opacity:.34},heroShade:{...StyleSheet.absoluteFill,backgroundColor:'rgba(3,3,3,.46)'},heroRow:{flexDirection:'row',gap:14,alignItems:'center'},
  heroArt:{width:112,height:140},
  kicker:{fontSize:9,fontWeight:'900',letterSpacing:1.6},
  h1:{fontSize:31,lineHeight:31,fontWeight:'900',letterSpacing:-1.4,marginTop:7},
