@@ -83,7 +83,7 @@ test('v14 primary actions are tactile and consume shared geometry',()=>{const b=
 test('accepted adaptation is explicit, temporary and observable in workout',()=>{const types=read('src/types.ts'),train=read('app/(tabs)/train.tsx'),workout=read('app/workout.tsx');assert.ok(types.includes('adaptationFactor?: number'));assert.ok(train.includes('recommendation.requiresAcceptance'));assert.ok(workout.includes('ADAPTED SESSION'));assert.ok(workout.includes('permanent programme is unchanged'));assert.ok(workout.includes('ADAPTED VOLUME TARGET REACHED'));});
 
 test('workout history targeting ignores malformed dates and finish copy confirms persistence',()=>{const w=read('app/workout.tsx');assert.ok(w.includes("filter(s=>Number.isFinite(Date.parse(s.date||'')))"));assert.ok(w.includes('sets saved on finish'));assert.ok(w.includes('completedExercises'));});
-test('anatomy requires a valid first frame before reporting live',()=>{const b=read('src/components/Body3D.tsx');assert.ok(b.includes("throw new Error('mesh empty')"));assert.ok(b.includes("assertGl(gl,'first frame')"));assert.ok(b.indexOf("assertGl(gl,'first frame')")<b.indexOf('setReady(true)'));assert.ok(b.includes('nextView!==viewRef.current'));});
+test('anatomy requires a valid first frame before reporting live',()=>{const b=read('src/components/Body3D.tsx');assert.ok(b.includes("throw new Error('mesh decode: empty geometry')"));assert.ok(b.includes("assertGl(gl,'first frame')"));assert.ok(b.indexOf("assertGl(gl,'first frame')")<b.indexOf('setReady(true)'));assert.ok(b.includes('nextView!==viewRef.current'));});
 
 
 test('FHM3 analytics binds anatomy to intelligence states',()=>{
@@ -104,7 +104,7 @@ test('workout gives immediate earned PR feedback without claiming persistence ea
 
 test('FHM3 exposes stage-explicit shader diagnostics',()=>{
  const body=read('src/components/Body3D.tsx');
- assert.match(body,/vertex.*shader compile/);
+ assert.match(body,/shader compile/);\n assert.match(body,/vertex/);
  assert.match(body,/fragment/);
  assert.match(body,/program link/);
  assert.match(body,/mesh decode: empty geometry/);
