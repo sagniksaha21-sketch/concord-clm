@@ -1,0 +1,45 @@
+name: Forge 14 Quality Gate
+on:
+  push:
+    branches: [forge14-planning]
+    paths:
+      - 'forge13-native/**'
+      - '.github/workflows/forge14-quality-gate.yml'
+  pull_request:
+    paths:
+      - 'forge13-native/**'
+      - '.github/workflows/forge14-quality-gate.yml'
+concurrency:
+  group: forge14-quality-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: forge13-native
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: forge13-native/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Unit regression suite
+        run: npm test
+      - name: Product integrity gate
+        run: node scripts/static-check.mjs
+      - name: TypeScript gate
+        run: npx tsc --noEmit
+      - name: Expo configuration gate
+        run: npx expo config --type public >/dev/null
+      - name: Dependency health gate
+        run: npx expo-doctor@latest
+      - name: Reject vestigial Alpha artifacts
+        run: |
+          test ! -e FORGE-V13.0.0-ALPHA3-REBUILD-QA.md
+          test ! -e FORGE-V13.0.0-ALPHA3-RECONCILIATION.md
+      - name: Bundle production JavaScript
+        run: npx expo export --platform android --output-dir dist-ci
