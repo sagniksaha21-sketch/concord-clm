@@ -1,10 +1,11 @@
 import React,{useEffect,useState} from 'react';
-import { View,Text,StyleSheet,Pressable,ScrollView,Alert } from 'react-native';
+import { View,Text,StyleSheet,Pressable,ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useForge,exerciseMap } from '@/store/ForgeProvider';
 import { ForgeButton } from '@/components/ForgeButton';
 import { ForgeBrand } from '@/components/ForgeBrand';
+import { ForgeDialog } from '@/components/ForgeDialog';
 
 function Stepper({label,value,onMinus,onPlus,suffix}:{label:string;value:number;onMinus:()=>void;onPlus:()=>void;suffix?:string}){
  const {theme}=useForge();return <View style={{flex:1}}><Text style={[styles.stepLabel,{color:theme.muted}]}>{label}</Text><View style={[styles.stepper,{borderColor:theme.line,backgroundColor:theme.panel2}]}><Pressable onPress={onMinus} style={styles.stepBtn}><Text style={[styles.stepSymbol,{color:theme.muted}]}>−</Text></Pressable><Text style={[styles.stepValue,{color:theme.text}]}>{value}{suffix||''}</Text><Pressable onPress={onPlus} style={styles.stepBtn}><Text style={[styles.stepSymbol,{color:theme.amber}]}>+</Text></Pressable></View></View>
@@ -12,7 +13,7 @@ function Stepper({label,value,onMinus,onPlus,suffix}:{label:string;value:number;
 export default function Workout(){
  const router=useRouter();
  const {state,theme,getProgram,adjustInput,addSet,nextExercise,finishWorkout,clearRestTimer,adjustRestTimer,setRestNotifications}=useForge();
- const [now,setNow]=useState(Date.now()),[lastMark,setLastMark]=useState<string|null>(null);
+ const [now,setNow]=useState(Date.now()),[lastMark,setLastMark]=useState<string|null>(null),[dialog,setDialog]=useState<'finish'|'alerts'|null>(null),[alertCopy,setAlertCopy]=useState('');
  useEffect(()=>{const t=setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(t)},[]);
  useEffect(()=>{if(state.workout.restTimerEndsAt&&state.workout.restTimerEndsAt<=now)clearRestTimer()},[now,state.workout.restTimerEndsAt]);
  const p=getProgram(state.workout.programId),order=state.workout.exerciseOrder?.length?state.workout.exerciseOrder:p.exercises,idx=Math.min(state.workout.exerciseIndex,order.length-1),exId=order[idx],ex:any=exerciseMap[exId],sets=state.workout.exerciseSets[exId]||[],elapsed=state.workout.startedAt?Math.max(0,Math.round((Date.now()-state.workout.startedAt)/60000)):0;
@@ -24,10 +25,10 @@ export default function Workout(){
  const adaptation=Math.max(.5,Math.min(1,Number(state.workout.adaptationFactor||1))),plannedSets=Math.max(1,Math.round(baselineSets*adaptation));
  const rest=Math.max(0,Math.ceil(((state.workout.restTimerEndsAt||0)-now)/1000));
  const totalLogged=Object.values(state.workout.exerciseSets).reduce((a:any,b:any)=>a+(b?.length||0),0),completedExercises=Object.values(state.workout.exerciseSets).filter((x:any)=>x?.length).length;
- const finish=()=>Alert.alert('Finish workout?',`${totalLogged} sets across ${completedExercises} exercise${completedExercises===1?'':'s'} logged`,[{text:'Keep training',style:'cancel'},{text:'Finish',onPress:()=>{finishWorkout();router.back()}}]);
+ const finish=()=>setDialog('finish');
  const logSet=()=>{const mark=loadPr?'LOAD PR':isPr?'PERFORMANCE PR':null;addSet();setLastMark(mark);};
- const enableAlerts=async()=>{const ok=await setRestNotifications(true);Alert.alert('Rest alerts',ok?'Background rest-complete alerts are enabled.':'Notification permission was not granted.')};
- return <SafeAreaView edges={['top','bottom']} style={[styles.safe,{backgroundColor:theme.bg}]}><View style={styles.header}><ForgeBrand compact/><Pressable onPress={()=>router.back()}><Text style={[styles.close,{color:theme.muted}]}>MINIMIZE</Text></Pressable></View><ScrollView contentContainerStyle={styles.content}>
+ const enableAlerts=async()=>{const ok=await setRestNotifications(true);setAlertCopy(ok?'Background rest-complete alerts are enabled.':'Notification permission was not granted. You can keep training without background alerts.');setDialog('alerts')};
+ return <SafeAreaView edges={['top','bottom']} style={[styles.safe,{backgroundColor:theme.bg}]}><ForgeDialog visible={dialog==='finish'} eyebrow="SESSION CONTROL" title="Finish workout?" message={`${totalLogged} sets across ${completedExercises} exercise${completedExercises===1?'':'s'} logged. Finishing commits this session to your training history.`} onDismiss={()=>setDialog(null)} actions={[{label:'Keep training',onPress:()=>setDialog(null),tone:'quiet'},{label:'Finish session',onPress:()=>{setDialog(null);finishWorkout();router.back()},tone:'primary'}]}/><ForgeDialog visible={dialog==='alerts'} eyebrow="REST TIMER" title="Rest alerts" message={alertCopy} onDismiss={()=>setDialog(null)} actions={[{label:'Got it',onPress:()=>setDialog(null),tone:'primary'}]}/><View style={styles.header}><ForgeBrand compact/><Pressable onPress={()=>router.back()}><Text style={[styles.close,{color:theme.muted}]}>MINIMIZE</Text></Pressable></View><ScrollView contentContainerStyle={styles.content}>
    <View style={styles.topline}><Text style={[styles.kicker,{color:theme.amber}]}>{p.name.toUpperCase()}</Text><Text style={[styles.kicker,{color:theme.muted}]}>{elapsed} MIN · {idx+1}/{order.length}</Text></View>
    <Text style={[styles.exercise,{color:theme.text}]}>{ex?.name||'Exercise'}</Text><Text style={[styles.meta,{color:theme.muted}]}>{ex?.group} · {String(ex?.movement||'').replaceAll('_',' ')}</Text>
    {sets.length===0?<Pressable onPress={()=>router.push({pathname:'/exercise-picker',params:{mode:'workout',exerciseId:exId}})}><Text style={[styles.swap,{color:theme.gold}]}>SWAP EXERCISE · SMART MATCHES ›</Text></Pressable>:<Text style={[styles.swapLocked,{color:theme.muted}]}>SWAP LOCKED AFTER FIRST LOGGED SET · FINISH THIS EXERCISE TO PRESERVE HISTORY</Text>}
