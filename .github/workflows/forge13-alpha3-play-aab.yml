@@ -170,13 +170,13 @@ jobs:
           console.log('[FORGE] release signing configured with dedicated upload key');
           NODE
 
-      - name: Build signed release AAB
+      - name: Build signed Play AAB and standalone release APK
         working-directory: forge13-native/android
         env:
           GRADLE_OPTS: -Dorg.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -Dfile.encoding=UTF-8
         run: |
           chmod +x gradlew
-          ./gradlew bundleRelease --no-daemon --max-workers=2 --stacktrace
+          ./gradlew bundleRelease assembleRelease --no-daemon --max-workers=2 --stacktrace
 
       - name: Verify and package Play bundle
         shell: bash
@@ -201,6 +201,7 @@ jobs:
           name: FORGE-V13.0.0-Alpha3-PLAY
           path: |
             dist-play/FORGE-V13.0.0-Alpha3-Play.aab
+            dist-play/FORGE-V13.0.0-Alpha3-Standalone.apk
             dist-play/FORGE-Alpha3-Play-Upload-Key.jks
             dist-play/UPLOAD-KEY-PASSWORD.txt
             dist-play/UPLOAD-KEY-FINGERPRINT.txt
