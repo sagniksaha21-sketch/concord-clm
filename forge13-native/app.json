@@ -2,7 +2,7 @@
   "expo": {
     "name": "FORGE",
     "slug": "forge-native",
-    "version": "13.0.0-alpha.3",
+    "version": "14.0.0-dev.1",
     "orientation": "portrait",
     "scheme": "forge",
     "userInterfaceStyle": "dark",
@@ -19,9 +19,9 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#050507"
       },
-      "edgeToEdgeEnabled": true,
+      "edgeToEdgeEnabled": false,
       "predictiveBackGestureEnabled": true,
-      "versionCode": 130004
+      "versionCode": 140001
     },
     "ios": {
       "bundleIdentifier": "com.forge.training",
