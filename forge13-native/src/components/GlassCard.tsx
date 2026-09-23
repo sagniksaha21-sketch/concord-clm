@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
 import { useForge } from '../store/ForgeProvider';
-export function GlassCard({children,style}:{children:React.ReactNode;style?:ViewStyle|ViewStyle[]}) {
+export function GlassCard({children,style}:{children:React.ReactNode;style?:StyleProp<ViewStyle>}) {
   const {theme}=useForge();
   return <View style={[styles.card,{backgroundColor:theme.panel,borderColor:theme.line},style]}>{children}</View>
 }
