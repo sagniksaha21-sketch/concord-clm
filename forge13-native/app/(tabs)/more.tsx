@@ -8,8 +8,6 @@ import {SectionTitle} from '@/components/SectionTitle';
 import {useForge} from '@/store/ForgeProvider';
 import {THEMES,ForgeThemeName} from '@/theme';
 import {pickForgeBackup,shareForgeBackup} from '@/services/backup';
-/* Forge Audio removed: avoid a partial music integration that cannot provide embedded YouTube Music playback. */
-
 export default function More(){
  const router=useRouter();
  const {theme,themeName,setTheme,importState,exportState,state,setRestDuration,setRestNotifications}=useForge();
