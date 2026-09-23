@@ -198,3 +198,26 @@ test('smart substitutions explain why alternatives are relevant',()=>{
  assert.match(picker,/WHY ·/);
  assert.match(picker,/rankedMatches/);
 });
+
+
+test('completion push keeps P2 navigation tactile and P3 adaptation history-anchored',()=>{
+ const tabs=read('app/(tabs)/_layout.tsx'),workout=read('app/workout.tsx');
+ assert.match(tabs,/Haptics\.selectionAsync/);
+ assert.match(workout,/priorWorkingSets/);
+ assert.match(workout,/baselineSets/);
+ assert.match(workout,/last comparable session/);
+});
+
+test('P6 ecosystem surfaces are explicit, structural and locally truthful',()=>{
+ const music=read('app/music.tsx'),studio=read('app/progress-photos.tsx');
+ assert.doesNotMatch(music,/GlassCard/);assert.doesNotMatch(studio,/GlassCard/);
+ assert.match(music,/hand playback to YouTube Music/);
+ assert.match(music,/Google connection not configured/);
+ assert.match(studio,/compareBlock/);assert.match(studio,/CAPTURE PROTOCOL/);
+});
+
+test('dashboard analytics ignore malformed imported session dates',()=>{
+ const analytics=read('src/utils/analytics.ts');
+ assert.match(analytics,/Number\.isFinite\(t\)/);
+ assert.match(analytics,/filter\(s=>Number\.isFinite\(Date\.parse\(s\.date\|\|''\)\)\)/);
+});
