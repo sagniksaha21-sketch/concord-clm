@@ -8,6 +8,7 @@ import { THEMES, ForgeThemeName } from '../theme';
 import {cancelRestNotification,enableRestNotifications,replaceRestNotification} from '../services/restTimer';
 
 const KEY = 'forge_v2_functional_state_v3';
+const DATA_VERSION = 8;
 const exerciseMap = Object.fromEntries((exercises as any[]).map(x => [x.id, x]));
 const DEFAULT_BLOCKS:TrainingBlock[]=[
   {id:'hypertrophy',name:'Build',weeks:6,focus:'Hypertrophy'},
@@ -15,7 +16,7 @@ const DEFAULT_BLOCKS:TrainingBlock[]=[
   {id:'deload',name:'Deload',weeks:1,focus:'Deload'}
 ];
 const DEFAULT: ForgeState = {
-  dataVersion: 7, selectedProgramId: 'pushA', phase: 'Hypertrophy', phaseWeek: 5, phaseLength: 12,
+  dataVersion: DATA_VERSION, selectedProgramId: 'pushA', phase: 'Hypertrophy', phaseWeek: 5, phaseLength: 12,
   calTarget: 2750, proteinTarget: 160, kcal: 0, protein: 0, carbs: 0, fat: 0,
   foodLog: [], sessions: [], bodyLogs: [], progressPhotos: [], goals: { weight: 76, smm: 37, maintenance: 2450 },
   programEdits:{}, settings:{restSeconds:90,restNotifications:false},
@@ -52,6 +53,8 @@ function normalize(raw:any): ForgeState {
   if (!(programs as any)[state.selectedProgramId]) state.selectedProgramId = 'pushA';
   if (!(programs as any)[state.workout.programId]) state.workout.programId = state.selectedProgramId;
   state.workout.restSeconds=Number(state.workout.restSeconds||state.settings.restSeconds||90);
+  // v14 keeps the canonical storage key and normalizes older payloads in place so upgrades do not strand user history.
+  state.dataVersion=DATA_VERSION;
   return state;
 }
 
@@ -91,7 +94,7 @@ export function ForgeProvider({children}:{children:React.ReactNode}) {
   const addProgressPhoto=useCallback((photo:ProgressPhoto)=>setState(s=>({...s,progressPhotos:[{...photo,id:photo.id||`photo_${Date.now()}`},...s.progressPhotos].slice(0,60)})),[]);
   const removeProgressPhoto=useCallback((idOrUri:string)=>setState(s=>({...s,progressPhotos:s.progressPhotos.filter(p=>(p.id||p.uri)!==idOrUri)})),[]);
   const importState=useCallback(async(raw:any)=>{const next=normalize(raw);setState(next);await AsyncStorage.setItem(KEY,JSON.stringify(next));Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(()=>{});},[]);
-  const exportState=useCallback(async()=>JSON.stringify({version:'forge-native-13-alpha2',state},null,2),[state]);
+  const exportState=useCallback(async()=>JSON.stringify({version:'forge-native-14',state},null,2),[state]);
   const value=useMemo(()=>({state,ready,themeName,theme,setTheme,selectProgram,getProgram,programList,moveProgramExercise,removeProgramExercise,addProgramExercise,replaceProgramExercise,resetProgram,renameProgram,addTrainingBlock,updateTrainingBlock,duplicateTrainingBlock,removeTrainingBlock,startWorkout,adjustInput,addSet,nextExercise,replaceCurrentExercise,finishWorkout,setRestDuration,clearRestTimer,adjustRestTimer,setRestNotifications,addFood,resetDayNutrition,addProgressPhoto,removeProgressPhoto,importState,exportState}),[state,ready,themeName,theme,getProgram,programList]);
   return <ForgeContext.Provider value={value}>{children}</ForgeContext.Provider>;
 }
