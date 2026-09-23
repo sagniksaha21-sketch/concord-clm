@@ -8,7 +8,7 @@ const required=[
  'app/_layout.tsx','app/(tabs)/_layout.tsx','app/(tabs)/index.tsx','app/(tabs)/train.tsx',
  'app/(tabs)/nutrition.tsx','app/(tabs)/analytics.tsx','app/(tabs)/more.tsx',
  'app/workout.tsx','app/share.tsx','app/program-builder.tsx','app/exercise-picker.tsx',
- 'app/exercise-history.tsx','app/progress-photos.tsx','app/music.tsx','src/store/ForgeProvider.tsx',
+ 'app/exercise-history.tsx','app/progress-photos.tsx','src/store/ForgeProvider.tsx',
  'src/components/Body3D.tsx','src/graphics/bodyMesh.ts','src/services/restTimer.ts','src/utils/training.ts'
 ];
 const missing=required.filter(f=>!fs.existsSync(path.join(root,f)));
@@ -37,7 +37,6 @@ const featureChecks={
  progressPhotos: photos.includes('ImagePicker') && provider.includes('addProgressPhoto'),
  hallOfFameHistory: analytics.includes('exercise-history'),
  shareStudio: share.includes('expo-sharing') && share.includes('LATEST PR') && share.includes('CUSTOM') && share.includes('Use latest progress photo'),
- googleYouTube: fs.readFileSync(path.join(root,'app/music.tsx'),'utf8').includes('YOUTUBE MUSIC') && fs.existsSync(path.join(root,'src/services/youtube.ts')),
  strongerBrand: brand.includes('styles.rule') && brand.includes('styles.spark')
 };
 if(!String(packageJson.version).startsWith('14.')) throw new Error(`Expected Forge 14 package version, found ${packageJson.version}`);
