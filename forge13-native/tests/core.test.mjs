@@ -249,3 +249,12 @@ test('Forge-owned confirmations use the themed dialog system',()=>{
  assert.match(workout,/ForgeDialog/);assert.doesNotMatch(workout,/Alert\.alert/);
  assert.match(photos,/ForgeDialog/);assert.doesNotMatch(photos,/Alert\.alert/);
 });
+
+
+test('live training uses tactile wheels and evidence-honest signal language',()=>{
+ const workout=read('app/workout.tsx'),wheel=read('src/components/ForgeWheel.tsx'),today=read('app/(tabs)/index.tsx');
+ assert.match(workout,/ForgeWheel/);assert.doesNotMatch(workout,/function Stepper/);
+ assert.match(wheel,/snapToInterval/);assert.match(wheel,/Haptics\.selectionAsync/);
+ assert.match(workout,/SESSION/);assert.match(workout,/accessibilityLabel="Minimize workout"/);
+ assert.match(today,/TRAINING SIGNAL/);assert.match(today,/Based only on sessions recorded in FORGE/);assert.match(today,/no watch, ring or sensor data/);
+});
