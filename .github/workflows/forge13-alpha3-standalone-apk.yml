@@ -119,7 +119,7 @@ jobs:
         with:
           name: FORGE-V13.0.0-REBUILD-STANDALONE-APK
           path: |
-            dist-standalone/FORGE-V13.0.0-Alpha3-Standalone.apk
+            dist-standalone/FORGE-V13.0.0-Rebuild-Standalone.apk
             dist-standalone/BUILD-METADATA.txt
             dist-standalone/SHA256.txt
           if-no-files-found: error
