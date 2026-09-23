@@ -49,8 +49,8 @@ export default function Nutrition(){
  </Screen>
 }
 const styles=StyleSheet.create({
- big:{fontSize:31,fontWeight:'1000',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'650'},
+ big:{fontSize:31,fontWeight:'900',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
  macroRow:{flexDirection:'row',marginTop:18,gap:10},macro:{fontSize:20,fontWeight:'900'},label:{fontSize:8,fontWeight:'900',letterSpacing:1.1,textTransform:'uppercase',marginBottom:5},
  input:{height:45,borderWidth:1,borderRadius:13,paddingHorizontal:12,fontSize:13,fontWeight:'700',marginBottom:11},
- grid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},rowCard:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:13},food:{fontSize:14,fontWeight:'900'},kcal:{fontSize:11,fontWeight:'900'},reset:{textAlign:'center',fontSize:9,fontWeight:'750',paddingVertical:6}
+ grid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},rowCard:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:13},food:{fontSize:14,fontWeight:'900'},kcal:{fontSize:11,fontWeight:'900'},reset:{textAlign:'center',fontSize:9,fontWeight:'700',paddingVertical:6}
 });
