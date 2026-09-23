@@ -100,3 +100,12 @@ test('workout gives immediate earned PR feedback without claiming persistence ea
  assert.match(workout,/Finish the session to commit it to training history/);
  assert.match(workout,/const logSet=/);
 });
+
+
+test('FHM3 exposes stage-explicit shader diagnostics',()=>{
+ const body=read('src/components/Body3D.tsx');
+ assert.match(body,/vertex.*shader compile/);
+ assert.match(body,/fragment/);
+ assert.match(body,/program link/);
+ assert.match(body,/mesh decode: empty geometry/);
+});
