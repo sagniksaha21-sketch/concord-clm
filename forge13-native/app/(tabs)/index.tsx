@@ -11,6 +11,7 @@ import { ProgressBar } from '@/components/ProgressBar';
 import { useForge, programs } from '@/store/ForgeProvider';
 import { hallOfFame, last30, latestSession, weekSessions } from '@/utils/analytics';
 import { tons, shortDate } from '@/utils/format';
+import { readiness } from '@/utils/readiness';
 
 export default function Today(){
  const router=useRouter();
@@ -20,7 +21,9 @@ export default function Today(){
  const calPct=state.calTarget?state.kcal/state.calTarget*100:0;
  const proPct=state.proteinTarget?state.protein/state.proteinTarget*100:0;
  const active=!!state.workout?.startedAt;
+ const ready=readiness(state);
  return <Screen>
+   <View style={[styles.readiness,{borderColor:theme.line}]}><View><Text style={[styles.kicker,{color:theme.amber}]}>FORGE READINESS · {ready.band}</Text><Text style={[styles.readinessScore,{color:theme.text}]}>{ready.score}<Text style={[styles.readinessUnit,{color:theme.muted}]}> / 100</Text></Text></View><View style={styles.readinessCopy}><Text style={[styles.readinessTitle,{color:theme.text}]}>{ready.headline}</Text><Text style={[styles.readinessReason,{color:theme.muted}]}>{ready.reason}</Text></View></View>
    <View style={styles.heroRow}>
     <View style={{flex:1,minWidth:0}}>
       <Text style={[styles.kicker,{color:theme.amber}]}>TODAY · {String(state.phase).toUpperCase()}</Text>
@@ -81,6 +84,7 @@ export default function Today(){
  </Screen>
 }
 const styles=StyleSheet.create({
+ readiness:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:15,flexDirection:'row',alignItems:'center',gap:18},readinessScore:{fontSize:30,fontWeight:'900',letterSpacing:-1.2,marginTop:4},readinessUnit:{fontSize:10,fontWeight:'700'},readinessCopy:{flex:1},readinessTitle:{fontSize:15,fontWeight:'900'},readinessReason:{fontSize:9.5,lineHeight:14,fontWeight:'600',marginTop:4},
  heroRow:{flexDirection:'row',gap:14,alignItems:'center'},
  heroArt:{width:112,height:140},
  kicker:{fontSize:9,fontWeight:'900',letterSpacing:1.6},
