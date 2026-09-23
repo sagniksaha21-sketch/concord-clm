@@ -7,7 +7,7 @@ import {V14} from '../theme';
 export function ForgeButton({label,onPress,ghost=false,style}:{label:string;onPress:()=>void;ghost?:boolean;style?:StyleProp<ViewStyle>}){
  const {theme}=useForge(),scale=useRef(new Animated.Value(1)).current;
  const down=()=>Animated.spring(scale,{toValue:.975,damping:18,stiffness:350,useNativeDriver:true}).start(),up=()=>Animated.spring(scale,{toValue:1,damping:14,stiffness:300,useNativeDriver:true}).start();
- const press=()=>{Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(()=>{});onPress();};
+ const press=()=>{Haptics.selectionAsync().catch(()=>{});onPress();};
  return <Animated.View style={[{transform:[{scale}]},style]}><Pressable onPress={press} onPressIn={down} onPressOut={up}>
   {ghost?<View style={[styles.btn,{borderColor:theme.line,backgroundColor:theme.panel2}]}><Text style={[styles.txt,{color:theme.text}]}>{label}</Text></View>:<LinearGradient colors={[theme.gold,theme.amber,theme.ember]} start={{x:0,y:0}} end={{x:1,y:1}} style={[styles.btn,styles.primary]}><View pointerEvents="none" style={styles.highlight}/><Text style={[styles.txt,{color:'#160D03'}]}>{label}</Text><Text style={styles.arrow}>›</Text></LinearGradient>}
  </Pressable></Animated.View>
