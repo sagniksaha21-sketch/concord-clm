@@ -142,3 +142,14 @@ test('Nutrition keeps logging hierarchy structural rather than card-heavy',()=>{
  assert.match(nutrition,/logBlock/);
  assert.match(nutrition,/borderBottomWidth:1/);
 });
+
+
+test('Today and Analytics stay card-light at the primary hierarchy level',()=>{
+ const today=read('app/(tabs)/index.tsx');
+ const analytics=read('app/(tabs)/analytics.tsx');
+ assert.doesNotMatch(today,/GlassCard/);
+ assert.doesNotMatch(analytics,/GlassCard/);
+ assert.match(today,/weekRail/);
+ assert.match(analytics,/bodyBlock/);
+ assert.match(analytics,/FORGE HALL OF FAME/);
+});
