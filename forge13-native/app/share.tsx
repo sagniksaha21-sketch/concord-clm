@@ -1,6 +1,7 @@
 import React,{useMemo,useRef,useState} from 'react';
-import { SafeAreaView,View,Text,StyleSheet,Pressable,Image,Alert,ScrollView,TextInput } from 'react-native';
+import { View,Text,StyleSheet,Pressable,Image,Alert,ScrollView,TextInput } from 'react-native';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 import ViewShot,{captureRef} from 'react-native-view-shot';
@@ -54,7 +55,7 @@ export default function ShareStudio(){
    }catch(e:any){Alert.alert('Could not create card',e?.message||'Unknown error')}
  }
  const ratio=format==='post'?4/5:9/16;
- return <SafeAreaView style={[styles.safe,{backgroundColor:theme.bg}]}>
+ return <SafeAreaView edges={['top','bottom']} style={[styles.safe,{backgroundColor:theme.bg}]}>
   <View style={styles.header}><ForgeBrand compact/><Pressable onPress={()=>router.back()}><Text style={[styles.close,{color:theme.muted}]}>CLOSE</Text></Pressable></View>
   <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
    <Text style={[styles.kicker,{color:theme.amber}]}>SHARE STUDIO</Text>
