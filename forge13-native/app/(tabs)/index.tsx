@@ -3,7 +3,6 @@ import React from 'react';
 import { View, Text, StyleSheet, Pressable, ImageBackground } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
-import { GlassCard } from '@/components/GlassCard';
 import { ForgeButton } from '@/components/ForgeButton';
 import { ProgrammeArt } from '@/components/ProgrammeArt';
 import { Metric } from '@/components/Metric';
@@ -70,18 +69,16 @@ export default function Today(){
      </View>
    </View>
 
-   <View style={styles.two}>
-    <GlassCard style={styles.half}>
+   <View style={[styles.weekRail,{borderColor:theme.line}]}>
+    <View style={styles.half}>
       <Text style={[styles.eyebrow,{color:theme.amber}]}>THIS WEEK</Text>
       <Text style={[styles.big,{color:theme.text}]}>{week}</Text>
       <Text style={[styles.micro,{color:theme.muted}]}>sessions forged</Text>
-    </GlassCard>
-    <Pressable style={{flex:1}} onPress={()=>router.push('/(tabs)/analytics')}>
-      <GlassCard style={styles.half}>
+    </View>
+    <Pressable style={[styles.half,styles.hofLink,{borderColor:theme.line}]} onPress={()=>router.push('/(tabs)/analytics')}>
        <Text style={[styles.eyebrow,{color:theme.amber}]}>HALL OF FAME</Text>
        <Text style={[styles.big,{color:theme.text}]}>{hof.length}</Text>
        <Text style={[styles.micro,{color:theme.muted}]}>earned records</Text>
-      </GlassCard>
     </Pressable>
    </View>
  </Screen>
@@ -102,7 +99,7 @@ const styles=StyleSheet.create({
  cardTitle:{fontSize:18,fontWeight:'900',letterSpacing:-.4,marginTop:4},
  side:{fontSize:10,fontWeight:'900',marginTop:3},
  rowBetween:{flexDirection:'row',justifyContent:'space-between'},
- two:{flexDirection:'row',gap:12},
- half:{flex:1,minHeight:125},
+ weekRail:{flexDirection:'row',borderTopWidth:1,borderBottomWidth:1},
+ half:{flex:1,minHeight:105,paddingVertical:14,justifyContent:'center'},hofLink:{borderLeftWidth:1,paddingLeft:16},
  big:{fontSize:34,fontWeight:'900',letterSpacing:-1.4,marginTop:8}
 });
