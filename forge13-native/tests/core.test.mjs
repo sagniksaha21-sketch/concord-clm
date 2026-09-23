@@ -87,7 +87,7 @@ test('anatomy requires a valid first frame before reporting live',()=>{const b=r
 
 
 test('FHM3 analytics binds anatomy to intelligence states',()=>{
- const analytics=fs.readFileSync(path.join(root,'app/(tabs)/analytics.tsx'),'utf8');
+ const analytics=read('app/(tabs)/analytics.tsx');
  assert.match(analytics,/undertrained=muscleStates\.filter/);
  assert.match(analytics,/groups=\{undertrained\.length\?undertrained:muscles\}/);
  assert.match(analytics,/NEEDS WORK/);
