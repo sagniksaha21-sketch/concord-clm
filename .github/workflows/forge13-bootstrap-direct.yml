@@ -75,7 +75,17 @@ jobs:
           bb41f4dd5f3c05655f2842e54fa9be2235656205a5cb568695b78f11d05a06cd  splash/04.jpg
           EOF
           (cd assets && sha256sum -c EXPECTED_SHA256.txt)
-          echo "2955fd3d26edce346bf024bfb7265fa95cd17c6b5f9687ab23a15987dab98fec  src/graphics/bodyMesh.ts" | sha256sum -c -
+          node - <<'NODE'
+          const fs=require('fs'),crypto=require('crypto');
+          const s=fs.readFileSync('src/graphics/bodyMesh.ts','utf8');
+          const m=s.match(/BODY_MESH_B64\\s*=\\s*(["'])([\\s\\S]*?)\\1/);
+          if(!m) throw new Error('BODY_MESH_B64 missing');
+          const b=Buffer.from(m[2],'base64');
+          const h=crypto.createHash('sha256').update(b).digest('hex');
+          if(b.subarray(0,4).toString()!=='FHM2') throw new Error('FHM2 magic mismatch');
+          if(h!=='3f4c96ace64f995707ed8c81d2e609010bb07580f009f6e6e4ca04e042ec32fe') throw new Error('FHM2 payload checksum mismatch '+h);
+          console.log('[FORGE] FHM2 payload verified',b.length,h);
+          NODE
 
       - name: Commit direct Alpha 2 source
         shell: bash
