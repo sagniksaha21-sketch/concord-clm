@@ -2,7 +2,6 @@
 import React,{useState} from 'react';
 import { View, Text, StyleSheet, TextInput, Pressable } from 'react-native';
 import { Screen } from '@/components/Screen';
-import { GlassCard } from '@/components/GlassCard';
 import { ForgeButton } from '@/components/ForgeButton';
 import { ProgressBar } from '@/components/ProgressBar';
 import { SectionTitle } from '@/components/SectionTitle';
@@ -31,7 +30,7 @@ export default function Nutrition(){
   </View>
 
   <SectionTitle eyebrow="QUICK LOG" title="Add a meal"/>
-  <GlassCard>
+  <View style={[styles.logBlock,{borderColor:theme.line}]}>
    <TextInput value={name} onChangeText={setName} placeholder="Meal name" placeholderTextColor={theme.muted} style={[styles.input,{color:theme.text,borderColor:theme.line,backgroundColor:theme.panel2}]}/>
    <View style={styles.grid}>
     {[
@@ -39,22 +38,22 @@ export default function Nutrition(){
     ].map(([l,v,set]:any)=><View key={l} style={{width:'48%'}}><Text style={[styles.label,{color:theme.muted}]}>{l}</Text><TextInput value={v} onChangeText={set} keyboardType="decimal-pad" style={[styles.input,{color:theme.text,borderColor:theme.line,backgroundColor:theme.panel2}]}/></View>)}
    </View>
    <ForgeButton label="Log meal" onPress={log}/>
-  </GlassCard>
+  </View>
 
   <SectionTitle eyebrow="RECENT" title="Today’s food"/>
   <View style={{gap:9}}>
-   {(state.foodLog||[]).slice(0,6).map((f,i)=><GlassCard key={`${f.at}-${i}`} style={styles.rowCard}>
+   {(state.foodLog||[]).slice(0,6).map((f,i)=><View key={`${f.at}-${i}`} style={[styles.rowCard,{borderColor:theme.line}]}>
       <View style={{flex:1}}><Text style={[styles.food,{color:theme.text}]}>{f.name}</Text><Text style={[styles.micro,{color:theme.muted}]}>{Math.round(f.p||0)}g protein · {Math.round(f.c||0)}g carbs · {Math.round(f.f||0)}g fat</Text></View>
       <Text style={[styles.kcal,{color:theme.gold}]}>{Math.round(f.kcal)} kcal</Text>
-   </GlassCard>)}
-   {!state.foodLog.length && <GlassCard><Text style={[styles.micro,{color:theme.muted}]}>Nothing logged yet.</Text></GlassCard>}
+   </View>)}
+   {!state.foodLog.length && <View style={[styles.empty,{borderColor:theme.line}]}><Text style={[styles.micro,{color:theme.muted}]}>Nothing logged yet.</Text></View>}
   </View>
   <Pressable onPress={resetDayNutrition}><Text style={[styles.reset,{color:theme.muted}]}>Reset today’s macro totals</Text></Pressable>
  </Screen>
 }
 const styles=StyleSheet.create({
- fuel:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:18},context:{borderBottomWidth:1,paddingBottom:13,gap:3},big:{fontSize:31,fontWeight:'900',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
+ logBlock:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:14},empty:{borderBottomWidth:1,paddingVertical:14},fuel:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:18},context:{borderBottomWidth:1,paddingBottom:13,gap:3},big:{fontSize:31,fontWeight:'900',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
  macroRow:{flexDirection:'row',marginTop:18,gap:10},macro:{fontSize:20,fontWeight:'900'},label:{fontSize:8,fontWeight:'900',letterSpacing:1.1,textTransform:'uppercase',marginBottom:5},
  input:{height:45,borderWidth:1,borderRadius:13,paddingHorizontal:12,fontSize:13,fontWeight:'700',marginBottom:11},
- grid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},rowCard:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:13},food:{fontSize:14,fontWeight:'900'},kcal:{fontSize:11,fontWeight:'900'},reset:{textAlign:'center',fontSize:9,fontWeight:'700',paddingVertical:6}
+ grid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},rowCard:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:13,borderBottomWidth:1},food:{fontSize:14,fontWeight:'900'},kcal:{fontSize:11,fontWeight:'900'},reset:{textAlign:'center',fontSize:9,fontWeight:'700',paddingVertical:6}
 });
