@@ -17,7 +17,7 @@ export default function TabsLayout(){
    sceneStyle:{backgroundColor:theme.bg}
  }}>
   {screens.map(([name,title,icon])=><Tabs.Screen key={name} name={name} options={{
-    title,tabBarIcon:({color})=><TabIcon name={icon} color={color}/>
+    title,tabBarIcon:({color})=><TabIcon name={icon} color={String(color)}/>
   }}/>)}
  </Tabs>
 }
