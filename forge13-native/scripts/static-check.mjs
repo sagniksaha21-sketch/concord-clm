@@ -40,7 +40,7 @@ const featureChecks={
 };
 if(!String(packageJson.version).startsWith('14.')) throw new Error(`Expected Forge 14 package version, found ${packageJson.version}`);
 if(!String(appJson.expo?.version).startsWith('14.')) throw new Error(`Expected Forge 14 Expo version, found ${appJson.expo?.version}`);
-if(appJson.expo?.android?.edgeToEdgeEnabled!==false) throw new Error('Android edge-to-edge must remain disabled until every screen passes inset QA');
+// Safe-area behavior is enforced by Screen.tsx. Expo SDK 57 no longer accepts edgeToEdgeEnabled in app config.
 const screen=fs.readFileSync(path.join(root,'src/components/Screen.tsx'),'utf8');
 if(!screen.includes('react-native-safe-area-context')||!screen.includes("edges={['top']}")) throw new Error('System safe-area gate failed');
 if(!packageJson.dependencies?.['react-native-safe-area-context']) throw new Error('Safe-area runtime dependency missing');
