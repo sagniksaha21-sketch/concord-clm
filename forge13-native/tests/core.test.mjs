@@ -92,3 +92,11 @@ test('FHM3 analytics binds anatomy to intelligence states',()=>{
  assert.match(analytics,/groups=\{undertrained\.length\?undertrained:muscles\}/);
  assert.match(analytics,/NEEDS WORK/);
 });
+
+
+test('workout gives immediate earned PR feedback without claiming persistence early',()=>{
+ const workout=read('app/workout.tsx');
+ assert.match(workout,/MARK EARNED/);
+ assert.match(workout,/Finish the session to commit it to training history/);
+ assert.match(workout,/const logSet=/);
+});
