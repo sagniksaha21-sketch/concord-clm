@@ -10,7 +10,8 @@ import {readiness} from '@/utils/readiness';
 
 export default function Nutrition(){
  const {state,theme,addFood,resetDayNutrition}=useForge();
- const [logging,setLogging]=useState(false);\n const [name,setName]=useState('Meal');
+ const [logging,setLogging]=useState(false);
+ const [name,setName]=useState('Meal');
  const [kcal,setKcal]=useState('350'),[protein,setProtein]=useState('30'),[carbs,setCarbs]=useState('35'),[fat,setFat]=useState('10');
  const ready=readiness(state);
  const dayType=ready.band==='RECOVER'?'RECOVERY':ready.band==='READY'?'TRAINING':'BALANCED';
@@ -29,14 +30,16 @@ export default function Nutrition(){
    </View>
   </View>
 
-  <Pressable onPress={()=>setLogging(v=>!v)} style={[styles.logTrigger,{borderColor:theme.amber}]}><View><Text style={[styles.label,{color:theme.amber}]}>QUICK LOG</Text><Text style={[styles.food,{color:theme.text}]}>{logging?'Close meal logger':'Add food or meal'}</Text></View><Text style={[styles.logPlus,{color:theme.gold}]}>{logging?'×':'+'}</Text></Pressable>\n  {logging&&<View style={[styles.logBlock,{borderColor:theme.line}]}>
+  <Pressable onPress={()=>setLogging(v=>!v)} style={[styles.logTrigger,{borderColor:theme.amber}]}><View><Text style={[styles.label,{color:theme.amber}]}>QUICK LOG</Text><Text style={[styles.food,{color:theme.text}]}>{logging?'Close meal logger':'Add food or meal'}</Text></View><Text style={[styles.logPlus,{color:theme.gold}]}>{logging?'×':'+'}</Text></Pressable>
+  {logging&&<View style={[styles.logBlock,{borderColor:theme.line}]}>
    <TextInput value={name} onChangeText={setName} placeholder="Meal name" placeholderTextColor={theme.muted} style={[styles.input,{color:theme.text,borderColor:theme.line,backgroundColor:theme.panel2}]}/>
    <View style={styles.grid}>
     {[
       ['Calories',kcal,setKcal],['Protein',protein,setProtein],['Carbs',carbs,setCarbs],['Fat',fat,setFat]
     ].map(([l,v,set]:any)=><View key={l} style={{width:'48%'}}><Text style={[styles.label,{color:theme.muted}]}>{l}</Text><TextInput value={v} onChangeText={set} keyboardType="decimal-pad" style={[styles.input,{color:theme.text,borderColor:theme.line,backgroundColor:theme.panel2}]}/></View>)}
    </View>
-   <ForgeButton label="Log meal" onPress={()=>{log();setLogging(false)}}/>\n  </View>}
+   <ForgeButton label="Log meal" onPress={()=>{log();setLogging(false)}}/>
+  </View>}
 
   <SectionTitle eyebrow="RECENT" title="Today’s food"/>
   <View style={{gap:9}}>
@@ -50,7 +53,8 @@ export default function Nutrition(){
  </Screen>
 }
 const styles=StyleSheet.create({
- logTrigger:{borderWidth:1,borderRadius:16,padding:14,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},logPlus:{fontSize:28,fontWeight:'400'},\n logBlock:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:14},empty:{borderBottomWidth:1,paddingVertical:14},fuel:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:18},context:{borderBottomWidth:1,paddingBottom:13,gap:3},big:{fontSize:31,fontWeight:'900',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
+ logTrigger:{borderWidth:1,borderRadius:16,padding:14,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},logPlus:{fontSize:28,fontWeight:'400'},
+ logBlock:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:14},empty:{borderBottomWidth:1,paddingVertical:14},fuel:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:18},context:{borderBottomWidth:1,paddingBottom:13,gap:3},big:{fontSize:31,fontWeight:'900',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
  macroRow:{flexDirection:'row',marginTop:18,gap:10},macro:{fontSize:20,fontWeight:'900'},label:{fontSize:8,fontWeight:'900',letterSpacing:1.1,textTransform:'uppercase',marginBottom:5},
  input:{height:45,borderWidth:1,borderRadius:13,paddingHorizontal:12,fontSize:13,fontWeight:'700',marginBottom:11},
  grid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},rowCard:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:13,borderBottomWidth:1},food:{fontSize:14,fontWeight:'900'},kcal:{fontSize:11,fontWeight:'900'},reset:{textAlign:'center',fontSize:9,fontWeight:'700',paddingVertical:6}
