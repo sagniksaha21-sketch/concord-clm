@@ -43,7 +43,7 @@ export default function Today(){
      router.push('/workout');
    }}/>
 
-   <GlassCard>
+   <View style={[styles.performance,{borderColor:theme.line}]}>
      <Text style={[styles.eyebrow,{color:theme.amber}]}>30 DAY PERFORMANCE</Text>
      <View style={styles.metrics}>
        <Metric value={tr.sessions} label="sessions"/>
@@ -53,9 +53,9 @@ export default function Today(){
      <Text style={[styles.micro,{color:theme.muted,marginTop:14}]}>
        {last?`Last trained ${shortDate(last.date)} · ${last.name}`:'Training history will build here as you log sessions.'}
      </Text>
-   </GlassCard>
+   </View>
 
-   <GlassCard>
+   <View style={[styles.nutrition,{borderColor:theme.line}]}>
      <View style={styles.cardHead}>
        <View>
         <Text style={[styles.eyebrow,{color:theme.amber}]}>NUTRITION</Text>
@@ -68,7 +68,7 @@ export default function Today(){
       <View style={styles.rowBetween}><Text style={[styles.micro,{color:theme.muted}]}>Protein</Text><Text style={[styles.micro,{color:theme.text}]}>{Math.round(state.protein)} / {state.proteinTarget}g</Text></View>
       <ProgressBar value={proPct}/>
      </View>
-   </GlassCard>
+   </View>
 
    <View style={styles.two}>
     <GlassCard style={styles.half}>
@@ -87,6 +87,7 @@ export default function Today(){
  </Screen>
 }
 const styles=StyleSheet.create({
+ performance:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:16},nutrition:{borderLeftWidth:2,paddingLeft:14,paddingVertical:5},
  readiness:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:15,flexDirection:'row',alignItems:'center',gap:18},readinessScore:{fontSize:30,fontWeight:'900',letterSpacing:-1.2,marginTop:4},readinessUnit:{fontSize:10,fontWeight:'700'},readinessCopy:{flex:1},readinessTitle:{fontSize:15,fontWeight:'900'},readinessReason:{fontSize:9.5,lineHeight:14,fontWeight:'600',marginTop:4},
  coach:{borderLeftWidth:2,paddingLeft:12,paddingVertical:4},coachTitle:{fontSize:16,fontWeight:'900',letterSpacing:-.3,marginTop:5},
  photoHero:{minHeight:190,justifyContent:'flex-end',padding:16,overflow:'hidden',position:'relative'},heroImage:{opacity:.34},heroShade:{...StyleSheet.absoluteFill,backgroundColor:'rgba(3,3,3,.46)'},heroRow:{flexDirection:'row',gap:14,alignItems:'center'},
