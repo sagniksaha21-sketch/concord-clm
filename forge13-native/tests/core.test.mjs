@@ -16,7 +16,7 @@ test('no duplicate exercise ids',()=>{
  const ids=exercises.map(x=>x.id);
  assert.equal(new Set(ids).size,ids.length);
 });
-test('alpha 2 native routes exist',()=>{
+test('Forge native routes exist',()=>{
  for(const f of [
   'app/(tabs)/index.tsx','app/(tabs)/train.tsx','app/(tabs)/nutrition.tsx','app/(tabs)/analytics.tsx','app/(tabs)/more.tsx',
   'app/workout.tsx','app/share.tsx','app/program-builder.tsx','app/exercise-picker.tsx','app/exercise-history.tsx','app/progress-photos.tsx'
@@ -49,4 +49,15 @@ test('progress photo studio uses the native image picker',()=>{
  const photos=read('app/progress-photos.tsx');
  assert.match(photos,/expo-image-picker/);
  assert.ok(photos.includes('addProgressPhoto'));
+});
+
+test('v14 migration contract protects legacy wrappers and user history',()=>{
+ const migration=read('src/store/migration.ts');
+ const provider=read('src/store/ForgeProvider.tsx');
+ assert.match(migration,/raw\?\.state/);assert.match(migration,/raw\?\.data/);
+ for(const field of ['sessions','foodLog','bodyLogs','progressPhotos','programEdits','exerciseSets','exerciseOrder']) assert.ok(migration.includes(field),field);
+ assert.ok(migration.includes("state.selectedProgramId='pushA'"));
+ assert.ok(migration.includes('state.dataVersion=FORGE_DATA_VERSION'));
+ assert.ok(provider.includes('migrateForgeState(raw,DEFAULT)'));
+ assert.ok(provider.includes("version:'forge-native-14'"));
 });
