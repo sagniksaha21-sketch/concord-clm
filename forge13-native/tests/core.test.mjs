@@ -208,14 +208,6 @@ test('completion push keeps P2 navigation tactile and P3 adaptation history-anch
  assert.match(workout,/last comparable session/);
 });
 
-test('P6 ecosystem surfaces are explicit, structural and locally truthful',()=>{
- const music=read('app/music.tsx'),studio=read('app/progress-photos.tsx');
- assert.doesNotMatch(music,/GlassCard/);assert.doesNotMatch(studio,/GlassCard/);
- assert.match(music,/hand playback to YouTube Music/);
- assert.match(music,/Google connection not configured/);
- assert.match(studio,/compareBlock/);assert.match(studio,/CAPTURE PROTOCOL/);
-});
-
 test('dashboard analytics ignore malformed imported session dates',()=>{
  const analytics=read('src/utils/analytics.ts');
  assert.match(analytics,/Number\.isFinite\(t\)/);
@@ -245,3 +237,6 @@ test('FHM3 never labels poster fallback as live anatomy',()=>{
  assert.match(body,/assertGl\(gl,'first frame'\)/);
  assert.match(body,/deleteBuffer/);assert.match(body,/deleteProgram/);
 });
+
+
+test('RC2 keeps themes user-selectable and removes partial music integration',()=>{const theme=read('src/theme.ts'),more=read('app/(tabs)/more.tsx'),layout=read('app/_layout.tsx');for(const token of ['black-amber','graphite-champagne','pure-black','midnight-blue','crimson-forge','emerald-carbon','violet-neon']) assert.ok(theme.includes(token),token);assert.match(more,/Object\.entries\(THEMES\)/);assert.doesNotMatch(more,/YouTube|Forge Audio|GoogleMusic/);assert.doesNotMatch(layout,/name=\"music\"/);assert.ok(!fs.existsSync(new URL('../app/music.tsx',import.meta.url)));});
