@@ -18,7 +18,7 @@ export default function Today(){
  const calPct=state.calTarget?state.kcal/state.calTarget*100:0,proPct=state.proteinTarget?state.protein/state.proteinTarget*100:0;
  return <Screen>
   <ImageBackground source={require('../../assets/splash/01.jpg')} imageStyle={s.heroImage} style={s.hero}>
-   <View style={s.heroShade}/><View style={s.heroTop}><Text style={[s.wordmark,{color:theme.gold}]}>FORGE</Text><Text style={[s.phase,{color:theme.amber}]}>{String(state.phase).toUpperCase()}</Text></View>
+   <View style={s.heroShade}/><View style={s.heroTop}><Text style={[s.phase,{color:theme.gold}]}>COMMAND / TODAY</Text><Text style={[s.phase,{color:theme.amber}]}>{String(state.phase).toUpperCase()}</Text></View>
    <View><Text style={[s.overline,{color:theme.amber}]}>{active?'SESSION IN PROGRESS':'TODAY / PRIMARY MISSION'}</Text><Text style={[s.h1,{color:theme.text}]}>{active?'Finish what you started.':'Build the next version.'}</Text><Text style={[s.heroCopy,{color:theme.text}]}>{prog.name} · {prog.exercises.length} exercises</Text></View>
   </ImageBackground>
   <ForgeButton label={active?'RESUME WORKOUT':'START WORKOUT'} onPress={()=>{if(!active)startWorkout();router.push('/workout')}}/>
