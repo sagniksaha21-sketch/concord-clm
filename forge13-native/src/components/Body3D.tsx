@@ -89,8 +89,8 @@ export function Body3D({groups=[],selectable=false,onSelectionChange,height=276,
  const snap=(name:'front'|'side'|'back')=>{targetRef.current={front:0,side:Math.PI/2,back:Math.PI}[name];resumeRef.current=performance.now()+3200;Haptics.selectionAsync().catch(()=>{});};
  return <View style={[styles.wrap,{height,borderColor:theme.line,backgroundColor:theme.panel2}]} onLayout={e=>{sizeRef.current={w:e.nativeEvent.layout.width,h:e.nativeEvent.layout.height};}}>
   {!ready&&<Image source={require('../../assets/body-poster.png')} resizeMode="contain" style={styles.fallback}/>} 
-  <GLView style={StyleSheet.absoluteFillObject} onContextCreate={onContextCreate}/>
-  <View style={StyleSheet.absoluteFillObject} {...pan.panHandlers}/>
+  <GLView style={StyleSheet.absoluteFill} onContextCreate={onContextCreate}/>
+  <View style={StyleSheet.absoluteFill} {...pan.panHandlers}/>
   <View style={styles.topline} pointerEvents="none"><Text style={[styles.badge,{color:theme.gold,borderColor:theme.line}]}>{ready?'NATIVE 3D':'3D FALLBACK'}</Text><Text style={[styles.view,{color:theme.muted}]}>{viewName.toUpperCase()}</Text></View>
   <View style={styles.snaps}>
    {(['front','side','back'] as const).map(x=><Pressable key={x} onPress={()=>snap(x)} style={[styles.snap,{borderColor:theme.line,backgroundColor:theme.panel}]}><Text style={[styles.snapText,{color:theme.text}]}>{x.toUpperCase()}</Text></Pressable>)}
@@ -98,4 +98,4 @@ export function Body3D({groups=[],selectable=false,onSelectionChange,height=276,
   {selectable&&<View style={styles.selected} pointerEvents="none"><Text style={[styles.selectedText,{color:theme.gold}]}>{internal.length?internal.join(' + '):'Tap a muscle · drag to rotate'}</Text></View>}
  </View>;
 }
-const styles=StyleSheet.create({wrap:{borderWidth:1,borderRadius:22,overflow:'hidden',position:'relative'},fallback:{...StyleSheet.absoluteFillObject,width:'100%',height:'100%',opacity:.82},topline:{position:'absolute',left:12,right:12,top:12,flexDirection:'row',justifyContent:'space-between',alignItems:'center'},badge:{fontSize:7.5,fontWeight:'1000',letterSpacing:1.1,borderWidth:1,borderRadius:999,paddingHorizontal:8,paddingVertical:5},view:{fontSize:8,fontWeight:'900',letterSpacing:1.2},snaps:{position:'absolute',right:10,bottom:10,gap:6},snap:{borderWidth:1,borderRadius:10,paddingHorizontal:9,paddingVertical:7},snapText:{fontSize:7,fontWeight:'900',letterSpacing:.8},selected:{position:'absolute',left:12,bottom:12,maxWidth:'66%'},selectedText:{fontSize:8.5,fontWeight:'900',letterSpacing:.5}});
+const styles=StyleSheet.create({wrap:{borderWidth:1,borderRadius:22,overflow:'hidden',position:'relative'},fallback:{...StyleSheet.absoluteFill,width:'100%',height:'100%',opacity:.82},topline:{position:'absolute',left:12,right:12,top:12,flexDirection:'row',justifyContent:'space-between',alignItems:'center'},badge:{fontSize:7.5,fontWeight:'900',letterSpacing:1.1,borderWidth:1,borderRadius:999,paddingHorizontal:8,paddingVertical:5},view:{fontSize:8,fontWeight:'900',letterSpacing:1.2},snaps:{position:'absolute',right:10,bottom:10,gap:6},snap:{borderWidth:1,borderRadius:10,paddingHorizontal:9,paddingVertical:7},snapText:{fontSize:7,fontWeight:'900',letterSpacing:.8},selected:{position:'absolute',left:12,bottom:12,maxWidth:'66%'},selectedText:{fontSize:8.5,fontWeight:'900',letterSpacing:.5}});
