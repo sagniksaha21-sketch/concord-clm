@@ -41,10 +41,11 @@ export function weekSessions(state: ForgeState) {
   return (state.sessions || []).filter(s => Date.parse(s.date || '') >= cutoff).length;
 }
 
+function sessionMetrics(s:SessionLog){let volume=0,sets=0;for(const ex of s.exercises||[])for(const set of ex.sets||[]){if((set.setType||'working')==='warmup'||Number(set.reps||0)<=0)continue;sets++;volume+=Number(set.weight||0)*Number(set.reps||0);}return{volume,sets};}
 export function records2(state:ForgeState){
- const sessions=[...(state.sessions||[])].sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
- let bestVolume=0,bestSets=0,longest=0,current=0,lastDay='';
- for(const s of sessions){bestVolume=Math.max(bestVolume,Number(s.volume||0));bestSets=Math.max(bestSets,Number(s.setCount||0));const day=new Date(s.date).toISOString().slice(0,10);if(lastDay){const gap=Math.round((Date.parse(day)-Date.parse(lastDay))/864e5);current=gap<=2?current+1:1;}else current=1;longest=Math.max(longest,current);lastDay=day;}
- const recent=sessions.slice(-6);const prior=sessions.slice(-12,-6);const avg=(xs:SessionLog[])=>xs.length?xs.reduce((a,s)=>a+Number(s.volume||0),0)/xs.length:0;const a=avg(recent),b=avg(prior);const trend=b?Math.round((a-b)/b*100):0;
+ const sessions=[...(state.sessions||[])].map(s=>({s,time:Date.parse(s.date||''),m:sessionMetrics(s)})).filter(x=>Number.isFinite(x.time)).sort((a,b)=>a.time-b.time);
+ let bestVolume=0,bestSets=0,longest=0,current=0,lastDay:number|null=null;
+ for(const x of sessions){bestVolume=Math.max(bestVolume,x.m.volume);bestSets=Math.max(bestSets,x.m.sets);const day=Math.floor(x.time/864e5);if(lastDay!=null){const gap=day-lastDay;current=gap<=2?current+1:1;}else current=1;longest=Math.max(longest,current);lastDay=day;}
+ const recent=sessions.slice(-6),prior=sessions.slice(-12,-6),avg=(xs:typeof sessions)=>xs.length?xs.reduce((a,x)=>a+x.m.volume,0)/xs.length:0,a=avg(recent),b=avg(prior),trend=b?Math.round((a-b)/b*100):0;
  return{bestSessionVolume:bestVolume,bestSessionSets:bestSets,longestRhythm:longest,volumeTrend:trend};
 }
