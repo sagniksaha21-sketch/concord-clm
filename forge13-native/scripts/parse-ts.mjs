@@ -1,11 +1,6 @@
-
 import fs from 'node:fs';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
-
-const npmRoot=execFileSync('npm',['root','-g'],{encoding:'utf8'}).trim();
-const ts=(await import(pathToFileURL(path.join(npmRoot,'typescript/lib/typescript.js')).href)).default;
+import ts from 'typescript';
 
 function walk(dir){
  return fs.readdirSync(dir,{withFileTypes:true}).flatMap(e=>{
