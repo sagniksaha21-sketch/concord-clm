@@ -161,3 +161,19 @@ test('exercise history remains evidence-first and card-light',()=>{
  assert.match(history,/bestBlock/);
  assert.match(history,/historyRow/);
 });
+
+
+test('smart substitution results stay structural and anatomy-led',()=>{
+ const picker=read('app/exercise-picker.tsx');
+ assert.doesNotMatch(picker,/GlassCard/);
+ assert.match(picker,/SMART SUBSTITUTE/);
+ assert.match(picker,/rankedSubstitutes/);
+ assert.match(picker,/borderBottomWidth:1/);
+});
+
+test('FHM3 validates its shader interface before reporting a first frame',()=>{
+ const body=read('src/components/Body3D.tsx');
+ assert.match(body,/program interface: missing vertex attribute/);
+ assert.match(body,/program interface: missing \$\{name\}/);
+ assert.match(body,/first frame/);
+});
