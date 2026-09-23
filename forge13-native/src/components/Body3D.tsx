@@ -91,7 +91,7 @@ export function Body3D({groups=[],selectable=false,onSelectionChange,height=276,
   {!ready&&<Image source={require('../../assets/body-poster.png')} resizeMode="contain" style={styles.fallback}/>} 
   <GLView style={StyleSheet.absoluteFill} onContextCreate={onContextCreate}/>
   <View style={StyleSheet.absoluteFill} {...pan.panHandlers}/>
-  <View style={styles.topline} pointerEvents="none"><Text style={[styles.badge,{color:theme.gold,borderColor:theme.line}]}>{ready?'NATIVE 3D':'3D FALLBACK'}</Text><Text style={[styles.view,{color:theme.muted}]}>{viewName.toUpperCase()}</Text></View>
+  <View style={styles.topline} pointerEvents="none"><Text style={[styles.badge,{color:theme.gold,borderColor:theme.line}]}>{ready?'LIVE ANATOMY':'ANATOMY PREVIEW'}</Text><Text style={[styles.view,{color:theme.muted}]}>{viewName.toUpperCase()}</Text></View>
   <View style={styles.snaps}>
    {(['front','side','back'] as const).map(x=><Pressable key={x} onPress={()=>snap(x)} style={[styles.snap,{borderColor:theme.line,backgroundColor:theme.panel}]}><Text style={[styles.snapText,{color:theme.text}]}>{x.toUpperCase()}</Text></Pressable>)}
   </View>
