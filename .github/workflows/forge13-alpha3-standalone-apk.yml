@@ -1,10 +1,10 @@
-name: Forge 13 Alpha 3 Standalone APK
+name: Forge 13 Rebuild Standalone APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - forge13-alpha3-play
+      - forge13-v13-rebuild
     paths:
       - ".github/workflows/forge13-alpha3-standalone-apk.yml"
       - "forge13-native/**"
@@ -13,12 +13,12 @@ permissions:
   contents: read
 
 concurrency:
-  group: forge13-alpha3-standalone-apk
+  group: forge13-v13-rebuild-standalone-apk
   cancel-in-progress: true
 
 jobs:
   build-standalone-apk:
-    name: Build standalone Forge Alpha 3 APK
+    name: Build standalone Forge 13 Rebuild APK
     runs-on: ubuntu-latest
     timeout-minutes: 70
     env:
@@ -107,7 +107,7 @@ jobs:
           test -s "$APK"
           unzip -l "$APK" | grep -E 'index.android.bundle|assets/.*bundle' >/dev/null
           mkdir -p dist-standalone
-          OUT="dist-standalone/FORGE-V13.0.0-Alpha3-Standalone.apk"
+          OUT="dist-standalone/FORGE-V13.0.0-Rebuild-Standalone.apk"
           cp "$APK" "$OUT"
           SIZE="$(stat -c '%s' "$OUT")"
           SHA="$(sha256sum "$OUT" | awk '{print $1}')"
@@ -117,7 +117,7 @@ jobs:
       - name: Upload standalone APK
         uses: actions/upload-artifact@v4
         with:
-          name: FORGE-V13.0.0-Alpha3-STANDALONE-APK
+          name: FORGE-V13.0.0-REBUILD-STANDALONE-APK
           path: |
             dist-standalone/FORGE-V13.0.0-Alpha3-Standalone.apk
             dist-standalone/BUILD-METADATA.txt
