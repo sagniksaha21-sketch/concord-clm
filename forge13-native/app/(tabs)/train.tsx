@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ImageBackground } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Screen } from '@/components/Screen';
 import { GlassCard } from '@/components/GlassCard';
@@ -17,7 +17,7 @@ export default function Train(){
  const selected=getProgram(state.selectedProgramId),active=!!state.workout?.startedAt,groups=programMuscles(selected.exercises),recommendation=trainingRecommendation(state);
  return <Screen>
    <SectionTitle eyebrow="TRAIN" title={active?'Workout in progress':'Choose the work.'}/>
-   <GlassCard style={styles.hero}>
+   <View style={[styles.hero,{borderColor:theme.line}]}><ImageBackground source={require('../../assets/splash/02.jpg')} resizeMode="cover" style={styles.heroImage} imageStyle={styles.heroImageRadius}><View style={styles.heroShade}/>
     <View style={styles.heroContent}>
      <View style={{flex:1,minWidth:0}}>
       <Text style={[styles.eyebrow,{color:theme.amber}]}>SELECTED PROGRAMME</Text>
@@ -29,7 +29,7 @@ export default function Train(){
     </View>
     <ForgeButton label={active?'Resume workout':'Start this programme'} onPress={()=>{if(!active)startWorkout(selected.id);router.push('/workout')}}/>
     <ForgeButton label="Open Programme Builder" onPress={()=>router.push('/program-builder')} ghost/>
-   </GlassCard>
+   </ImageBackground></View>
 
    <View style={[styles.adaptive,{borderColor:theme.line}]}><View style={{flex:1}}><Text style={[styles.eyebrow,{color:theme.gold}]}>FORGE INTELLIGENCE · {recommendation.kind.replace('_',' ')}</Text><Text style={[styles.adaptiveTitle,{color:theme.text}]}>{recommendation.title}</Text><Text style={[styles.note,{color:theme.muted,marginTop:4}]}>{recommendation.detail}</Text></View><View style={{alignItems:'flex-end',gap:8}}><Text style={[styles.factor,{color:theme.gold}]}>{Math.round(recommendation.volumeFactor*100)}%</Text>{!active&&recommendation.requiresAcceptance&&recommendation.volumeFactor<1&&<Pressable onPress={()=>{startWorkout(selected.id,recommendation.volumeFactor);router.push('/workout')}} style={[styles.accept,{borderColor:theme.amber}]}><Text style={[styles.acceptText,{color:theme.gold}]}>ACCEPT {Math.round(recommendation.volumeFactor*100)}%</Text></Pressable>}</View></View>
    <SectionTitle eyebrow="ANATOMY" title="What this session is built to hit"/>
@@ -56,4 +56,4 @@ export default function Train(){
    </View>
  </Screen>
 }
-const styles=StyleSheet.create({accept:{borderWidth:1,paddingHorizontal:10,paddingVertical:7},acceptText:{fontSize:7,fontWeight:'900',letterSpacing:1},adaptive:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12},adaptiveTitle:{fontSize:15,fontWeight:'900',marginTop:5},factor:{fontSize:22,fontWeight:'900'},hero:{gap:14},heroContent:{flexDirection:'row',gap:14,alignItems:'center'},art:{width:94,height:118},eyebrow:{fontSize:8.5,fontWeight:'900',letterSpacing:1.4},title:{fontSize:25,fontWeight:'900',letterSpacing:-.8,marginTop:5},meta:{fontSize:10.5,lineHeight:15,fontWeight:'600',marginTop:4},tags:{gap:5,marginTop:10},tag:{fontSize:8.5,fontWeight:'700',paddingHorizontal:8,paddingVertical:5,borderRadius:999,borderWidth:1,alignSelf:'flex-start'},program:{flexDirection:'row',alignItems:'center',gap:12,padding:10,minHeight:112},thumb:{width:74,height:92,borderRadius:15},programName:{fontSize:19,fontWeight:'900',letterSpacing:-.35},targets:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:8},target:{fontSize:7.5,fontWeight:'800',paddingHorizontal:6,paddingVertical:4,borderRadius:999,borderWidth:1,maxWidth:120},programActions:{width:52,alignItems:'center',gap:12},edit:{height:34,minWidth:46,borderRadius:11,borderWidth:1,alignItems:'center',justifyContent:'center'},editText:{fontSize:8,fontWeight:'900',letterSpacing:.7},small:{fontSize:8,fontWeight:'900',letterSpacing:1.1,marginTop:8},note:{fontSize:9.5,lineHeight:14,fontWeight:'600',marginTop:-6,paddingHorizontal:2}});
+const styles=StyleSheet.create({heroImage:{padding:16,gap:14,minHeight:330,justifyContent:'flex-end'},heroImageRadius:{borderRadius:24},heroShade:{...StyleSheet.absoluteFillObject,backgroundColor:'rgba(0,0,0,.58)',borderRadius:24},hero:{borderWidth:1,borderRadius:24,overflow:'hidden'},accept:{borderWidth:1,paddingHorizontal:10,paddingVertical:7},acceptText:{fontSize:7,fontWeight:'900',letterSpacing:1},adaptive:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:12,flexDirection:'row',alignItems:'center',gap:12},adaptiveTitle:{fontSize:15,fontWeight:'900',marginTop:5},factor:{fontSize:22,fontWeight:'900'},hero:{gap:14},heroContent:{flexDirection:'row',gap:14,alignItems:'center'},art:{width:94,height:118},eyebrow:{fontSize:8.5,fontWeight:'900',letterSpacing:1.4},title:{fontSize:25,fontWeight:'900',letterSpacing:-.8,marginTop:5},meta:{fontSize:10.5,lineHeight:15,fontWeight:'600',marginTop:4},tags:{gap:5,marginTop:10},tag:{fontSize:8.5,fontWeight:'700',paddingHorizontal:8,paddingVertical:5,borderRadius:999,borderWidth:1,alignSelf:'flex-start'},program:{flexDirection:'row',alignItems:'center',gap:12,padding:10,minHeight:112},thumb:{width:74,height:92,borderRadius:15},programName:{fontSize:19,fontWeight:'900',letterSpacing:-.35},targets:{flexDirection:'row',flexWrap:'wrap',gap:5,marginTop:8},target:{fontSize:7.5,fontWeight:'800',paddingHorizontal:6,paddingVertical:4,borderRadius:999,borderWidth:1,maxWidth:120},programActions:{width:52,alignItems:'center',gap:12},edit:{height:34,minWidth:46,borderRadius:11,borderWidth:1,alignItems:'center',justifyContent:'center'},editText:{fontSize:8,fontWeight:'900',letterSpacing:.7},small:{fontSize:8,fontWeight:'900',letterSpacing:1.1,marginTop:8},note:{fontSize:9.5,lineHeight:14,fontWeight:'600',marginTop:-6,paddingHorizontal:2}});
