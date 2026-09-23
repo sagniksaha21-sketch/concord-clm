@@ -3,6 +3,7 @@ import React from 'react';
 import { Tabs } from 'expo-router';
 import { useForge } from '@/store/ForgeProvider';
 import { TabIcon } from '@/components/TabIcon';
+import * as Haptics from 'expo-haptics';
 
 export default function TabsLayout(){
  const {theme}=useForge();
@@ -16,7 +17,7 @@ export default function TabsLayout(){
    tabBarLabelStyle:{fontSize:9,fontWeight:'800',letterSpacing:.2},
    sceneStyle:{backgroundColor:theme.bg}
  }}>
-  {screens.map(([name,title,icon])=><Tabs.Screen key={name} name={name} options={{
+  {screens.map(([name,title,icon])=><Tabs.Screen key={name} name={name} listeners={{tabPress:()=>{Haptics.selectionAsync().catch(()=>{})}}} options={{
     title,tabBarIcon:({color})=><TabIcon name={icon} color={String(color)}/>
   }}/>)}
  </Tabs>
