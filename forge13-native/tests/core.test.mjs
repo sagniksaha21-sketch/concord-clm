@@ -241,3 +241,11 @@ test('FHM3 never labels poster fallback as live anatomy',()=>{
 
 
 test('RC2 keeps themes user-selectable and removes partial music integration',()=>{const theme=read('src/theme.ts'),more=read('app/(tabs)/more.tsx'),layout=read('app/_layout.tsx');for(const token of ['black-amber','graphite-champagne','pure-black','midnight-blue','crimson-forge','emerald-carbon','violet-neon']) assert.ok(theme.includes(token),token);assert.match(more,/Object\.entries\(THEMES\)/);assert.doesNotMatch(more,/YouTube|Forge Audio|GoogleMusic/);assert.doesNotMatch(layout,/name=\"music\"/);assert.ok(!fs.existsSync(new URL('../app/music.tsx',import.meta.url)));});
+
+
+test('Forge-owned confirmations use the themed dialog system',()=>{
+ const dialog=read('src/components/ForgeDialog.tsx'),workout=read('app/workout.tsx'),photos=read('app/progress-photos.tsx');
+ assert.match(dialog,/Modal/);assert.match(dialog,/theme\.panel/);assert.match(dialog,/Haptics\.selectionAsync/);
+ assert.match(workout,/ForgeDialog/);assert.doesNotMatch(workout,/Alert\.alert/);
+ assert.match(photos,/ForgeDialog/);assert.doesNotMatch(photos,/Alert\.alert/);
+});
