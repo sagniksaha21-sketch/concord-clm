@@ -70,9 +70,10 @@ export function Body3D({groups=[],selectable=false,onSelectionChange,height=276,
  const [ready,setReady]=useState(false),[failure,setFailure]=useState<string|null>(null),[viewName,setViewName]=useState('Front'),[internal,setInternal]=useState<BodyMuscleGroup[]>(()=>groups.filter((x):x is BodyMuscleGroup=>GROUPS.includes(x as BodyMuscleGroup)));
  const glRef=useRef<any>(null),resRef=useRef<any>(null),rafRef=useRef<number|undefined>(undefined),mountedRef=useRef(true),angleRef=useRef(0),targetRef=useRef<number|null>(null),lastRef=useRef(0),viewRef=useRef('Front'),resumeRef=useRef(0),sizeRef=useRef({w:320,h:height}),selectedRef=useRef<Set<BodyMuscleGroup>>(new Set(internal)),hotspotsRef=useRef<any[]>([]),dragRef=useRef({x:0,y:0,lastX:0,moved:false});
  useEffect(()=>{const next=groups.filter((x):x is BodyMuscleGroup=>GROUPS.includes(x as BodyMuscleGroup));setInternal(next);selectedRef.current=new Set(next);},[groups.join('|')]);
- useEffect(()=>()=>{mountedRef.current=false;if(rafRef.current!=null)cancelAnimationFrame(rafRef.current);glRef.current=null;resRef.current=null;},[]);
+ useEffect(()=>()=>{mountedRef.current=false;if(rafRef.current!=null)cancelAnimationFrame(rafRef.current);const gl=glRef.current,r=resRef.current;try{if(gl&&r){gl.deleteBuffer?.(r.buf);gl.deleteBuffer?.(r.ibo);gl.deleteProgram?.(r.prog);}}catch{}glRef.current=null;resRef.current=null;},[]);
  const failRenderer=(stage:string,e:any)=>{const reason=`${stage}: ${String(e?.message||e||'GL error')}`.slice(0,96);console.warn('FORGE native 3D runtime failed',stage,e);if(mountedRef.current){setFailure(reason);setReady(false);}if(rafRef.current!=null){cancelAnimationFrame(rafRef.current);rafRef.current=undefined;}};
- const assertGl=(gl:any,stage:string)=>{const code=gl.getError?.();if(code!=null&&code!==gl.NO_ERROR)throw new Error(`${stage} GL ${code}`);};
+ const glErrorName=(gl:any,code:number)=>code===gl.INVALID_ENUM?'INVALID_ENUM':code===gl.INVALID_VALUE?'INVALID_VALUE':code===gl.INVALID_OPERATION?'INVALID_OPERATION':code===gl.OUT_OF_MEMORY?'OUT_OF_MEMORY':code===gl.INVALID_FRAMEBUFFER_OPERATION?'INVALID_FRAMEBUFFER_OPERATION':`0x${Number(code).toString(16)}`;
+ const assertGl=(gl:any,stage:string)=>{const code=gl.getError?.();if(code!=null&&code!==gl.NO_ERROR)throw new Error(`${stage} GL ${glErrorName(gl,code)}`);};
  const draw=()=>{
   const gl=glRef.current,r=resRef.current;if(!gl||!r)return;
   const w=gl.drawingBufferWidth||Math.max(1,sizeRef.current.w),h=gl.drawingBufferHeight||Math.max(1,sizeRef.current.h);
