@@ -84,3 +84,11 @@ test('accepted adaptation is explicit, temporary and observable in workout',()=>
 
 test('workout history targeting ignores malformed dates and finish copy confirms persistence',()=>{const w=read('app/workout.tsx');assert.ok(w.includes("filter(s=>Number.isFinite(Date.parse(s.date||'')))"));assert.ok(w.includes('sets saved on finish'));assert.ok(w.includes('completedExercises'));});
 test('anatomy requires a valid first frame before reporting live',()=>{const b=read('src/components/Body3D.tsx');assert.ok(b.includes("throw new Error('mesh empty')"));assert.ok(b.includes("assertGl(gl,'first frame')"));assert.ok(b.indexOf("assertGl(gl,'first frame')")<b.indexOf('setReady(true)'));assert.ok(b.includes('nextView!==viewRef.current'));});
+
+
+test('FHM3 analytics binds anatomy to intelligence states',()=>{
+ const analytics=fs.readFileSync(path.join(root,'app/(tabs)/analytics.tsx'),'utf8');
+ assert.match(analytics,/undertrained=muscleStates\.filter/);
+ assert.match(analytics,/groups=\{undertrained\.length\?undertrained:muscles\}/);
+ assert.match(analytics,/NEEDS WORK/);
+});
