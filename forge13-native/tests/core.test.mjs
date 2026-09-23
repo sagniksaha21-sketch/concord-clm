@@ -61,3 +61,15 @@ test('v14 migration contract protects legacy wrappers and user history',()=>{
  assert.ok(provider.includes('migrateForgeState(raw,DEFAULT)'));
  assert.ok(provider.includes("version:'forge-native-14'"));
 });
+
+test('v14 intelligence is deterministic, explainable and user-controlled',()=>{
+ const readiness=read('src/utils/readiness.ts'),coach=read('src/utils/coach.ts'),adaptive=read('src/utils/adaptiveTraining.ts'),train=read('app/(tabs)/train.tsx'),provider=read('src/store/ForgeProvider.tsx');
+ assert.ok(readiness.includes("ReadinessBand='READY'|'BALANCED'|'RECOVER'"));
+ assert.ok(readiness.includes('training history currently available'));
+ assert.ok(coach.includes("action:'RECOVER'"));assert.ok(coach.includes("action:'FOCUS'"));
+ assert.ok(adaptive.includes('requiresAcceptance:true'));assert.ok(adaptive.includes("sort((a,b)=>Date.parse(b.date||'')-Date.parse(a.date||''))"));
+ assert.ok(train.includes('ACCEPT'));assert.ok(train.includes('recommendation.volumeFactor'));
+ assert.ok(provider.includes('adaptationFactor:Math.max(.5,Math.min(1,volumeFactor))'));
+});
+test('workout targets use dated history and PR feedback',()=>{const workout=read('app/workout.tsx');assert.ok(workout.includes('previousSession'));assert.ok(workout.includes('priorBest'));assert.ok(workout.includes('PR RANGE'));});
+test('anatomy renderer exposes init and runtime GL diagnostics',()=>{const body=read('src/components/Body3D.tsx');assert.ok(body.includes("assertGl(gl,'buffers')"));assert.ok(body.includes("assertGl(gl,'draw')"));assert.ok(body.includes("failRenderer('frame',e)"));assert.ok(body.includes('ANATOMY RENDERER OFFLINE'));});
