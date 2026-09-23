@@ -1,5 +1,5 @@
 import React,{useRef} from 'react';
-import {Animated,Pressable,Text,StyleSheet,StyleProp,ViewStyle} from 'react-native';
+import {Animated,Pressable,Text,StyleSheet,StyleProp,View,ViewStyle} from 'react-native';
 import {LinearGradient} from 'expo-linear-gradient';
 import {useForge} from '../store/ForgeProvider';
 import * as Haptics from 'expo-haptics';
