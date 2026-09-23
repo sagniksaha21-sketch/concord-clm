@@ -23,10 +23,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: forge13-native/package-lock.json
       - name: Install locked dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund
       - name: Unit regression suite
         run: npm test
       - name: Product integrity gate
