@@ -73,3 +73,6 @@ test('v14 intelligence is deterministic, explainable and user-controlled',()=>{
 });
 test('workout targets use dated history and PR feedback',()=>{const workout=read('app/workout.tsx');assert.ok(workout.includes('previousSession'));assert.ok(workout.includes('priorBest'));assert.ok(workout.includes('PR RANGE'));});
 test('anatomy renderer exposes init and runtime GL diagnostics',()=>{const body=read('src/components/Body3D.tsx');assert.ok(body.includes("assertGl(gl,'buffers')"));assert.ok(body.includes("assertGl(gl,'draw')"));assert.ok(body.includes("failRenderer('frame',e)"));assert.ok(body.includes('ANATOMY RENDERER OFFLINE'));});
+
+test('Records 2.0 derives working-set metrics and tolerates bad imported dates',()=>{const a=read('src/utils/analytics.ts');assert.ok(a.includes('sessionMetrics'));assert.ok(a.includes("set.setType||'working'"));assert.ok(a.includes('Number.isFinite(x.time)'));assert.ok(a.includes('x.m.volume'));});
+test('readiness and adaptive training ignore malformed imported dates',()=>{assert.ok(read('src/utils/readiness.ts').includes("Number.isFinite(Date.parse(s.date||''))"));assert.ok(read('src/utils/adaptiveTraining.ts').includes("Number.isFinite(Date.parse(s.date||''))"));});
