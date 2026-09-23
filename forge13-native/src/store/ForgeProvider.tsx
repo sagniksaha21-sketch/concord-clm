@@ -6,9 +6,10 @@ import programs from '../data/programs.json';
 import exercises from '../data/exercises.json';
 import { THEMES, ForgeThemeName } from '../theme';
 import {cancelRestNotification,enableRestNotifications,replaceRestNotification} from '../services/restTimer';
+import {FORGE_DATA_VERSION,migrateForgeState} from './migration';
 
 const KEY = 'forge_v2_functional_state_v3';
-const DATA_VERSION = 8;
+const DATA_VERSION = FORGE_DATA_VERSION;
 const exerciseMap = Object.fromEntries((exercises as any[]).map(x => [x.id, x]));
 const DEFAULT_BLOCKS:TrainingBlock[]=[
   {id:'hypertrophy',name:'Build',weeks:6,focus:'Hypertrophy'},
@@ -47,16 +48,7 @@ function mergedProgram(state:ForgeState,id?:string):Program{
   const base:any=(programs as any)[pid] || (programs as any).pushA,edit=state.programEdits?.[pid];
   return {...base,id:base.id,name:edit?.name||base.name,exercises:Array.isArray(edit?.exercises)?edit.exercises:base.exercises,blocks:Array.isArray(edit?.blocks)&&edit.blocks.length?edit.blocks:DEFAULT_BLOCKS};
 }
-function normalize(raw:any): ForgeState {
-  const source = raw?.state && typeof raw.state === 'object' ? raw.state : raw?.data && typeof raw.data === 'object' ? raw.data : raw;
-  const state: ForgeState = {...DEFAULT,...(source||{}),goals:{...DEFAULT.goals,...(source?.goals||{})},settings:{...DEFAULT.settings,...(source?.settings||{})},programEdits:{...(source?.programEdits||{})},workout:{...DEFAULT.workout,...(source?.workout||{}),exerciseSets:{...(source?.workout?.exerciseSets||{})},exerciseOrder:Array.isArray(source?.workout?.exerciseOrder)?source.workout.exerciseOrder:[]},sessions:Array.isArray(source?.sessions)?source.sessions:[],foodLog:Array.isArray(source?.foodLog)?source.foodLog:[],bodyLogs:Array.isArray(source?.bodyLogs)?source.bodyLogs:[],progressPhotos:Array.isArray(source?.progressPhotos)?source.progressPhotos:[]};
-  if (!(programs as any)[state.selectedProgramId]) state.selectedProgramId = 'pushA';
-  if (!(programs as any)[state.workout.programId]) state.workout.programId = state.selectedProgramId;
-  state.workout.restSeconds=Number(state.workout.restSeconds||state.settings.restSeconds||90);
-  // v14 keeps the canonical storage key and normalizes older payloads in place so upgrades do not strand user history.
-  state.dataVersion=DATA_VERSION;
-  return state;
-}
+function normalize(raw:any): ForgeState { return migrateForgeState(raw,DEFAULT); }
 
 export function ForgeProvider({children}:{children:React.ReactNode}) {
   const [state, setState] = useState<ForgeState>(DEFAULT); const [ready, setReady] = useState(false);
