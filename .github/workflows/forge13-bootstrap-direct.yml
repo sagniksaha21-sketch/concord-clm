@@ -1,0 +1,89 @@
+name: Forge 13 Direct Source Bootstrap
+
+on:
+  push:
+    branches:
+      - forge13-alpha3-clean
+    paths:
+      - ".github/workflows/forge13-bootstrap-direct.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  materialize-direct-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      FORGE_ASSET_BASE: "https://forge-v120-2.vercel.app"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: forge13-alpha3-clean
+          fetch-depth: 0
+
+      - name: Materialize proven Alpha 2 source directly
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf forge13-native
+          mkdir -p forge13-native /tmp/forge-bootstrap
+          base64 -d forge13-ci/FORGE-V13.0.0-Alpha2-source.tar.gz.b64 > /tmp/forge-bootstrap/alpha2.tar.gz
+          echo "04edebdac298222f88275d0c195079ef1f1689f68e1c9cf474adb5632d061877  /tmp/forge-bootstrap/alpha2.tar.gz" | sha256sum -c -
+          tar -tzf /tmp/forge-bootstrap/alpha2.tar.gz >/dev/null
+          tar -xzf /tmp/forge-bootstrap/alpha2.tar.gz -C forge13-native
+          test "$(node -p "require('./forge13-native/package.json').version")" = "13.0.0-alpha.2"
+          mkdir -p forge13-native/assets/splash forge13-native/assets/programmes forge13-native/src/graphics
+
+      - name: Restore and verify proven Forge assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd forge13-native
+          BASE="$FORGE_ASSET_BASE"
+          fetch(){ echo "[FORGE] $2"; curl -fsSL --retry 6 --retry-delay 2 "$1" -o "$2"; }
+          fetch "$BASE/icon-512.png" assets/icon.png
+          cp assets/icon.png assets/adaptive-icon.png
+          fetch "$BASE/assets/analytics-body-poster.png" assets/body-poster.png
+          fetch "$BASE/assets/FORGE-HD-Chest-Shoulders.jpg" assets/programmes/chest-shoulders.jpg
+          fetch "$BASE/assets/FORGE-HD-Back-Biceps.jpg" assets/programmes/back-biceps.jpg
+          fetch "$BASE/assets/FORGE-HD-Legs-Triceps.jpg" assets/programmes/legs-triceps.jpg
+          fetch "$BASE/assets/FORGE-SPLASH-01.jpg" assets/splash/01.jpg
+          fetch "$BASE/assets/FORGE-SPLASH-02.jpg" assets/splash/02.jpg
+          fetch "$BASE/assets/FORGE-SPLASH-03.jpg" assets/splash/03.jpg
+          fetch "$BASE/assets/FORGE-SPLASH-04.jpg" assets/splash/04.jpg
+          fetch "$BASE/forge-v11-classic.html" /tmp/forge-bootstrap/forge-v11-classic.html
+          node - <<'NODE'
+          const fs=require('fs');
+          const html=fs.readFileSync('/tmp/forge-bootstrap/forge-v11-classic.html','utf8');
+          const m=html.match(/(?:const|let|var)\s+V104_MESH_B64\s*=\s*["']([^"']+)["']/);
+          if(!m) throw new Error('V104_MESH_B64 not found in proven parity source');
+          fs.writeFileSync('src/graphics/bodyMesh.ts',
+            '// FORGE native body mesh — recovered from proven v12 FHM2 payload.\nexport const BODY_MESH_B64 = '+JSON.stringify(m[1])+';\n');
+          NODE
+          cat > assets/EXPECTED_SHA256.txt <<'EOF'
+          06ae3f6b1c2d4f9668d66adfab5a555ce90aefbadf7bec4c218f4978d4a8b8f9  icon.png
+          06ae3f6b1c2d4f9668d66adfab5a555ce90aefbadf7bec4c218f4978d4a8b8f9  adaptive-icon.png
+          538b857b11da685c167970886c3f016ceb9553cef7b9b8aa1540e7957d710164  body-poster.png
+          55d0607a818ab61278b0c7aabd447668f6033b5510f7f00f8aa78ed8185f0c54  programmes/back-biceps.jpg
+          d41ed5edc22cf6df77b5818ae895c74f1bafd5d33e5e293cbbf98f9fa9bc3744  programmes/chest-shoulders.jpg
+          1f8c53022ac8764fdd24d6163b6bd5e78c45ef510593c806e8f0a44a9ab8dfe9  programmes/legs-triceps.jpg
+          5a7d65cfd868d289ee9a92810a5adabd523841eee0d765052ad44b13a002a0af  splash/01.jpg
+          a2b34f937cc26cedea22c252f7a4f5af963f93abd17894f14250c2b3117da8fe  splash/02.jpg
+          550a87b8833098a1340a1c3eb0381852ccd5727d7b92f1d5abd0c2a5535d5a5f  splash/03.jpg
+          bb41f4dd5f3c05655f2842e54fa9be2235656205a5cb568695b78f11d05a06cd  splash/04.jpg
+          EOF
+          sha256sum -c assets/EXPECTED_SHA256.txt
+          echo "2955fd3d26edce346bf024bfb7265fa95cd17c6b5f9687ab23a15987dab98fec  src/graphics/bodyMesh.ts" | sha256sum -c -
+
+      - name: Commit direct Alpha 2 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "FORGE Build Bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add forge13-native
+          git diff --cached --quiet && exit 0
+          git commit -m "Materialize proven Forge 13 Alpha 2 as direct source"
+          git push origin HEAD:forge13-alpha3-clean
