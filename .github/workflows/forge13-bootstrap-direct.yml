@@ -74,7 +74,7 @@ jobs:
           550a87b8833098a1340a1c3eb0381852ccd5727d7b92f1d5abd0c2a5535d5a5f  splash/03.jpg
           bb41f4dd5f3c05655f2842e54fa9be2235656205a5cb568695b78f11d05a06cd  splash/04.jpg
           EOF
-          sha256sum -c assets/EXPECTED_SHA256.txt
+          (cd assets && sha256sum -c EXPECTED_SHA256.txt)
           echo "2955fd3d26edce346bf024bfb7265fa95cd17c6b5f9687ab23a15987dab98fec  src/graphics/bodyMesh.ts" | sha256sum -c -
 
       - name: Commit direct Alpha 2 source
