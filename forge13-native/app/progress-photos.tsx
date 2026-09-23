@@ -1,20 +1,22 @@
 import React from 'react';
-import {Alert,Image,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {Image,Pressable,ScrollView,StyleSheet,Text,View} from 'react-native';
 import {SafeAreaView} from 'react-native-safe-area-context';
 import {useRouter} from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import {ForgeBrand} from '@/components/ForgeBrand';
 import {ForgeButton} from '@/components/ForgeButton';
+import {ForgeDialog} from '@/components/ForgeDialog';
 import {useForge} from '@/store/ForgeProvider';
 import {shortDate} from '@/utils/format';
 export default function ProgressPhotos(){
  const router=useRouter(),{state,theme,addProgressPhoto,removeProgressPhoto}=useForge();
  const [view,setView]=React.useState<'Front'|'Side'|'Back'>('Front');
+ const [removeId,setRemoveId]=React.useState<string|null>(null);
  const photos=[...(state.progressPhotos||[])].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
  const comparable=photos.filter(p=>String(p.view||'Front')===view);
  async function add(){const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],quality:.9,allowsEditing:false});if(r.canceled)return;const a=r.assets[0];addProgressPhoto({id:`photo_${Date.now()}`,date:new Date().toISOString(),uri:a.uri,view});}
- function remove(id:string){Alert.alert('Remove photo?','The photo reference will be removed from FORGE. The original image in your gallery is not deleted.',[{text:'Cancel',style:'cancel'},{text:'Remove',style:'destructive',onPress:()=>removeProgressPhoto(id)}]);}
- return <SafeAreaView edges={['top','bottom']} style={[styles.safe,{backgroundColor:theme.bg}]}><View style={styles.header}><ForgeBrand compact/><Pressable onPress={()=>router.back()}><Text style={[styles.close,{color:theme.muted}]}>DONE</Text></Pressable></View><ScrollView contentContainerStyle={styles.content}>
+ function remove(id:string){setRemoveId(id);}
+ return <SafeAreaView edges={['top','bottom']} style={[styles.safe,{backgroundColor:theme.bg}]}><ForgeDialog visible={!!removeId} eyebrow="PROGRESS STUDIO" title="Remove this checkpoint?" message="FORGE will remove this photo reference from your timeline. The original image in your gallery stays untouched." onDismiss={()=>setRemoveId(null)} actions={[{label:'Keep photo',onPress:()=>setRemoveId(null),tone:'quiet'},{label:'Remove',onPress:()=>{if(removeId)removeProgressPhoto(removeId);setRemoveId(null)},tone:'danger'}]}/><View style={styles.header}><ForgeBrand compact/><Pressable onPress={()=>router.back()}><Text style={[styles.close,{color:theme.muted}]}>DONE</Text></Pressable></View><ScrollView contentContainerStyle={styles.content}>
   <Text style={[styles.kicker,{color:theme.amber}]}>PROGRESS PHOTO STUDIO</Text><Text style={[styles.h1,{color:theme.text}]}>Same work. Better evidence.</Text><Text style={[styles.copy,{color:theme.muted}]}>Keep progress photos in chronological order and compare your two latest captures side-by-side. FORGE stores only the photo references you choose.</Text>
   <View style={[styles.guide,{borderColor:theme.line}]}><View style={[styles.guideHead,{borderColor:theme.line}]}><Text style={[styles.kicker,{color:theme.gold}]}>CAPTURE PROTOCOL</Text><Text style={[styles.micro,{color:theme.muted,marginTop:0}]}>MATCH · FRAME · COMPARE</Text></View><View style={styles.guideSteps}><View style={styles.guideStep}><Text style={[styles.guideNum,{color:theme.gold}]}>01</Text><Text style={[styles.guideCopy,{color:theme.text}]}>Camera at mid-torso height</Text></View><View style={styles.guideStep}><Text style={[styles.guideNum,{color:theme.gold}]}>02</Text><Text style={[styles.guideCopy,{color:theme.text}]}>Fill ~75% of frame</Text></View><View style={styles.guideStep}><Text style={[styles.guideNum,{color:theme.gold}]}>03</Text><Text style={[styles.guideCopy,{color:theme.text}]}>Repeat distance + light</Text></View></View></View><View style={styles.viewRow}>{(['Front','Side','Back'] as const).map(v=><Pressable key={v} onPress={()=>setView(v)} style={[styles.viewChoice,{borderColor:v===view?theme.amber:theme.line}]}><Text style={[styles.viewText,{color:v===view?theme.gold:theme.muted}]}>{v.toUpperCase()}</Text></Pressable>)}</View><Text style={[styles.micro,{color:theme.muted,marginTop:-5}]}>Use the same view, distance and lighting for meaningful comparisons.</Text><ForgeButton label={`Add ${view.toLowerCase()} photo`} onPress={add}/>
   {comparable.length>=2&&<><Text style={[styles.section,{color:theme.text}]}>Latest {view.toLowerCase()} comparison</Text><View style={[styles.compareBlock,{borderColor:theme.line}]}><View style={styles.compare}>{comparable.slice(0,2).reverse().map((p,i)=><View key={p.id||p.uri} style={{flex:1}}><Image source={{uri:p.uri||p.data}} style={styles.compareImage}/><Text style={[styles.micro,{color:theme.muted}]}>{i===0?'BEFORE':'LATEST'} · {String(p.view||'Front').toUpperCase()} · {shortDate(p.date)}</Text></View>)}</View></View></>}
