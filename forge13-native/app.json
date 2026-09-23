@@ -20,7 +20,8 @@
         "backgroundColor": "#050507"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": true
+      "predictiveBackGestureEnabled": true,
+      "versionCode": 130003
     },
     "ios": {
       "bundleIdentifier": "com.forge.training",
