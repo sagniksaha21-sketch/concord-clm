@@ -7,16 +7,20 @@ import { ForgeButton } from '@/components/ForgeButton';
 import { ProgressBar } from '@/components/ProgressBar';
 import { SectionTitle } from '@/components/SectionTitle';
 import { useForge } from '@/store/ForgeProvider';
+import {readiness} from '@/utils/readiness';
 
 export default function Nutrition(){
  const {state,theme,addFood,resetDayNutrition}=useForge();
  const [name,setName]=useState('Meal');
  const [kcal,setKcal]=useState('350'),[protein,setProtein]=useState('30'),[carbs,setCarbs]=useState('35'),[fat,setFat]=useState('10');
+ const ready=readiness(state);
+ const dayType=ready.band==='RECOVER'?'RECOVERY':ready.band==='READY'?'TRAINING':'BALANCED';
  const pct=state.calTarget?state.kcal/state.calTarget*100:0;
  const ppct=state.proteinTarget?state.protein/state.proteinTarget*100:0;
  const log=()=>{addFood({name:name||'Meal',kcal:Number(kcal)||0,p:Number(protein)||0,c:Number(carbs)||0,f:Number(fat)||0,at:Date.now()});};
  return <Screen>
   <SectionTitle eyebrow="NUTRITION" title="Fuel the work."/>
+  <View style={[styles.context,{borderColor:theme.line}]}><Text style={[styles.label,{color:theme.gold}]}>TODAY · {dayType}</Text><Text style={[styles.micro,{color:theme.muted}]}>Targets remain yours. Forge uses training context as guidance and does not silently change calories or macros.</Text></View>
   <GlassCard>
    <Text style={[styles.big,{color:theme.text}]}>{Math.round(state.kcal).toLocaleString()} <Text style={{fontSize:18,color:theme.muted}}>/ {state.calTarget.toLocaleString()} kcal</Text></Text>
    <Text style={[styles.micro,{color:theme.muted,marginTop:4}]}>{Math.max(0,state.calTarget-state.kcal).toLocaleString()} kcal remaining</Text>
@@ -49,7 +53,7 @@ export default function Nutrition(){
  </Screen>
 }
 const styles=StyleSheet.create({
- big:{fontSize:31,fontWeight:'900',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
+ context:{borderBottomWidth:1,paddingBottom:13,gap:3},big:{fontSize:31,fontWeight:'900',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
  macroRow:{flexDirection:'row',marginTop:18,gap:10},macro:{fontSize:20,fontWeight:'900'},label:{fontSize:8,fontWeight:'900',letterSpacing:1.1,textTransform:'uppercase',marginBottom:5},
  input:{height:45,borderWidth:1,borderRadius:13,paddingHorizontal:12,fontSize:13,fontWeight:'700',marginBottom:11},
  grid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},rowCard:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:13},food:{fontSize:14,fontWeight:'900'},kcal:{fontSize:11,fontWeight:'900'},reset:{textAlign:'center',fontSize:9,fontWeight:'700',paddingVertical:6}
