@@ -24,6 +24,7 @@ const builder=fs.readFileSync(path.join(root,'app/program-builder.tsx'),'utf8');
 const photos=fs.readFileSync(path.join(root,'app/progress-photos.tsx'),'utf8');
 const analytics=fs.readFileSync(path.join(root,'app/(tabs)/analytics.tsx'),'utf8');
 const stateKey=provider.includes('forge_v2_functional_state_v3');
+const migrationContract=provider.includes('const DATA_VERSION = 8') && provider.includes('state.dataVersion=DATA_VERSION') && provider.includes("version:'forge-native-14'");
 const plugins=Array.isArray(appJson.expo?.plugins)?appJson.expo.plugins:[];
 const share=fs.readFileSync(path.join(root,'app/share.tsx'),'utf8');
 const brand=fs.readFileSync(path.join(root,'src/components/ForgeBrand.tsx'),'utf8');
@@ -49,6 +50,7 @@ if(Object.keys(programs).length!==14) throw new Error(`Expected 14 programmes, f
 if(missing.length) throw new Error(`Missing native routes/modules: ${missing.join(', ')}`);
 if(bad.length) throw new Error(`Programme references missing exercises: ${bad.join(', ')}`);
 if(!stateKey) throw new Error('Canonical Forge state key missing');
+if(!migrationContract) throw new Error('Forge 14 migration contract missing');
 const failed=Object.entries(featureChecks).filter(([,ok])=>!ok).map(([k])=>k);
 if(failed.length) throw new Error(`Forge 14 feature checks failed: ${failed.join(', ')}`);
 console.log(JSON.stringify({ok:true,version:packageJson.version,exercises:exercises.length,programmes:Object.keys(programs).length,stateKey:'forge_v2_functional_state_v3',routesAndModules:required.length,features:Object.keys(featureChecks)},null,2));
