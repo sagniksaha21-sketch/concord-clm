@@ -126,3 +126,19 @@ test('Train library avoids returning to a generic GlassCard stack',()=>{
  assert.match(train,/borderBottomWidth:1/);
  assert.match(train,/ImageBackground/);
 });
+
+
+test('live workout avoids generic card stacks for decision surfaces',()=>{
+ const workout=read('app/workout.tsx');
+ assert.doesNotMatch(workout,/GlassCard/);
+ assert.match(workout,/setsBlock/);
+ assert.match(workout,/nextBlock/);
+ assert.match(workout,/restCard/);
+});
+
+test('Nutrition keeps logging hierarchy structural rather than card-heavy',()=>{
+ const nutrition=read('app/(tabs)/nutrition.tsx');
+ assert.doesNotMatch(nutrition,/GlassCard/);
+ assert.match(nutrition,/logBlock/);
+ assert.match(nutrition,/borderBottomWidth:1/);
+});
