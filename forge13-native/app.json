@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "scheme": "forge",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "icon": "./assets/icon.png",
     "splash": {
       "image": "./assets/icon.png",
@@ -21,7 +21,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": true,
-      "versionCode": 130003
+      "versionCode": 130004
     },
     "ios": {
       "bundleIdentifier": "com.forge.training",
