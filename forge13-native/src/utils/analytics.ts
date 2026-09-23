@@ -40,3 +40,11 @@ export function weekSessions(state: ForgeState) {
   const cutoff = Date.now() - 7 * 864e5;
   return (state.sessions || []).filter(s => Date.parse(s.date || '') >= cutoff).length;
 }
+
+export function records2(state:ForgeState){
+ const sessions=[...(state.sessions||[])].sort((a,b)=>Date.parse(a.date)-Date.parse(b.date));
+ let bestVolume=0,bestSets=0,longest=0,current=0,lastDay='';
+ for(const s of sessions){bestVolume=Math.max(bestVolume,Number(s.volume||0));bestSets=Math.max(bestSets,Number(s.setCount||0));const day=new Date(s.date).toISOString().slice(0,10);if(lastDay){const gap=Math.round((Date.parse(day)-Date.parse(lastDay))/864e5);current=gap<=2?current+1:1;}else current=1;longest=Math.max(longest,current);lastDay=day;}
+ const recent=sessions.slice(-6);const prior=sessions.slice(-12,-6);const avg=(xs:SessionLog[])=>xs.length?xs.reduce((a,s)=>a+Number(s.volume||0),0)/xs.length:0;const a=avg(recent),b=avg(prior);const trend=b?Math.round((a-b)/b*100):0;
+ return{bestSessionVolume:bestVolume,bestSessionSets:bestSets,longestRhythm:longest,volumeTrend:trend};
+}
