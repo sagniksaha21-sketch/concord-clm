@@ -81,8 +81,8 @@ export default function ShareStudio(){
 
    <View style={styles.previewWrap}>
     <ViewShot ref={shotRef} options={{format:'png',quality:1}} style={[styles.shot,{aspectRatio:ratio,backgroundColor:'#070707'}]}>
-      {photo?<Image source={{uri:photo}} style={StyleSheet.absoluteFillObject} resizeMode="cover"/>:<View style={[StyleSheet.absoluteFillObject,{backgroundColor:'#16120E'}]}/>}
-      <LinearGradient colors={['rgba(0,0,0,.08)','rgba(0,0,0,.1)','rgba(0,0,0,.92)']} locations={[0,.48,1]} style={StyleSheet.absoluteFillObject}/>
+      {photo?<Image source={{uri:photo}} style={StyleSheet.absoluteFill} resizeMode="cover"/>:<View style={[StyleSheet.absoluteFill,{backgroundColor:'#16120E'}]}/>}
+      <LinearGradient colors={['rgba(0,0,0,.08)','rgba(0,0,0,.1)','rgba(0,0,0,.92)']} locations={[0,.48,1]} style={StyleSheet.absoluteFill}/>
       <View style={styles.cardBrand}><Text style={styles.cardForge}>FORGE</Text><View style={styles.cardRuleTop}/><Text style={styles.cardTag}>ADAPT · EXECUTE · EVOLVE</Text></View>
       <View style={styles.cardBottom}>
        <Text style={styles.cardLabel}>{a.label}</Text>
@@ -105,10 +105,10 @@ export default function ShareStudio(){
 }
 const styles=StyleSheet.create({
  safe:{flex:1},header:{height:60,paddingHorizontal:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},close:{fontSize:8.5,fontWeight:'900',letterSpacing:1.2},
- content:{padding:16,paddingBottom:36,gap:14},kicker:{fontSize:8.5,fontWeight:'900',letterSpacing:1.5},h1:{fontSize:30,fontWeight:'1000',letterSpacing:-1.1},copy:{fontSize:10.5,lineHeight:16,fontWeight:'620'},
+ content:{padding:16,paddingBottom:36,gap:14},kicker:{fontSize:8.5,fontWeight:'900',letterSpacing:1.5},h1:{fontSize:30,fontWeight:'900',letterSpacing:-1.1},copy:{fontSize:10.5,lineHeight:16,fontWeight:'600'},
  segment:{flexDirection:'row',gap:8},seg:{flex:1,borderWidth:1,borderRadius:14,padding:10,alignItems:'center'},segText:{fontSize:8.5,fontWeight:'900',letterSpacing:.8},
  achievementRow:{gap:7,paddingRight:6},ach:{minWidth:104,borderWidth:1,borderRadius:13,paddingVertical:10,paddingHorizontal:9,alignItems:'center'},achText:{fontSize:7.6,fontWeight:'900',letterSpacing:.45,textAlign:'center'},
- customBox:{borderWidth:1,borderRadius:16,padding:12,gap:8},customLabel:{fontSize:7.8,fontWeight:'900',letterSpacing:1.2},input:{borderWidth:1,borderRadius:12,paddingHorizontal:11,paddingVertical:9,fontSize:12,fontWeight:'750'},
- previewWrap:{alignItems:'center'},shot:{width:'82%',borderRadius:24,overflow:'hidden'},cardBrand:{position:'absolute',left:18,top:18},cardForge:{color:'#FFD98B',fontSize:26,fontWeight:'1000',fontStyle:'italic',letterSpacing:-1.7},cardRuleTop:{width:61,height:2,backgroundColor:'#F5A623',borderRadius:2,marginTop:1},cardTag:{color:'#F5A623',fontSize:5.8,fontWeight:'900',letterSpacing:1.35,marginTop:3},
- cardBottom:{position:'absolute',left:18,right:18,bottom:19},cardLabel:{color:'#F5A623',fontSize:7,fontWeight:'900',letterSpacing:1.5},cardHeadline:{color:'#FFF7EA',fontSize:21,fontWeight:'1000',letterSpacing:-.8,marginTop:5},cardMark:{color:'#FFD37A',fontSize:24,fontWeight:'1000',letterSpacing:-.8,marginTop:3},cardSub:{color:'#B7ADA1',fontSize:8.5,fontWeight:'700',marginTop:3},cardRule:{height:1,backgroundColor:'rgba(255,196,92,.35)',marginVertical:10},cardFooter:{color:'#FFF7EA',fontSize:6.8,fontWeight:'900',letterSpacing:1.55}
+ customBox:{borderWidth:1,borderRadius:16,padding:12,gap:8},customLabel:{fontSize:7.8,fontWeight:'900',letterSpacing:1.2},input:{borderWidth:1,borderRadius:12,paddingHorizontal:11,paddingVertical:9,fontSize:12,fontWeight:'700'},
+ previewWrap:{alignItems:'center'},shot:{width:'82%',borderRadius:24,overflow:'hidden'},cardBrand:{position:'absolute',left:18,top:18},cardForge:{color:'#FFD98B',fontSize:26,fontWeight:'900',fontStyle:'italic',letterSpacing:-1.7},cardRuleTop:{width:61,height:2,backgroundColor:'#F5A623',borderRadius:2,marginTop:1},cardTag:{color:'#F5A623',fontSize:5.8,fontWeight:'900',letterSpacing:1.35,marginTop:3},
+ cardBottom:{position:'absolute',left:18,right:18,bottom:19},cardLabel:{color:'#F5A623',fontSize:7,fontWeight:'900',letterSpacing:1.5},cardHeadline:{color:'#FFF7EA',fontSize:21,fontWeight:'900',letterSpacing:-.8,marginTop:5},cardMark:{color:'#FFD37A',fontSize:24,fontWeight:'900',letterSpacing:-.8,marginTop:3},cardSub:{color:'#B7ADA1',fontSize:8.5,fontWeight:'700',marginTop:3},cardRule:{height:1,backgroundColor:'rgba(255,196,92,.35)',marginVertical:10},cardFooter:{color:'#FFF7EA',fontSize:6.8,fontWeight:'900',letterSpacing:1.55}
 });
