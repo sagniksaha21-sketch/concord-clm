@@ -63,7 +63,7 @@ export default function More(){
 
   <SectionTitle eyebrow="DATA" title="Portable by design"/>
   <GlassCard><Text style={[styles.copy,{color:theme.muted}]}>Import or export your Forge JSON backup without wiping your original web data.</Text><View style={{gap:9}}><ForgeButton label="Import Forge backup" onPress={importBackup}/><ForgeButton label="Export native backup" onPress={exportBackup} ghost/></View></GlassCard>
-  <GlassCard><View style={styles.row}><Text style={[styles.micro,{color:theme.muted}]}>NATIVE STATE</Text><Text style={[styles.micro,{color:theme.gold}]}>{state.sessions.length} sessions · {state.foodLog.length} foods</Text></View><View style={styles.row}><Text style={[styles.micro,{color:theme.muted}]}>BUILD</Text><Text style={[styles.micro,{color:theme.text}]}>FORGE 13.0.0 · REBUILD</Text></View></GlassCard>
+  <GlassCard><View style={styles.row}><Text style={[styles.micro,{color:theme.muted}]}>NATIVE STATE</Text><Text style={[styles.micro,{color:theme.gold}]}>{state.sessions.length} sessions · {state.foodLog.length} foods</Text></View><View style={styles.row}><Text style={[styles.micro,{color:theme.muted}]}>BUILD</Text><Text style={[styles.micro,{color:theme.text}]}>FORGE 14 · DEVELOPMENT</Text></View></GlassCard>
  </Screen>;
 }
 const styles=StyleSheet.create({
