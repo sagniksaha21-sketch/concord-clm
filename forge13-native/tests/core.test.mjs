@@ -177,3 +177,12 @@ test('FHM3 validates its shader interface before reporting a first frame',()=>{
  assert.match(body,/program interface: missing \$\{name\}/);
  assert.match(body,/first frame/);
 });
+
+
+test('adaptive intelligence explicitly discloses its evidence source',()=>{
+ const adaptive=read('src/utils/adaptiveTraining.ts');
+ const train=read('app/(tabs)/train.tsx');
+ assert.match(adaptive,/basis:'TRAINING_HISTORY'/);
+ assert.match(train,/TRAINING HISTORY ONLY/);
+ assert.match(train,/NO WEARABLE OR RECOVERY SENSOR DATA/);
+});
