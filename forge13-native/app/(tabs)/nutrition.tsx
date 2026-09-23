@@ -21,14 +21,14 @@ export default function Nutrition(){
  return <Screen>
   <SectionTitle eyebrow="NUTRITION" title="Fuel the work."/>
   <View style={[styles.context,{borderColor:theme.line}]}><Text style={[styles.label,{color:theme.gold}]}>TODAY · {dayType}</Text><Text style={[styles.micro,{color:theme.muted}]}>Targets remain yours. Forge uses training context as guidance and does not silently change calories or macros.</Text></View>
-  <GlassCard>
+  <View style={[styles.fuel,{borderColor:theme.line}]}>
    <Text style={[styles.big,{color:theme.text}]}>{Math.round(state.kcal).toLocaleString()} <Text style={{fontSize:18,color:theme.muted}}>/ {state.calTarget.toLocaleString()} kcal</Text></Text>
    <Text style={[styles.micro,{color:theme.muted,marginTop:4}]}>{Math.max(0,state.calTarget-state.kcal).toLocaleString()} kcal remaining</Text>
    <View style={{marginTop:15,gap:8}}><ProgressBar value={pct}/><Text style={[styles.micro,{color:theme.text}]}>{Math.round(state.protein)} / {state.proteinTarget}g protein</Text><ProgressBar value={ppct}/></View>
    <View style={styles.macroRow}>
     {[['Protein',state.protein,'g'],['Carbs',state.carbs,'g'],['Fat',state.fat,'g']].map(([l,v,u]:any)=><View key={l} style={{flex:1}}><Text style={[styles.macro,{color:theme.text}]}>{Math.round(v)}{u}</Text><Text style={[styles.label,{color:theme.muted}]}>{l}</Text></View>)}
    </View>
-  </GlassCard>
+  </View>
 
   <SectionTitle eyebrow="QUICK LOG" title="Add a meal"/>
   <GlassCard>
@@ -53,7 +53,7 @@ export default function Nutrition(){
  </Screen>
 }
 const styles=StyleSheet.create({
- context:{borderBottomWidth:1,paddingBottom:13,gap:3},big:{fontSize:31,fontWeight:'900',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
+ fuel:{borderTopWidth:1,borderBottomWidth:1,paddingVertical:18},context:{borderBottomWidth:1,paddingBottom:13,gap:3},big:{fontSize:31,fontWeight:'900',letterSpacing:-1.2},micro:{fontSize:10.5,lineHeight:15,fontWeight:'600'},
  macroRow:{flexDirection:'row',marginTop:18,gap:10},macro:{fontSize:20,fontWeight:'900'},label:{fontSize:8,fontWeight:'900',letterSpacing:1.1,textTransform:'uppercase',marginBottom:5},
  input:{height:45,borderWidth:1,borderRadius:13,paddingHorizontal:12,fontSize:13,fontWeight:'700',marginBottom:11},
  grid:{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'},rowCard:{flexDirection:'row',alignItems:'center',gap:10,paddingVertical:13},food:{fontSize:14,fontWeight:'900'},kcal:{fontSize:11,fontWeight:'900'},reset:{textAlign:'center',fontSize:9,fontWeight:'700',paddingVertical:6}
