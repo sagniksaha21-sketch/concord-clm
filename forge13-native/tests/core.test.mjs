@@ -226,7 +226,7 @@ test('substitution cannot orphan already logged exercise history',()=>{
 
 test('RC gate produces an installable Android artifact with evidence',()=>{
  const workflow=read('../.github/workflows/forge14-quality-gate.yml'),app=JSON.parse(read('app.json')),pkg=JSON.parse(read('package.json'));
- assert.equal(app.expo.version,'14.0.0-rc.1');assert.equal(pkg.version,'14.0.0-rc.1');assert.equal(app.expo.android.versionCode,140100);
+ assert.equal(app.expo.version,'14.0.0-rc.2');assert.equal(pkg.version,'14.0.0-rc.2');assert.equal(app.expo.android.versionCode,140200);
  assert.match(workflow,/expo prebuild --platform android/);assert.match(workflow,/assembleRelease/);assert.match(workflow,/sha256sum/);assert.match(workflow,/forge-v14-rc-apk/);
 });
 
