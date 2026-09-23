@@ -38,13 +38,17 @@ const featureChecks={
  googleYouTube: fs.readFileSync(path.join(root,'app/music.tsx'),'utf8').includes('YOUTUBE MUSIC') && fs.existsSync(path.join(root,'src/services/youtube.ts')),
  strongerBrand: brand.includes('styles.rule') && brand.includes('styles.spark')
 };
-if(packageJson.version!=='13.0.0-alpha.3') throw new Error(`Expected package version 13.0.0-alpha.3, found ${packageJson.version}`);
-if(appJson.expo?.version!=='13.0.0-alpha.3') throw new Error(`Expected Expo version 13.0.0-alpha.3, found ${appJson.expo?.version}`);
+if(!String(packageJson.version).startsWith('14.')) throw new Error(`Expected Forge 14 package version, found ${packageJson.version}`);
+if(!String(appJson.expo?.version).startsWith('14.')) throw new Error(`Expected Forge 14 Expo version, found ${appJson.expo?.version}`);
+if(appJson.expo?.android?.edgeToEdgeEnabled!==false) throw new Error('Android edge-to-edge must remain disabled until every screen passes inset QA');
+const screen=fs.readFileSync(path.join(root,'src/components/Screen.tsx'),'utf8');
+if(!screen.includes('react-native-safe-area-context')||!screen.includes("edges={['top']}")) throw new Error('System safe-area gate failed');
+if(!packageJson.dependencies?.['react-native-safe-area-context']) throw new Error('Safe-area runtime dependency missing');
 if(exercises.length!==85) throw new Error(`Expected 85 exercises, found ${exercises.length}`);
 if(Object.keys(programs).length!==14) throw new Error(`Expected 14 programmes, found ${Object.keys(programs).length}`);
 if(missing.length) throw new Error(`Missing native routes/modules: ${missing.join(', ')}`);
 if(bad.length) throw new Error(`Programme references missing exercises: ${bad.join(', ')}`);
 if(!stateKey) throw new Error('Canonical Forge state key missing');
 const failed=Object.entries(featureChecks).filter(([,ok])=>!ok).map(([k])=>k);
-if(failed.length) throw new Error(`Alpha 3 feature checks failed: ${failed.join(', ')}`);
+if(failed.length) throw new Error(`Forge 14 feature checks failed: ${failed.join(', ')}`);
 console.log(JSON.stringify({ok:true,version:packageJson.version,exercises:exercises.length,programmes:Object.keys(programs).length,stateKey:'forge_v2_functional_state_v3',routesAndModules:required.length,features:Object.keys(featureChecks)},null,2));
