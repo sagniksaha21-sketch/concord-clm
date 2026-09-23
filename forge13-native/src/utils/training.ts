@@ -13,7 +13,8 @@ export function programMuscles(ids:string[]):BodyMuscleGroup[]{
 }
 export function rankedSubstitutes(exerciseId:string){
  const current:any=exerciseMap[exerciseId];
- return Object.values(exerciseMap).filter((e:any)=>e.id!==exerciseId).map((e:any)=>({exercise:e,score:(e.movement===current?.movement?6:0)+(e.group===current?.group?4:0)+(bodyGroup(e.group)===bodyGroup(current?.group)?2:0)+(e.bodyweight===current?.bodyweight?1:0)})).sort((a:any,b:any)=>b.score-a.score||a.exercise.name.localeCompare(b.exercise.name));
+ if(!current)return [];
+ return Object.values(exerciseMap).filter((e:any)=>e.id!==exerciseId).map((e:any)=>{const sameMovement=e.movement===current.movement,sameGroup=e.group===current.group,sameRegion=bodyGroup(e.group)===bodyGroup(current.group),sameLoading=e.bodyweight===current.bodyweight;const score=(sameMovement?6:0)+(sameGroup?4:0)+(sameRegion?2:0)+(sameLoading?1:0);const reasons=[sameMovement?'same movement pattern':null,sameGroup?'same target group':sameRegion?'same body region':null,sameLoading?'similar loading style':null].filter(Boolean) as string[];return{exercise:e,score,reasons};}).filter((x:any)=>x.score>=4).sort((a:any,b:any)=>b.score-a.score||a.exercise.name.localeCompare(b.exercise.name));
 }
 export function topMuscles(state:ForgeState,days=30):BodyMuscleGroup[]{
  const cutoff=Date.now()-days*864e5,score=new Map<BodyMuscleGroup,number>();
