@@ -1,0 +1,56 @@
+import React from 'react';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { useRouter } from 'expo-router';
+import { Screen } from '@/components/Screen';
+import { GlassCard } from '@/components/GlassCard';
+import { ForgeButton } from '@/components/ForgeButton';
+import { ProgrammeArt } from '@/components/ProgrammeArt';
+import { SectionTitle } from '@/components/SectionTitle';
+import { Body3D } from '@/components/Body3D';
+import { useForge, exerciseMap } from '@/store/ForgeProvider';
+import {programMuscles} from '@/utils/training';
+
+export default function Train(){
+ const router=useRouter();
+ const {state,theme,selectProgram,startWorkout,getProgram,programList}=useForge();
+ const selected=getProgram(state.selectedProgramId),active=!!state.workout?.startedAt,groups=programMuscles(selected.exercises);
+ return <Screen>
+   <SectionTitle eyebrow="TRAIN" title={active?'Workout in progress':'Choose the work.'}/>
+   <GlassCard style={styles.hero}>
+    <View style={styles.heroContent}>
+     <View style={{flex:1,minWidth:0}}>
+      <Text style={[styles.eyebrow,{color:theme.amber}]}>SELECTED PROGRAMME</Text>
+      <Text style={[styles.title,{color:theme.text}]}>{selected.name}</Text>
+      <Text style={[styles.meta,{color:theme.muted}]}>{selected.subtitle} · {selected.exercises.length} exercises</Text>
+      <View style={styles.tags}>{selected.exercises.slice(0,3).map(id=><Text key={id} style={[styles.tag,{color:theme.text,borderColor:theme.line}]}>{exerciseMap[id]?.name}</Text>)}</View>
+     </View>
+     <ProgrammeArt id={selected.id} style={styles.art}/>
+    </View>
+    <ForgeButton label={active?'Resume workout':'Start this programme'} onPress={()=>{if(!active)startWorkout(selected.id);router.push('/workout')}}/>
+    <ForgeButton label="Open Programme Builder" onPress={()=>router.push('/program-builder')} ghost/>
+   </GlassCard>
+
+   <SectionTitle eyebrow="ANATOMY" title="What this session is built to hit"/>
+   <Body3D groups={groups} height={288}/>
+   <Text style={[styles.note,{color:theme.muted}]}>Drag the body to rotate. The highlighted regions come from the selected programme’s exercise mix.</Text>
+
+   <SectionTitle eyebrow="PROGRAMMES" title="Training library"/>
+   <View style={{gap:10}}>
+    {programList.map(p=>{
+      const on=p.id===state.selectedProgramId;
+      return <Pressable key={p.id} onPress={()=>selectProgram(p.id)}>
+       <GlassCard style={[styles.program,on&&{borderColor:theme.amber}]}>
+        <ProgrammeArt id={p.id} style={styles.thumb}/>
+        <View style={{flex:1,minWidth:0}}>
+         <Text style={[styles.programName,{color:theme.text}]}>{p.name}</Text>
+         <Text style={[styles.meta,{color:theme.muted}]}>{p.subtitle}</Text>
+         <Text style={[styles.small,{color:on?theme.gold:theme.muted}]}>{on?'SELECTED':`${p.exercises.length} EXERCISES`}</Text>
+        </View>
+        <Text style={{color:on?theme.amber:theme.muted,fontSize:19,fontWeight:'900'}}>{on?'◆':'›'}</Text>
+       </GlassCard>
+      </Pressable>
+    })}
+   </View>
+ </Screen>
+}
+const styles=StyleSheet.create({hero:{gap:14},heroContent:{flexDirection:'row',gap:14,alignItems:'center'},art:{width:94,height:118},eyebrow:{fontSize:8.5,fontWeight:'900',letterSpacing:1.4},title:{fontSize:25,fontWeight:'1000',letterSpacing:-.8,marginTop:5},meta:{fontSize:10.5,lineHeight:15,fontWeight:'650',marginTop:4},tags:{gap:5,marginTop:10},tag:{fontSize:8.5,fontWeight:'750',paddingHorizontal:8,paddingVertical:5,borderRadius:999,borderWidth:1,alignSelf:'flex-start'},program:{flexDirection:'row',alignItems:'center',gap:12,padding:10,minHeight:112},thumb:{width:74,height:92,borderRadius:15},programName:{fontSize:17,fontWeight:'900',letterSpacing:-.35},small:{fontSize:8,fontWeight:'900',letterSpacing:1.1,marginTop:8},note:{fontSize:9.5,lineHeight:14,fontWeight:'650',marginTop:-6,paddingHorizontal:2}});

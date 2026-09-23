@@ -1,0 +1,62 @@
+{
+  "expo": {
+    "name": "FORGE",
+    "slug": "forge-native",
+    "version": "13.0.0-alpha.3",
+    "orientation": "portrait",
+    "scheme": "forge",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#050507"
+    },
+    "android": {
+      "package": "com.forge.training",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#050507"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": true
+    },
+    "ios": {
+      "bundleIdentifier": "com.forge.training",
+      "supportsTablet": false
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FORGE uses your selected photos to create progress and achievement cards.",
+          "cameraPermission": "FORGE uses the camera only when you choose to capture a progress or achievement photo.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true
+        }
+      ],
+      "expo-web-browser",
+      "expo-document-picker",
+      "expo-splash-screen",
+      "expo-notifications"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      }
+    }
+  }
+}

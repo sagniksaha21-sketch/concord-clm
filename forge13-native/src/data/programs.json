@@ -1,0 +1,86 @@
+{
+  "pushA": {
+    "id": "pushA",
+    "name": "Chest + Shoulders",
+    "subtitle": "Chest \u00b7 shoulders",
+    "exercises": ["bench_press","incline_db_press","seated_ohp","machine_lateral_raise","high_to_low_cable_fly"]
+  },
+  "pullA": {
+    "id": "pullA",
+    "name": "Back + Biceps",
+    "subtitle": "Back \u00b7 biceps",
+    "exercises": ["lat_pulldown","t_bar_row","close_grip_seated_row","straight_arm_pulldown","cable_curl","rope_hammer_curl"]
+  },
+  "legsA": {
+    "id": "legsA",
+    "name": "Legs + Triceps",
+    "subtitle": "Legs \u00b7 triceps",
+    "exercises": ["hack_squat","leg_press_45","lying_leg_curl","leg_extension","hip_abduction","standing_calf_raise","straight_bar_pushdown","rope_triceps_extension"]
+  },
+  "upperA": {
+    "id": "upperA",
+    "name": "Upper A",
+    "subtitle": "Chest \u00b7 back \u00b7 shoulders \u00b7 arms",
+    "exercises": ["bench_press","lat_pulldown","seated_ohp","t_bar_row","cable_curl","triceps_pushdown"]
+  },
+  "lowerA": {
+    "id": "lowerA",
+    "name": "Lower A",
+    "subtitle": "Quads \u00b7 hamstrings \u00b7 calves",
+    "exercises": ["back_squat","lying_leg_curl","leg_extension","hip_thrust","standing_calf_raise"]
+  },
+  "upperB": {
+    "id": "upperB",
+    "name": "Upper B",
+    "subtitle": "Chest \u00b7 back \u00b7 delts \u00b7 arms",
+    "exercises": ["incline_db_press","close_grip_seated_row","machine_shoulder_press","cable_fly","rope_hammer_curl","rope_triceps_extension"]
+  },
+  "lowerB": {
+    "id": "lowerB",
+    "name": "Lower B",
+    "subtitle": "Glutes \u00b7 hamstrings \u00b7 quads",
+    "exercises": ["leg_press_45","romanian_deadlift","bulgarian_split_squat","seated_leg_curl","seated_calf_raise"]
+  },
+  "chestDay": {
+    "id": "chestDay",
+    "name": "Chest",
+    "subtitle": "Chest focus",
+    "exercises": ["bench_press","incline_db_press","machine_chest_press","high_to_low_cable_fly","pec_deck"]
+  },
+  "backDay": {
+    "id": "backDay",
+    "name": "Back",
+    "subtitle": "Back focus",
+    "exercises": ["lat_pulldown","t_bar_row","seated_cable_row","straight_arm_pulldown","back_extension"]
+  },
+  "shouldersArms": {
+    "id": "shouldersArms",
+    "name": "Shoulders + Arms",
+    "subtitle": "Delts \u00b7 biceps \u00b7 triceps",
+    "exercises": ["seated_ohp","machine_lateral_raise","reverse_pec_deck","cable_curl","rope_hammer_curl","straight_bar_pushdown","rope_triceps_extension"]
+  },
+  "legsDay": {
+    "id": "legsDay",
+    "name": "Legs",
+    "subtitle": "Quads \u00b7 hamstrings \u00b7 glutes \u00b7 calves",
+    "exercises": ["back_squat","leg_press_45","romanian_deadlift","leg_extension","lying_leg_curl","standing_calf_raise"]
+  },
+  "customA": {
+    "id": "customA",
+    "name": "Custom A",
+    "subtitle": "Your training day",
+    "exercises": ["bench_press","lat_pulldown","seated_ohp","cable_curl"]
+  },
+  "customB": {
+    "id": "customB",
+    "name": "Custom B",
+    "subtitle": "Your training day",
+    "exercises": ["hack_squat","romanian_deadlift","leg_extension","standing_calf_raise"]
+  },
+  "customC": {
+    "id": "customC",
+    "name": "Custom C",
+    "subtitle": "Your training day",
+    "exercises": ["incline_db_press","t_bar_row","machine_lateral_raise","rope_triceps_extension"]
+  }
+}

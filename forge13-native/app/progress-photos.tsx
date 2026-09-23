@@ -1,0 +1,22 @@
+import React from 'react';
+import {Alert,Image,Pressable,SafeAreaView,ScrollView,StyleSheet,Text,View} from 'react-native';
+import {useRouter} from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
+import {ForgeBrand} from '@/components/ForgeBrand';
+import {GlassCard} from '@/components/GlassCard';
+import {ForgeButton} from '@/components/ForgeButton';
+import {useForge} from '@/store/ForgeProvider';
+import {shortDate} from '@/utils/format';
+export default function ProgressPhotos(){
+ const router=useRouter(),{state,theme,addProgressPhoto,removeProgressPhoto}=useForge();
+ const photos=[...(state.progressPhotos||[])].sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
+ async function add(){const r=await ImagePicker.launchImageLibraryAsync({mediaTypes:['images'],quality:.9,allowsEditing:false});if(r.canceled)return;const a=r.assets[0];addProgressPhoto({id:`photo_${Date.now()}`,date:new Date().toISOString(),uri:a.uri,view:'Front'});}
+ function remove(id:string){Alert.alert('Remove photo?','The photo reference will be removed from FORGE. The original image in your gallery is not deleted.',[{text:'Cancel',style:'cancel'},{text:'Remove',style:'destructive',onPress:()=>removeProgressPhoto(id)}]);}
+ return <SafeAreaView style={[styles.safe,{backgroundColor:theme.bg}]}><View style={styles.header}><ForgeBrand compact/><Pressable onPress={()=>router.back()}><Text style={[styles.close,{color:theme.muted}]}>DONE</Text></Pressable></View><ScrollView contentContainerStyle={styles.content}>
+  <Text style={[styles.kicker,{color:theme.amber}]}>PROGRESS PHOTO STUDIO</Text><Text style={[styles.h1,{color:theme.text}]}>Same work. Better evidence.</Text><Text style={[styles.copy,{color:theme.muted}]}>Keep progress photos in chronological order and compare your two latest captures side-by-side. FORGE stores only the photo references you choose.</Text>
+  <ForgeButton label="Add progress photo" onPress={add}/>
+  {photos.length>=2&&<><Text style={[styles.section,{color:theme.text}]}>Latest comparison</Text><GlassCard><View style={styles.compare}>{photos.slice(0,2).reverse().map((p,i)=><View key={p.id||p.uri} style={{flex:1}}><Image source={{uri:p.uri||p.data}} style={styles.compareImage}/><Text style={[styles.micro,{color:theme.muted}]}>{i===0?'BEFORE':'LATEST'} · {shortDate(p.date)}</Text></View>)}</View></GlassCard></>}
+  <Text style={[styles.section,{color:theme.text}]}>Timeline</Text><View style={styles.grid}>{photos.map(p=><Pressable key={p.id||p.uri} onLongPress={()=>remove(p.id||p.uri||'')} style={{width:'48.5%'}}><View style={[styles.photoCard,{borderColor:theme.line,backgroundColor:theme.panel}]}><Image source={{uri:p.uri||p.data}} style={styles.photo}/><Text style={[styles.photoDate,{color:theme.text}]}>{shortDate(p.date)}</Text><Text style={[styles.micro,{color:theme.muted}]}>HOLD TO REMOVE</Text></View></Pressable>)}</View>{!photos.length&&<GlassCard><Text style={[styles.copy,{color:theme.muted}]}>No progress photos yet. Add one when you want a consistent visual checkpoint.</Text></GlassCard>}
+ </ScrollView></SafeAreaView>
+}
+const styles=StyleSheet.create({safe:{flex:1},header:{height:60,paddingHorizontal:16,flexDirection:'row',alignItems:'center',justifyContent:'space-between'},close:{fontSize:8.5,fontWeight:'900',letterSpacing:1.2},content:{padding:16,paddingBottom:42,gap:13},kicker:{fontSize:8.5,fontWeight:'900',letterSpacing:1.5},h1:{fontSize:30,fontWeight:'1000',letterSpacing:-1.1},copy:{fontSize:10.5,lineHeight:16,fontWeight:'620'},section:{fontSize:18,fontWeight:'950',letterSpacing:-.4,marginTop:5},compare:{flexDirection:'row',gap:9},compareImage:{width:'100%',aspectRatio:.72,borderRadius:14,backgroundColor:'#111'},micro:{fontSize:7.5,fontWeight:'850',letterSpacing:.6,marginTop:6},grid:{flexDirection:'row',flexWrap:'wrap',gap:9},photoCard:{borderWidth:1,borderRadius:17,padding:8},photo:{width:'100%',aspectRatio:.75,borderRadius:12,backgroundColor:'#111'},photoDate:{fontSize:10,fontWeight:'900',marginTop:8}});
