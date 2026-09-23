@@ -2,7 +2,7 @@
   "expo": {
     "name": "FORGE",
     "slug": "forge-native",
-    "version": "13.0.0-alpha.2",
+    "version": "13.0.0-alpha.3",
     "orientation": "portrait",
     "scheme": "forge",
     "userInterfaceStyle": "dark",
